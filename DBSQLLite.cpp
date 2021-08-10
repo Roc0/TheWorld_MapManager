@@ -127,7 +127,7 @@ namespace TheWorld_MapManager
 						// The Vertex was present in MapVertex table so we have to acquire his rowid
 						DBSQLLiteOps dbOps1(this);
 						dbOps1.init();
-						string select_rowid__STMT = "SELECT rowid FROM MapVertex WHERE PosX = %s AND PosY = %s AND Level = %s;";
+						string select_rowid__STMT = "SELECT rowid FROM MapVertex WHERE PosX = %s AND PosZ = %s AND Level = %s;";
 						string s = dbOps1.completeSQL(select_rowid__STMT.c_str(), to_string(mapVertex[idx].posX).c_str(), to_string(mapVertex[idx].posZ).c_str(), to_string(mapVertex[idx].level).c_str());
 						dbOps1.prepareStmt(s.c_str());
 						dbOps1.acquireLock();

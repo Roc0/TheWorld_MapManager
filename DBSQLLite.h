@@ -245,6 +245,8 @@ namespace TheWorld_MapManager
 			releaseLock();
 			if (rc != SQLITE_OK)
 				throw(MapManagerExceptionDBException("DB SQLite prepare of a statement failed!", sqlite3_errmsg(getConn()), rc));
+
+			m_preparedStmtSQL = szSql;
 		}
 
 		void finalizeStmt(void)
@@ -261,6 +263,7 @@ namespace TheWorld_MapManager
 				throw(MapManagerExceptionDBException("DB SQLite finalize of a statement failed!", sqlite3_errmsg(getConn()), rc));
 
 			m_stmt = NULL;
+			m_preparedStmtSQL.clear();
 		}
 
 		sqlite3_stmt* getStmt() { return m_stmt; }
@@ -317,6 +320,7 @@ namespace TheWorld_MapManager
 		bool m_initialized;
 		bool m_lockAcquired;
 		sqlite3_stmt* m_stmt;
+		string m_preparedStmtSQL;
 		bool m_transactionOpened;
 		DBSQLLite* m_pDBSQLLite;
 	};

@@ -80,7 +80,7 @@ namespace TheWorld_MapManager
 		int mapVertexSize = (maxVertexX - minVertexX + 1) * (maxVertexZ - minVertexZ + 1);
 		vector<SQLInterface::addWD_mapVertex> v;
 		
-		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "MapManager::WD - Computing affected vertices: ");
+		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Computing affected vertices: ");
 
 		int numVertices = 0;
 		for (int x = minVertexX; x <= maxVertexX; x++)
@@ -124,7 +124,7 @@ namespace TheWorld_MapManager
 		// Adding / updating WD to DB : this action will add / update all affected point
 		m_SqlInterface->addWD(WD, v);
 
-		if (instrumented()) clock.printDuration("MapManager::addWD");
+		if (instrumented()) clock.printDuration(__FUNCTION__);
 	}
 
 	float MapManager::getDistance(float x1, float y1, float x2, float y2)
