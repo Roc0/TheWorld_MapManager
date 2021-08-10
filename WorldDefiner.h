@@ -5,7 +5,7 @@ namespace TheWorld_MapManager
 	{
 		elevator = 0,
 		depressor = 1,
-		flattener =2
+		flattener = 2
 	};
 	
 	class WorldDefiner

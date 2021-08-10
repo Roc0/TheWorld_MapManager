@@ -125,6 +125,8 @@ namespace TheWorld_MapManager
 		m_SqlInterface->addWD(WD, v);
 
 		if (instrumented()) clock.printDuration(__FUNCTION__);
+
+		if (debugMode()) debugUtil.printNewLine();
 	}
 
 	float MapManager::getDistance(float x1, float y1, float x2, float y2)

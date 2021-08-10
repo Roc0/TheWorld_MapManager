@@ -28,12 +28,12 @@ create table MapVertex(
 );
 create index MapVertex_PolarCoord on MapVertex(radius, azimuth, level);
 
-create table MapVertexWD(
+create table MapVertex_WD(
 	VertexRowId INTEGER NOT NULL,
 	WDRowId INTEGER NOT NULL
 );
-create index MapVertexWD_Vertex on MapVertexWD(VertexRowId);
-create index MapVertexWD_WDRowId on MapVertexWD(WDRowId);
+create index MapVertex_WD_Vertex on MapVertex_WD(VertexRowId);
+create index MapVertex_WD_WDRowId on MapVertex_WD(WDRowId);
 
 create table MapVertex_Mod(
 	PosX REAL NOT NULL,

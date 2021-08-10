@@ -68,6 +68,11 @@ namespace TheWorld_MapManager
 			std::cout << i << "\n";
 		}
 
+		void printNewLine(void)
+		{
+			std::cout << "\n";
+		}
+
 	private:
 		void* m_console;
 		COORD m_cursorPosition;
