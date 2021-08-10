@@ -50,7 +50,7 @@ namespace TheWorld_MapManager
 
 		void printFixedPartOfLine(const char*classname, const char *functionname, const char* m)
 		{
-			std::cout << "::" << functionname << " - " << m;
+			std::cout << functionname << " - " << m;
 			CONSOLE_SCREEN_BUFFER_INFO cbsi;
 			GetConsoleScreenBufferInfo(m_console, &cbsi);
 			m_cursorPosition = cbsi.dwCursorPosition;
