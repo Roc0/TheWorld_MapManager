@@ -1,18 +1,323 @@
 #pragma once
 
+#include <string>
+
 #include "SQLInterface.h"
+#include "sqlite3.h"
+#include "MapManagerException.h"
 
 namespace TheWorld_MapManager
 {
 	class DBSQLLite : public SQLInterface
 	{
 	public:
-		_declspec(dllexport) DBSQLLite(DBType dbt = DBType::SQLLite);
+		_declspec(dllexport) DBSQLLite(DBType dbt, const char* dataPath, bool debugMode = false);
 		_declspec(dllexport) ~DBSQLLite();
+		virtual const char* classname() { return "DBSQLLite"; }
+
+		const char* dbFilePath(void) { return m_dbFilePath.c_str(); }
 
 		_declspec(dllexport) void addWD(WorldDefiner& WD, std::vector<addWD_mapVertex>& mapVertex);
+		_declspec(dllexport) void finalizeDB(void);
 
 	private:
+		std::string m_dbFilePath;
+	};
 
+	class DBSQLLiteConn
+	{
+	public:
+		DBSQLLiteConn()
+		{
+			m_pDB = NULL;
+		}
+		
+		~DBSQLLiteConn()
+		{
+			if (m_pDB)
+				close();
+		}
+		virtual const char* classname() { return "DBSQLLiteConn"; }
+
+		void open(const char* dbFilePath)
+		{
+			m_dbFilePath = dbFilePath;
+
+			if (strlen(m_dbFilePath.c_str()) == 0)
+				throw(MapManagerExceptionDBException("DB SQLite DB path is NULL!"));
+			if (m_pDB != NULL)
+				throw(MapManagerExceptionDBException("DB SQLite DB already opened!"));
+
+			int rc = sqlite3_open_v2(m_dbFilePath.c_str(), &m_pDB, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, NULL);
+			if (rc != SQLITE_OK)
+				throw(MapManagerExceptionDBException("DB SQLite DB open failed!", sqlite3_errmsg(m_pDB), rc));
+
+			sqlite3_mutex* m = sqlite3_db_mutex(m_pDB);
+		}
+
+		void close()
+		{
+			if (m_pDB == NULL)
+				throw(MapManagerExceptionDBException("DB SQLite DB not opened!"));
+
+			int rc = sqlite3_close_v2(m_pDB);
+			if (rc != SQLITE_OK)
+				throw(MapManagerExceptionDBException("DB SQLite DB close failed!", sqlite3_errmsg(m_pDB), rc));
+
+			m_pDB = NULL;
+		}
+
+		bool isOpened(void) { return (m_pDB != NULL); }
+
+		sqlite3* getConn(void) { return m_pDB; }
+
+	private:
+		sqlite3* m_pDB;
+		string m_dbFilePath;
+	};
+
+	class DBSQLLiteOps
+	{
+	
+		// Example of insert with bind : https://renenyffenegger.ch/notes/development/databases/SQLite/c-interface/basic/index
+		// SQLite3 and threading : https://stackoverflow.com/questions/10079552/what-do-the-mutex-and-cache-sqlite3-open-v2-flags-mean , https://dev.yorhel.nl/doc/sqlaccess
+
+	public:
+		DBSQLLiteOps(DBSQLLite* pDBSQLLite)
+		{
+			m_initialized = false;
+			m_lockAcquired = false;
+			m_stmt = NULL;
+			m_transactionOpened = false;
+			m_pDBSQLLite = pDBSQLLite;
+		}
+
+		~DBSQLLiteOps()
+		{
+			if (m_lockAcquired)
+				releaseLock();
+			
+			if (m_stmt)
+			{
+				sqlite3_finalize(m_stmt);
+				m_stmt = NULL;
+			}
+
+			if (m_transactionOpened)
+				endTransaction(false);
+			
+			if (m_initialized)
+				reset();
+		}
+		virtual const char* classname() { return "DBSQLLiteOps"; }
+
+
+		void init(void)
+		{
+			if (m_initialized)
+				throw(MapManagerExceptionDBException("DBSQLLiteOps already intialized!"));
+
+			if (!s_conn.isOpened())
+			{
+				if (strlen(m_pDBSQLLite->dbFilePath()) == 0)
+					throw(MapManagerExceptionDBException("DB SQLite DB path is NULL!"));
+
+				s_conn.open(m_pDBSQLLite->dbFilePath());
+			}
+
+			m_initialized = true;
+		}
+
+		void reset()
+		{
+			if (!m_initialized)
+				throw(MapManagerExceptionDBException("DBSQLLiteOps trying to reset an unitialized instance!"));
+
+			m_initialized = false;
+		}
+
+		void beginTransaction(void)
+		{
+			if (!m_initialized)
+				throw(MapManagerExceptionDBException("DBSQLLiteOps instance not initialized!"));
+
+			sqlite3* db = getConn();
+			if (db == NULL)
+				throw(MapManagerExceptionDBException("DB SQLite DB not opened!"));
+
+			acquireLock();
+			int rc = sqlite3_exec(db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
+			releaseLock();
+			if (rc != SQLITE_OK)
+				throw(MapManagerExceptionDBException("DB SQLite DB Begin Transaction failed!", sqlite3_errmsg(getConn()), rc));
+
+			m_transactionOpened = true;
+		}
+
+		void endTransaction(bool commit = true)
+		{
+			if (!m_initialized)
+				throw(MapManagerExceptionDBException("DBSQLLiteOps instance not initialized!"));
+
+			if (!m_transactionOpened )
+				throw(MapManagerExceptionDBException("DB SQLite there is not an oened transaction!"));
+
+			if (commit)
+			{
+				/*int rc = sqlite3_exec(getConn(), "COMMIT TRANSACTION;", NULL, NULL, NULL);
+				if (rc != SQLITE_OK)
+					throw(MapManagerExceptionDBException("DB SQLite DB Commit Transaction failed!", sqlite3_errmsg(getConn()), rc)); */
+
+#define COMMIT_MAX_TIME_RETRY_ON_DB_BUSY	1000
+#define COMMIT_SLEEP_TIME_ON_DB_BUSY		10
+				prepareStmt("COMMIT TRANSACTION;");
+
+				int numRetry = 0;
+				int rc = SQLITE_BUSY;
+				while (rc == SQLITE_BUSY && numRetry < COMMIT_MAX_TIME_RETRY_ON_DB_BUSY / COMMIT_SLEEP_TIME_ON_DB_BUSY)
+				{
+					acquireLock();
+					rc = sqlite3_step(m_stmt);		//executing the statement
+					releaseLock();
+					if (rc == SQLITE_BUSY)
+						Sleep(COMMIT_SLEEP_TIME_ON_DB_BUSY);
+					numRetry++;
+				}
+				if (rc != SQLITE_DONE)
+					throw(MapManagerExceptionDBException("DB SQLite DB Commit Transaction failed!", sqlite3_errmsg(getConn()), rc));
+
+				finalizeStmt();
+				
+			}
+			else
+			{
+				/*int rc = sqlite3_exec(getConn(), "ROLLBACK TRANSACTION;", NULL, NULL, NULL);
+				if (rc != SQLITE_OK)
+					throw(MapManagerExceptionDBException("DB SQLite DB Rollback Transaction failed!", sqlite3_errmsg(getConn()), rc));*/
+
+#define COMMIT_MAX_TIME_RETRY_ON_DB_BUSY	1000
+#define COMMIT_SLEEP_TIME_ON_DB_BUSY		10
+				prepareStmt("ROLLBACK TRANSACTION;");
+
+				int numRetry = 0;
+				int rc = SQLITE_BUSY;
+				while (rc == SQLITE_BUSY && numRetry < COMMIT_MAX_TIME_RETRY_ON_DB_BUSY / COMMIT_SLEEP_TIME_ON_DB_BUSY)
+				{
+					acquireLock();
+					rc = sqlite3_step(m_stmt);		//executing the statement
+					releaseLock();
+					if (rc == SQLITE_BUSY)
+						Sleep(COMMIT_SLEEP_TIME_ON_DB_BUSY);
+					numRetry++;
+				}
+				if (rc != SQLITE_DONE)
+					throw(MapManagerExceptionDBException("DB SQLite DB Rollback Transaction failed!", sqlite3_errmsg(getConn()), rc));
+
+				finalizeStmt();
+			}
+
+			m_transactionOpened = false;
+		}
+
+		string quote(const string& s) {
+			return string("'") + s + string("'");
+		}
+
+		sqlite3* getConn(void) { return s_conn.getConn(); }
+
+		const char* errMsg() { return sqlite3_errmsg(getConn()); }
+
+		void prepareStmt(const char* szSql)
+		{
+			if (!m_initialized)
+				throw(MapManagerExceptionDBException("DBSQLLiteOps instance not initialized!"));
+
+			sqlite3* db = getConn();
+			if (db == NULL)
+				throw(MapManagerExceptionDBException("DB SQLite DB not opened!"));
+
+			if (m_stmt != NULL)
+				throw(MapManagerExceptionDBException("DB SQLite trying to prepare a statement not finalized!"));
+
+			const char* pzTail;
+			acquireLock();
+			int rc = sqlite3_prepare_v2(db, szSql, -1, &m_stmt, &pzTail);
+			releaseLock();
+			if (rc != SQLITE_OK)
+				throw(MapManagerExceptionDBException("DB SQLite prepare of a statement failed!", sqlite3_errmsg(getConn()), rc));
+		}
+
+		void finalizeStmt(void)
+		{
+			if (!m_initialized)
+				throw(MapManagerExceptionDBException("DBSQLLiteOps instance not initialized!"));
+			if (m_stmt == NULL)
+				throw(MapManagerExceptionDBException("DB SQLite trying to finalize a statement not prepared!"));
+
+			acquireLock();
+			int rc = sqlite3_finalize(m_stmt);
+			releaseLock();
+			if (rc != SQLITE_OK)
+				throw(MapManagerExceptionDBException("DB SQLite finalize of a statement failed!", sqlite3_errmsg(getConn()), rc));
+
+			m_stmt = NULL;
+		}
+
+		sqlite3_stmt* getStmt() { return m_stmt; }
+
+		void resetStmt(void)
+		{
+			int rc = sqlite3_reset(m_stmt);
+			if (rc != SQLITE_OK && rc != SQLITE_CONSTRAINT)
+				throw(MapManagerExceptionDBException("DB SQLite reset of a statement failed!", sqlite3_errmsg(getConn()), rc));
+		}
+
+		void acquireLock(void)
+		{
+			if (m_lockAcquired)
+				throw(MapManagerExceptionDBException("DB SQLite trying to acquire a lock recursively!"));
+			
+			sqlite3* db = getConn();
+			if (db)
+				sqlite3_mutex_enter(sqlite3_db_mutex(db));
+
+			m_lockAcquired = true;
+		}
+		
+		void releaseLock(void)
+		{
+			if (!m_lockAcquired)
+				throw(MapManagerExceptionDBException("DB SQLite trying to release a lock not acquired!"));
+
+			sqlite3* db = getConn();
+			if (db)
+				sqlite3_mutex_leave(sqlite3_db_mutex(db));
+
+			m_lockAcquired = false;
+		}
+
+		void finalizeDB(void)
+		{
+			if (getConn())
+				s_conn.close();
+		}
+
+		string completeSQL(const char* sql, ...)
+		{
+			char buffer[512];
+			va_list params;
+			va_start(params, sql);
+			vsnprintf(buffer, sizeof(buffer), sql, params);
+			va_end(params);
+			return buffer;
+		}
+
+	private:
+		static DBSQLLiteConn s_conn;
+		bool m_initialized;
+		bool m_lockAcquired;
+		sqlite3_stmt* m_stmt;
+		bool m_transactionOpened;
+		DBSQLLite* m_pDBSQLLite;
 	};
 }

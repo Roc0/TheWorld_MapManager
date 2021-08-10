@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <string>
 #include <exception>
 
 using namespace std;
@@ -10,13 +10,26 @@ namespace TheWorld_MapManager
 	class MapManagerException : public exception
 	{
 	public:
-		_declspec(dllexport) MapManagerException(const char* message = NULL)
+		_declspec(dllexport) MapManagerException(const char* message = NULL, const char* message2 = NULL, int rc = 0)
 		{ 
 			m_exceptionName = "MapManagerException";
-			if (strlen(message) == 0)
+			if (message == NULL || strlen(message) == 0)
 				m_message = "MapManager Generic Exception - C++ Exception";
 			else
-				m_message = message;
+			{
+				if (message2 == NULL || strlen(message2) == 0)
+				{
+					m_message = message;
+				}
+				else
+				{
+					m_message = message;
+					m_message += " - ";
+					m_message += message2;
+					m_message += " - rc=";
+					m_message += to_string(rc);
+				}
+			}
 		};
 		_declspec(dllexport) ~MapManagerException() {};
 
@@ -40,5 +53,23 @@ namespace TheWorld_MapManager
 	{
 	public:
 		_declspec(dllexport) MapManagerExceptionWrongInput(const char* message = NULL) : MapManagerException(message) { m_exceptionName = "MapManagerExceptionWrongInput"; };
+	};
+
+	class MapManagerExceptionUnexpectedError : public MapManagerException
+	{
+	public:
+		_declspec(dllexport) MapManagerExceptionUnexpectedError(const char* message = NULL) : MapManagerException(message) { m_exceptionName = "MapManagerExceptionUnexpectedError"; };
+	};
+
+	class MapManagerExceptionDuplicate : public MapManagerException
+	{
+	public:
+		_declspec(dllexport) MapManagerExceptionDuplicate(const char* message = NULL) : MapManagerException(message) { m_exceptionName = "MapManagerExceptionDuplicate"; };
+	};
+
+	class MapManagerExceptionDBException : public MapManagerException
+	{
+	public:
+		_declspec(dllexport) MapManagerExceptionDBException(const char* message = NULL, const char* message2 = NULL, int rc = 0) : MapManagerException(message, message2, rc) { m_exceptionName = "MapManagerExceptionDBException"; };
 	};
 }

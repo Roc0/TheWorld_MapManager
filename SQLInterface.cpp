@@ -4,12 +4,4 @@
 
 namespace TheWorld_MapManager
 {
-	SQLInterface::SQLInterface(DBType dbt)
-	{
-		m_dbt = dbt;
-	}
-
-	SQLInterface::~SQLInterface()
-	{
-	}
 }

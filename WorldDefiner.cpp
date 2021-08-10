@@ -1,9 +1,6 @@
 #include "pch.h"
 
-#include <stdio.h>
 #define _USE_MATH_DEFINES // for C++
-#include <cmath>
-#include <math.h> 
 
 #include "WorldDefiner.h"
 #include "MapManagerException.h"
@@ -22,8 +19,9 @@ namespace TheWorld_MapManager
 		m_strength = strength;
 		m_AOE = AOE;
 		m_radius = sqrtf(powf(posX, 2.0) + powf(posZ, 2.0));
-		if (m_radius == 0)
+		if ( (posX == 0 && posZ == 0) || m_radius == 0)
 		{
+			m_radius = 0;
 			m_azimuth = 0;
 			m_azimuthDegree = 0;
 		}
@@ -32,7 +30,7 @@ namespace TheWorld_MapManager
 			//angle of radius with x-axis (complementar of 2PI if Z < 0)
 			m_azimuth = acosf(posX / m_radius);
 			if (posZ < 0)
-				m_azimuth = float(M_PI) * 2.0 - m_azimuth;
+				m_azimuth = float(M_PI) * (float)2.0 - m_azimuth;
 			m_azimuthDegree = (m_azimuth * 180) / float(M_PI);
 		}
 	}

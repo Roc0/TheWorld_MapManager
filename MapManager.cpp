@@ -1,29 +1,65 @@
 #include "pch.h"
+
+#define _USE_MATH_DEFINES // for C++
+
 #include "assert.h"
+
+#include "json/json.h"
+#include <iostream>
+#include <fstream>
 
 #include "MapManager.h"
 #include "DBSQLLite.h"
+
+
 
 namespace TheWorld_MapManager
 {
 	MapManager::MapManager()
 	{
-		m_SqlInterface = new DBSQLLite(DBType::SQLLite);
+		string s = getModuleLoadPath();
+		s += "\\TheWorld_MapManager.json";
+
+		Json::Value root;
+		std::ifstream jsonFile(s);
+		jsonFile >> root;
+		m_dataPath = root["DataPath"].asString();
+
+		m_SqlInterface = new DBSQLLite(DBType::SQLLite, m_dataPath.c_str());
+		m_instrumented = false;
+		m_debugMode = false;
 	}
 
 	MapManager::~MapManager()
 	{
+		if (m_SqlInterface)
+			m_SqlInterface->finalizeDB();
 	}
 
 	void MapManager::addWD(WorldDefiner& WD)
 	{
-		float azimuthDeviation = getAzimuthAOEDeviation(WD.getRadius(), WD.getAzimuth(), WD.getAOE());
+		TimerMs clock; // Timer<milliseconds, steady_clock>
+
+		debugUtils debugUtil;
+
+		if (instrumented()) clock.tick();
 
 		// we have to find all the vertices affected by AOE according to the fact that the map can grow with square map of point of g_DBGrowingBlockVertexNumber vertices
 		float minAOEX = WD.getPosX() - WD.getAOE();
+		if (minAOEX < 0 && -minAOEX < g_DBGrowingBlockVertexNumber)
+			minAOEX = -g_DBGrowingBlockVertexNumber;
+
 		float maxAOEX = WD.getPosX() + WD.getAOE();
+		if (maxAOEX > 0 && maxAOEX < g_DBGrowingBlockVertexNumber)
+			maxAOEX = g_DBGrowingBlockVertexNumber;
+
 		float minAOEZ = WD.getPosZ() - WD.getAOE();
+		if (minAOEZ < 0 && -minAOEZ < g_DBGrowingBlockVertexNumber)
+			minAOEZ = -g_DBGrowingBlockVertexNumber;
+
 		float maxAOEZ = WD.getPosZ() + WD.getAOE();
+		if (maxAOEZ > 0 && maxAOEZ < g_DBGrowingBlockVertexNumber)
+			maxAOEZ = g_DBGrowingBlockVertexNumber;
 
 		int minVertexX = int(minAOEX / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
 		if (minVertexX < 0 && minVertexX != minAOEX)
@@ -44,22 +80,24 @@ namespace TheWorld_MapManager
 		int mapVertexSize = (maxVertexX - minVertexX + 1) * (maxVertexZ - minVertexZ + 1);
 		vector<SQLInterface::addWD_mapVertex> v;
 		
-		int i = 0;
+		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "MapManager::WD - Computing affected vertices: ");
+
+		int numVertices = 0;
 		for (int x = minVertexX; x <= maxVertexX; x++)
 		{
 			for (int z = minVertexZ; z <= maxVertexZ; z++)
 			{
 				// guard
 				{
-					i++;
-					assert(i <= mapVertexSize);
+					numVertices++;
+					assert(numVertices <= mapVertexSize);
 				}
 
 				SQLInterface::addWD_mapVertex mapv;
-				mapv.posX = (float)x;
-				mapv.posZ = (float)z;
+				mapv.posX = (float)x * g_distanceFromVerticesInWU;
+				mapv.posZ = (float)z * g_distanceFromVerticesInWU;
 				mapv.radius = sqrtf(powf(mapv.posX, 2.0) + powf(mapv.posZ, 2.0));
-				if (mapv.radius == 0)
+				if ((mapv.posX == 0 && mapv.posZ == 0) || mapv.radius == 0)
 					mapv.azimuth = 0;
 				else
 				{
@@ -69,45 +107,38 @@ namespace TheWorld_MapManager
 						mapv.azimuth = (float)(M_PI * 2.0) - mapv.azimuth;
 				}
 				
+				mapv.level = WD.getLevel();
 				mapv.affected = false;
-				float minRadius = WD.getRadius() - WD.getAOE();
-				float maxRadius = WD.getRadius() + WD.getAOE();
-				float minAzimuth = WD.getAzimuth() - azimuthDeviation;
-				float maxAzimuth = WD.getAzimuth() + azimuthDeviation;
-
-				if (mapv.radius >= minRadius && mapv.radius <= maxRadius && mapv.azimuth >= minAzimuth && mapv.azimuth <= maxAzimuth)
+				if (getDistance(WD.getPosX(), WD.getPosZ(), mapv.posX, mapv.posZ) <= WD.getAOE())
 					mapv.affected = true;
 
-				// guard
-				{
-					float distance = getDistance(mapv.posX, mapv.posZ, WD.getPosX(), WD.getPosZ());
-					if (mapv.affected)
-						if (distance > WD.getAOE())
-							assert(distance <= WD.getAOE());
-					if (distance <= WD.getAOE())
-						if (!mapv.affected)
-							assert(mapv.affected);
-				}
-
 				v.push_back(mapv);
+
+				if (debugMode() && fmod(numVertices, 1024 * 1000) == 0) debugUtil.printVariablePartOfLine(numVertices);
 			}
+			if (debugMode()) debugUtil.printVariablePartOfLine(numVertices);
 		}
+
+		if (debugMode()) debugUtil.printVariablePartOfLine(numVertices);
 
 		// Adding / updating WD to DB : this action will add / update all affected point
 		m_SqlInterface->addWD(WD, v);
-	}
 
-	float MapManager::getAzimuthAOEDeviation(float radius, float azimuth, float AOE)
-	{
-		float tangentToAOECircle = sqrtf(powf(radius, 2.0) + powf(AOE, 2.0));
-		float azimuthDeviation = acosf(radius / tangentToAOECircle);
-		return azimuthDeviation;
-		
-		//return acosf(radius / sqrtf(powf(radius, 2.0) + powf(AOE, 2.0)));;
+		if (instrumented()) clock.printDuration("MapManager::addWD");
 	}
 
 	float MapManager::getDistance(float x1, float y1, float x2, float y2)
 	{
 		return sqrtf((powf((x2 - x1), 2.0) + powf((y2 - y1), 2.0)));
+	}
+
+	/*float MapManager::getDistance(Vector3f v1, Vector3f v2)
+	{
+		return (v2 - v1).norm();
+	}*/
+
+	void MapManager::UpdateValues(void)
+	{
+		// TODO
 	}
 }
