@@ -35,7 +35,7 @@ namespace TheWorld_MapManager
 		bool debugMode(void) { return m_debugMode; }
 		bool instrumented(void) { return m_instrumented; };
 
-		_declspec(dllexport) void addWD(WorldDefiner& WD);
+		_declspec(dllexport) bool addWD(WorldDefiner& WD);
 		_declspec(dllexport) void UpdateValues(void);
 		
 		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }

@@ -11,8 +11,11 @@ namespace TheWorld_MapManager
 	class WorldDefiner
 	{
 	public:
-		_declspec(dllexport) WorldDefiner(float posX, float posZ, WDType type, float strength, float AOE, int level = 0, void* fp = NULL);
+		_declspec(dllexport) WorldDefiner();
+		_declspec(dllexport) WorldDefiner(float posX, float posZ, WDType type, float strength, float AOE, int level = 0, float radius = 0.0, float azimuth = 0.0, float azimuthDegree = 0.0, void* fp = NULL);
 		_declspec(dllexport) ~WorldDefiner();
+
+		_declspec(dllexport) void init(float posX, float posZ, int level, WDType type, float radius, float azimuth, float azimuthDegree, float strength, float AOE, void* fp = NULL);
 
 		_declspec(dllexport) float getPosX(void) { return m_posX; };
 		_declspec(dllexport) float getPosZ(void) { return m_posZ; };
@@ -27,10 +30,10 @@ namespace TheWorld_MapManager
 	private:
 		float m_posX;
 		float m_posZ;
-		int m_level;
 		WDType m_type;
 		float m_strength;
 		float m_AOE;
+		int m_level;
 		float m_radius;
 		float m_azimuth;
 		float m_azimuthDegree;

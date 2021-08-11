@@ -34,18 +34,29 @@ namespace TheWorld_MapManager
 		void debugMode(bool b) { m_debugMode = b; };
 		bool debugMode(void) { return m_debugMode; }
 
-		struct addWD_mapVertex
+		struct mapVertex
 		{
 			float posX;
 			float posZ;
 			float radius;
 			float azimuth;
 			int level;
+			float posY;
 			bool affected;
+			__int64 rowid;
 		};
 
 		// Pure	virtual functions
-		virtual void addWD(WorldDefiner& WD, std::vector<addWD_mapVertex>& mapVertex) = 0;
+		virtual void beginTransaction(void) = 0;
+		virtual void endTransaction(bool commit = true) = 0;
+		virtual bool addWD(WorldDefiner& WD, std::vector<mapVertex>& mapVertices) = 0;
+		virtual void updateAltitudeOfVertex(__int64 vertexRowid, float posY) = 0;
+		virtual void eraseModifiedVertices(void) = 0;
+		virtual void getVertex(__int64 vertexRowid, mapVertex& mapVertex) = 0;
+		virtual void getWD(__int64 wdRowid, WorldDefiner& WD) = 0;
+		virtual void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& MapWDRowId) = 0;
+		virtual bool getFirstModfiedVertex(mapVertex& mapVertex, std::vector<WorldDefiner>& wdMap) = 0;
+		virtual bool getNextModfiedVertex(mapVertex& mapVertex, std::vector<WorldDefiner>& wdMap) = 0;
 		virtual void finalizeDB(void) = 0;
 
 	private:

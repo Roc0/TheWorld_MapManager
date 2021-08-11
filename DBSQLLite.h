@@ -8,22 +8,6 @@
 
 namespace TheWorld_MapManager
 {
-	class DBSQLLite : public SQLInterface
-	{
-	public:
-		_declspec(dllexport) DBSQLLite(DBType dbt, const char* dataPath, bool debugMode = false);
-		_declspec(dllexport) ~DBSQLLite();
-		virtual const char* classname() { return "DBSQLLite"; }
-
-		const char* dbFilePath(void) { return m_dbFilePath.c_str(); }
-
-		_declspec(dllexport) void addWD(WorldDefiner& WD, std::vector<addWD_mapVertex>& mapVertex);
-		_declspec(dllexport) void finalizeDB(void);
-
-	private:
-		std::string m_dbFilePath;
-	};
-
 	class DBSQLLiteConn
 	{
 	public:
@@ -44,13 +28,13 @@ namespace TheWorld_MapManager
 			m_dbFilePath = dbFilePath;
 
 			if (strlen(m_dbFilePath.c_str()) == 0)
-				throw(MapManagerExceptionDBException("DB SQLite DB path is NULL!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB path is NULL!"));
 			if (m_pDB != NULL)
-				throw(MapManagerExceptionDBException("DB SQLite DB already opened!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB already opened!"));
 
 			int rc = sqlite3_open_v2(m_dbFilePath.c_str(), &m_pDB, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, NULL);
 			if (rc != SQLITE_OK)
-				throw(MapManagerExceptionDBException("DB SQLite DB open failed!", sqlite3_errmsg(m_pDB), rc));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB open failed!", sqlite3_errmsg(m_pDB), rc));
 
 			sqlite3_mutex* m = sqlite3_db_mutex(m_pDB);
 		}
@@ -58,11 +42,11 @@ namespace TheWorld_MapManager
 		void close()
 		{
 			if (m_pDB == NULL)
-				throw(MapManagerExceptionDBException("DB SQLite DB not opened!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB not opened!"));
 
 			int rc = sqlite3_close_v2(m_pDB);
 			if (rc != SQLITE_OK)
-				throw(MapManagerExceptionDBException("DB SQLite DB close failed!", sqlite3_errmsg(m_pDB), rc));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB close failed!", sqlite3_errmsg(m_pDB), rc));
 
 			m_pDB = NULL;
 		}
@@ -83,15 +67,21 @@ namespace TheWorld_MapManager
 		// SQLite3 and threading : https://stackoverflow.com/questions/10079552/what-do-the-mutex-and-cache-sqlite3-open-v2-flags-mean , https://dev.yorhel.nl/doc/sqlaccess
 
 	public:
-		DBSQLLiteOps(DBSQLLite* pDBSQLLite)
+		DBSQLLiteOps(const char* dbFilePath)
 		{
 			m_initialized = false;
 			m_lockAcquired = false;
 			m_stmt = NULL;
 			m_transactionOpened = false;
-			m_pDBSQLLite = pDBSQLLite;
+			m_dbFilePath = dbFilePath;
 		}
-
+		DBSQLLiteOps()
+		{
+			m_initialized = false;
+			m_lockAcquired = false;
+			m_stmt = NULL;
+			m_transactionOpened = false;
+		}
 		~DBSQLLiteOps()
 		{
 			if (m_lockAcquired)
@@ -111,18 +101,25 @@ namespace TheWorld_MapManager
 		}
 		virtual const char* classname() { return "DBSQLLiteOps"; }
 
+		bool isInitialized(void) { return m_initialized; }
 
-		void init(void)
+		void init(const char* _dbFilePath = NULL)
 		{
 			if (m_initialized)
-				throw(MapManagerExceptionDBException("DBSQLLiteOps already intialized!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps already intialized!"));
+
+			if (_dbFilePath)
+				m_dbFilePath = _dbFilePath;
+			
+			if (m_dbFilePath.empty())
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps  cannot initialize instance : file path empty!"));
 
 			if (!s_conn.isOpened())
 			{
-				if (strlen(m_pDBSQLLite->dbFilePath()) == 0)
-					throw(MapManagerExceptionDBException("DB SQLite DB path is NULL!"));
+				if (m_dbFilePath.length() == 0)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB path is NULL!"));
 
-				s_conn.open(m_pDBSQLLite->dbFilePath());
+				s_conn.open(m_dbFilePath.c_str());
 			}
 
 			m_initialized = true;
@@ -131,7 +128,7 @@ namespace TheWorld_MapManager
 		void reset()
 		{
 			if (!m_initialized)
-				throw(MapManagerExceptionDBException("DBSQLLiteOps trying to reset an unitialized instance!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps trying to reset an unitialized instance!"));
 
 			m_initialized = false;
 		}
@@ -139,17 +136,17 @@ namespace TheWorld_MapManager
 		void beginTransaction(void)
 		{
 			if (!m_initialized)
-				throw(MapManagerExceptionDBException("DBSQLLiteOps instance not initialized!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps instance not initialized!"));
 
 			sqlite3* db = getConn();
 			if (db == NULL)
-				throw(MapManagerExceptionDBException("DB SQLite DB not opened!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB not opened!"));
 
 			acquireLock();
 			int rc = sqlite3_exec(db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
 			releaseLock();
 			if (rc != SQLITE_OK)
-				throw(MapManagerExceptionDBException("DB SQLite DB Begin Transaction failed!", sqlite3_errmsg(getConn()), rc));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB Begin Transaction failed!", sqlite3_errmsg(getConn()), rc));
 
 			m_transactionOpened = true;
 		}
@@ -157,10 +154,10 @@ namespace TheWorld_MapManager
 		void endTransaction(bool commit = true)
 		{
 			if (!m_initialized)
-				throw(MapManagerExceptionDBException("DBSQLLiteOps instance not initialized!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps instance not initialized!"));
 
 			if (!m_transactionOpened )
-				throw(MapManagerExceptionDBException("DB SQLite there is not an oened transaction!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite there is not an oened transaction!"));
 
 			if (commit)
 			{
@@ -184,7 +181,7 @@ namespace TheWorld_MapManager
 					numRetry++;
 				}
 				if (rc != SQLITE_DONE)
-					throw(MapManagerExceptionDBException("DB SQLite DB Commit Transaction failed!", sqlite3_errmsg(getConn()), rc));
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB Commit Transaction failed!", sqlite3_errmsg(getConn()), rc));
 
 				finalizeStmt();
 				
@@ -211,7 +208,7 @@ namespace TheWorld_MapManager
 					numRetry++;
 				}
 				if (rc != SQLITE_DONE)
-					throw(MapManagerExceptionDBException("DB SQLite DB Rollback Transaction failed!", sqlite3_errmsg(getConn()), rc));
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB Rollback Transaction failed!", sqlite3_errmsg(getConn()), rc));
 
 				finalizeStmt();
 			}
@@ -230,21 +227,21 @@ namespace TheWorld_MapManager
 		void prepareStmt(const char* szSql)
 		{
 			if (!m_initialized)
-				throw(MapManagerExceptionDBException("DBSQLLiteOps instance not initialized!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps instance not initialized!"));
 
 			sqlite3* db = getConn();
 			if (db == NULL)
-				throw(MapManagerExceptionDBException("DB SQLite DB not opened!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB not opened!"));
 
 			if (m_stmt != NULL)
-				throw(MapManagerExceptionDBException("DB SQLite trying to prepare a statement not finalized!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to prepare a statement not finalized!"));
 
 			const char* pzTail;
 			acquireLock();
 			int rc = sqlite3_prepare_v2(db, szSql, -1, &m_stmt, &pzTail);
 			releaseLock();
 			if (rc != SQLITE_OK)
-				throw(MapManagerExceptionDBException("DB SQLite prepare of a statement failed!", sqlite3_errmsg(getConn()), rc));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite prepare of a statement failed!", sqlite3_errmsg(getConn()), rc));
 
 			m_preparedStmtSQL = szSql;
 		}
@@ -252,33 +249,34 @@ namespace TheWorld_MapManager
 		void finalizeStmt(void)
 		{
 			if (!m_initialized)
-				throw(MapManagerExceptionDBException("DBSQLLiteOps instance not initialized!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps instance not initialized!"));
 			if (m_stmt == NULL)
-				throw(MapManagerExceptionDBException("DB SQLite trying to finalize a statement not prepared!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to finalize a statement not prepared!"));
 
 			acquireLock();
 			int rc = sqlite3_finalize(m_stmt);
 			releaseLock();
 			if (rc != SQLITE_OK)
-				throw(MapManagerExceptionDBException("DB SQLite finalize of a statement failed!", sqlite3_errmsg(getConn()), rc));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite finalize of a statement failed!", sqlite3_errmsg(getConn()), rc));
 
 			m_stmt = NULL;
 			m_preparedStmtSQL.clear();
 		}
 
 		sqlite3_stmt* getStmt() { return m_stmt; }
+		bool isTransactionOpened() { return m_transactionOpened; }
 
 		void resetStmt(void)
 		{
 			int rc = sqlite3_reset(m_stmt);
 			if (rc != SQLITE_OK && rc != SQLITE_CONSTRAINT)
-				throw(MapManagerExceptionDBException("DB SQLite reset of a statement failed!", sqlite3_errmsg(getConn()), rc));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite reset of a statement failed!", sqlite3_errmsg(getConn()), rc));
 		}
 
 		void acquireLock(void)
 		{
 			if (m_lockAcquired)
-				throw(MapManagerExceptionDBException("DB SQLite trying to acquire a lock recursively!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to acquire a lock recursively!"));
 			
 			sqlite3* db = getConn();
 			if (db)
@@ -290,7 +288,7 @@ namespace TheWorld_MapManager
 		void releaseLock(void)
 		{
 			if (!m_lockAcquired)
-				throw(MapManagerExceptionDBException("DB SQLite trying to release a lock not acquired!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to release a lock not acquired!"));
 
 			sqlite3* db = getConn();
 			if (db)
@@ -322,6 +320,34 @@ namespace TheWorld_MapManager
 		sqlite3_stmt* m_stmt;
 		string m_preparedStmtSQL;
 		bool m_transactionOpened;
-		DBSQLLite* m_pDBSQLLite;
+		string m_dbFilePath;
+	};
+
+	class DBSQLLite : public SQLInterface
+	{
+	public:
+		_declspec(dllexport) DBSQLLite(DBType dbt, const char* dataPath, bool debugMode = false);
+		_declspec(dllexport) ~DBSQLLite();
+		virtual const char* classname() { return "DBSQLLite"; }
+
+		const char* dbFilePath(void) { return m_dbFilePath.c_str(); }
+
+		_declspec(dllexport) void beginTransaction(void);
+		_declspec(dllexport) void endTransaction(bool commit = true);
+		_declspec(dllexport) bool addWD(WorldDefiner& WD, std::vector<mapVertex>& mapVertices);
+		_declspec(dllexport) void updateAltitudeOfVertex(__int64 vertexRowid, float posY);
+		_declspec(dllexport) void eraseModifiedVertices(void);
+		_declspec(dllexport) void getVertex(__int64 vertexRowid, mapVertex& mapVertex);
+		_declspec(dllexport) void getWD(__int64 wdRowid, WorldDefiner& WD);
+		_declspec(dllexport) void getWDRowIdForVertex(__int64 vertexRowid, vector<__int64>& MapWDRowId);
+		_declspec(dllexport) bool getFirstModfiedVertex(mapVertex& mapVertex, std::vector<WorldDefiner>& wdMap);
+		_declspec(dllexport) bool getNextModfiedVertex(mapVertex& mapVertex, std::vector<WorldDefiner>& wdMap);
+		_declspec(dllexport) void finalizeDB(void);
+
+	private:
+		std::string m_dbFilePath;
+		DBSQLLiteOps m_dbOpsIterationModifiedVertices;
+		std::vector<__int64> m_iteratedModifiedVerticesMap;
+		DBSQLLiteOps m_dbOpsInternalTransaction;
 	};
 }
