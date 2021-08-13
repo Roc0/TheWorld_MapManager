@@ -3,19 +3,28 @@ namespace TheWorld_MapManager
 {
 	enum class WDType
 	{
+		unitTest = -1,
 		elevator = 0,
 		depressor = 1,
 		flattener = 2
 	};
 	
+	enum class WDFunctionType
+	{
+		unitTest = -1,
+		elevator = 0,
+		depressor = 1,
+		flattener = 2
+	};
+
 	class WorldDefiner
 	{
 	public:
 		_declspec(dllexport) WorldDefiner();
-		_declspec(dllexport) WorldDefiner(float posX, float posZ, WDType type, float strength, float AOE, int level = 0, float radius = 0.0, float azimuth = 0.0, float azimuthDegree = 0.0, void* fp = NULL);
+		_declspec(dllexport) WorldDefiner(float posX, float posZ, WDType type, WDFunctionType functionType, float strength, float AOE, int level = 0, void* fp = NULL);
 		_declspec(dllexport) ~WorldDefiner();
 
-		_declspec(dllexport) void init(float posX, float posZ, int level, WDType type, float radius, float azimuth, float azimuthDegree, float strength, float AOE, void* fp = NULL);
+		_declspec(dllexport) void setInternalValues(float posX, float posZ, int level, WDType type, float radius, float azimuth, float azimuthDegree, float strength, float AOE, WDFunctionType functionType, __int64 rowid, void* fp = NULL);
 
 		_declspec(dllexport) float getPosX(void) { return m_posX; };
 		_declspec(dllexport) float getPosZ(void) { return m_posZ; };
@@ -26,6 +35,9 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) float getRadius(void) { return m_radius; };
 		_declspec(dllexport) float getAzimuth(void) { return m_azimuth; };
 		_declspec(dllexport) float getAzimuthDegree(void) { return m_azimuthDegree; };
+		_declspec(dllexport) WDFunctionType getFunctionType(void) { return m_functionType; };
+
+		_declspec(dllexport) __int64 getRowid(void) { return m_rowid; };
 
 	private:
 		float m_posX;
@@ -37,6 +49,8 @@ namespace TheWorld_MapManager
 		float m_radius;
 		float m_azimuth;
 		float m_azimuthDegree;
+		WDFunctionType m_functionType;
+		__int64 m_rowid;
 	};
 }
 

@@ -36,7 +36,7 @@ namespace TheWorld_MapManager
 			m_SqlInterface->finalizeDB();
 	}
 
-	bool MapManager::addWD(WorldDefiner& WD)
+	__int64 MapManager::addWD(WorldDefiner& WD)
 	{
 		debugUtils debugUtil;
 		TimerMs clock; // Timer<milliseconds, steady_clock>
@@ -76,7 +76,7 @@ namespace TheWorld_MapManager
 			maxVertexZ += g_DBGrowingBlockVertexNumber;
 
 		int mapVertexSize = (maxVertexX - minVertexX + 1) * (maxVertexZ - minVertexZ + 1);
-		vector<SQLInterface::mapVertex> v;
+		vector<SQLInterface::MapVertex> v;
 		
 		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Computing affected vertices by WorldDefiner: ");
 
@@ -91,44 +91,72 @@ namespace TheWorld_MapManager
 					assert(numVertices <= mapVertexSize);
 				}
 
-				SQLInterface::mapVertex mapv;
-				mapv.posX = (float)x * g_distanceFromVerticesInWU;
-				mapv.posZ = (float)z * g_distanceFromVerticesInWU;
-				mapv.posY = 0.0;
-				mapv.rowid = -1;
-				mapv.radius = sqrtf(powf(mapv.posX, 2.0) + powf(mapv.posZ, 2.0));
-				if ((mapv.posX == 0 && mapv.posZ == 0) || mapv.radius == 0)
-					mapv.azimuth = 0;
-				else
-				{
-					//angle of radius with x-axus (complementar of 2PI if Z < 0)
-					mapv.azimuth = acosf(mapv.posX / mapv.radius);
-					if (mapv.posZ < 0)
-						mapv.azimuth = (float)(M_PI * 2.0) - mapv.azimuth;
-				}
-				
-				mapv.level = WD.getLevel();
-				mapv.affected = false;
-				if (getDistance(WD.getPosX(), WD.getPosZ(), mapv.posX, mapv.posZ) <= WD.getAOE())
-					mapv.affected = true;
-
+				SQLInterface::MapVertex mapv((float)(x * g_distanceFromVerticesInWU), (float)(z * g_distanceFromVerticesInWU), WD.getLevel());
 				v.push_back(mapv);
 
 				if (debugMode() && fmod(numVertices, 1024 * 1000) == 0) debugUtil.printVariablePartOfLine(numVertices);
 			}
-			//if (debugMode()) debugUtil.printVariablePartOfLine(numVertices);
 		}
 
 		if (debugMode()) debugUtil.printVariablePartOfLine(numVertices);
 
 		// Adding / updating WD to DB : this action will add / update all affected point
-		bool bret_addWD = m_SqlInterface->addWD(WD, v);
+		__int64 rowid = m_SqlInterface->addWD(WD, v);
 
 		if (instrumented()) clock.printDuration(__FUNCTION__);
 
 		if (debugMode()) debugUtil.printNewLine();
 
-		return bret_addWD;
+		return rowid;
+	}
+
+	bool MapManager::eraseWD(__int64 wdRowid)
+	{
+		debugUtils debugUtil;
+		TimerMs clock; // Timer<milliseconds, steady_clock>
+		if (instrumented()) clock.tick();
+
+		bool bDeleted = m_SqlInterface->eraseWD(wdRowid);
+
+		if (instrumented()) clock.printDuration(__FUNCTION__);
+
+		if (debugMode()) debugUtil.printNewLine();
+
+		return bDeleted;
+	}
+
+	bool MapManager::eraseWD(float posX, float posZ, int level, WDType type)
+	{
+		debugUtils debugUtil;
+		TimerMs clock; // Timer<milliseconds, steady_clock>
+		if (instrumented()) clock.tick();
+		bool bDeleted = false;
+
+		WorldDefiner wd;
+		bool bFound = m_SqlInterface->getWD(posX, posZ, level, type, wd);
+		if (bFound)
+			bDeleted = m_SqlInterface->eraseWD(wd.getRowid());
+
+		if (instrumented()) clock.printDuration(__FUNCTION__);
+
+		if (debugMode()) debugUtil.printNewLine();
+
+		return bDeleted;
+	}
+
+	bool MapManager::eraseWD(WorldDefiner& WD)
+	{
+		debugUtils debugUtil;
+		TimerMs clock; // Timer<milliseconds, steady_clock>
+		if (instrumented()) clock.tick();
+
+		bool bDeleted = eraseWD(WD.getPosX(), WD.getPosZ(), WD.getLevel(), WD.getType());
+
+		if (instrumented()) clock.printDuration(__FUNCTION__);
+
+		if (debugMode()) debugUtil.printNewLine();
+
+		return bDeleted;
 	}
 
 	float MapManager::getDistance(float x1, float y1, float x2, float y2)
@@ -155,14 +183,14 @@ namespace TheWorld_MapManager
 		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Updating vertices marked for update: ");
 		int updated = 0;
 		int idx = 0;
-		SQLInterface::mapVertex mapVertex;
+		SQLInterface::MapVertex mapVertex;
 		vector<WorldDefiner> wdMap;
 		bool bFound = m_SqlInterface->getFirstModfiedVertex(mapVertex, wdMap);
 		while (bFound)
 		{
 			idx++;
 
-			m_SqlInterface->updateAltitudeOfVertex(mapVertex.rowid, 1.0);
+			m_SqlInterface->updateAltitudeOfVertex(mapVertex.rowid(), 1.0);
 
 			updated++;
 			if (debugMode() && fmod(idx, 1000) == 0)
@@ -190,5 +218,19 @@ namespace TheWorld_MapManager
 		* Close Transaction
 		*/
 		m_SqlInterface->endTransaction();
+	}
+
+	int MapManager::getNumVertexMarkedForUpdate(void)
+	{
+		SQLInterface::MapVertex mapVertex;
+		vector<WorldDefiner> wdMap;
+		bool bFound = m_SqlInterface->getFirstModfiedVertex(mapVertex, wdMap);
+		int idx = 0;
+		while (bFound)
+		{
+			idx++;
+			bFound = m_SqlInterface->getNextModfiedVertex(mapVertex, wdMap);
+		}
+		return idx;
 	}
 }

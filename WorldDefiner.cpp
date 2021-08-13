@@ -18,9 +18,11 @@ namespace TheWorld_MapManager
 		m_radius = 0.0;
 		m_azimuth = 0.0;
 		m_azimuthDegree = 0.0;
+		m_functionType = (WDFunctionType)-1;
+		m_rowid = -1;
 	}
 
-	WorldDefiner::WorldDefiner(float posX, float posZ, WDType type, float strength, float AOE, int level, float radius, float azimuth, float azimuthDegree, void* fp)
+	WorldDefiner::WorldDefiner(float posX, float posZ, WDType type, WDFunctionType functionType, float strength, float AOE, int level, void* fp)
 	{
 		if (strength < 0.0 || strength > 1.0)
 			throw(MapManagerExceptionWrongInput("Strength of a WD must be in range 0.0 / 1.0"));
@@ -29,35 +31,30 @@ namespace TheWorld_MapManager
 		m_posZ = posZ;
 		m_level = level;
 		m_type = type;
+		m_functionType = functionType;
 		m_strength = strength;
 		m_AOE = AOE;
-		if (radius != 0.0 && azimuth != 0.0 && azimuthDegree != 0.0)
+
+		m_rowid = -1;
+
+		m_radius = sqrtf(powf(posX, 2.0) + powf(posZ, 2.0));
+		if ((posX == 0 && posZ == 0) || m_radius == 0)
 		{
-			m_radius = radius;
-			m_azimuth = azimuth;
-			m_azimuthDegree = azimuthDegree;
+			m_radius = 0;
+			m_azimuth = 0;
+			m_azimuthDegree = 0;
 		}
 		else
 		{
-			m_radius = sqrtf(powf(posX, 2.0) + powf(posZ, 2.0));
-			if ((posX == 0 && posZ == 0) || m_radius == 0)
-			{
-				m_radius = 0;
-				m_azimuth = 0;
-				m_azimuthDegree = 0;
-			}
-			else
-			{
-				//angle of radius with x-axis (complementar of 2PI if Z < 0)
-				m_azimuth = acosf(posX / m_radius);
-				if (posZ < 0)
-					m_azimuth = float(M_PI) * (float)2.0 - m_azimuth;
-				m_azimuthDegree = (m_azimuth * 180) / float(M_PI);
-			}
+			//angle of radius with x-axis (complementar of 2PI if Z < 0)
+			m_azimuth = acosf(posX / m_radius);
+			if (posZ < 0)
+				m_azimuth = float(M_PI) * (float)2.0 - m_azimuth;
+			m_azimuthDegree = (m_azimuth * 180) / float(M_PI);
 		}
 	}
 
-	void WorldDefiner::init(float posX, float posZ, int level, WDType type, float radius, float azimuth, float azimuthDegree, float strength, float AOE, void* fp)
+	void WorldDefiner::setInternalValues(float posX, float posZ, int level, WDType type, float radius, float azimuth, float azimuthDegree, float strength, float AOE, WDFunctionType functionType, __int64 rowid, void* fp)
 	{
 		m_posX = posX;
 		m_posZ = posZ;
@@ -68,6 +65,9 @@ namespace TheWorld_MapManager
 		m_radius = radius;
 		m_azimuth = azimuth;
 		m_azimuthDegree = azimuthDegree;
+		m_functionType = functionType;
+
+		m_rowid = rowid;
 	}
 	
 	WorldDefiner::~WorldDefiner()

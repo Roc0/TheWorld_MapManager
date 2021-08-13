@@ -334,15 +334,23 @@ namespace TheWorld_MapManager
 
 		_declspec(dllexport) void beginTransaction(void);
 		_declspec(dllexport) void endTransaction(bool commit = true);
-		_declspec(dllexport) bool addWD(WorldDefiner& WD, std::vector<mapVertex>& mapVertices);
+		_declspec(dllexport) __int64 addWD(WorldDefiner& WD, std::vector<MapVertex>& mapVertices);
+		_declspec(dllexport) bool eraseWD(__int64 wdRowid);
 		_declspec(dllexport) void updateAltitudeOfVertex(__int64 vertexRowid, float posY);
 		_declspec(dllexport) void eraseModifiedVertices(void);
-		_declspec(dllexport) void getVertex(__int64 vertexRowid, mapVertex& mapVertex);
-		_declspec(dllexport) void getWD(__int64 wdRowid, WorldDefiner& WD);
+		_declspec(dllexport) void getVertex(__int64 vertexRowid, MapVertex& mapVertex);
+		_declspec(dllexport) bool getWD(float posX, float posZ, int level, WDType type, WorldDefiner& WD);
+		_declspec(dllexport) bool getWD(__int64 wdRowid, WorldDefiner& WD);
 		_declspec(dllexport) void getWDRowIdForVertex(__int64 vertexRowid, vector<__int64>& MapWDRowId);
-		_declspec(dllexport) bool getFirstModfiedVertex(mapVertex& mapVertex, std::vector<WorldDefiner>& wdMap);
-		_declspec(dllexport) bool getNextModfiedVertex(mapVertex& mapVertex, std::vector<WorldDefiner>& wdMap);
+		_declspec(dllexport) bool getFirstModfiedVertex(MapVertex& mapVertex, std::vector<WorldDefiner>& wdMap);
+		_declspec(dllexport) bool getNextModfiedVertex(MapVertex& mapVertex, std::vector<WorldDefiner>& wdMap);
 		_declspec(dllexport) void finalizeDB(void);
+
+	private:
+		float getDistance(float x1, float y1, float x2, float y2)
+		{
+			return sqrtf((powf((x2 - x1), 2.0) + powf((y2 - y1), 2.0)));
+		}
 
 	private:
 		std::string m_dbFilePath;

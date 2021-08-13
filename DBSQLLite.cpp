@@ -54,7 +54,7 @@ namespace TheWorld_MapManager
 		m_dbOpsInternalTransaction.endTransaction(commit);
 	}
 
-	bool DBSQLLite::addWD(WorldDefiner& WD, vector<mapVertex>& mapVertices)
+	__int64 DBSQLLite::addWD(WorldDefiner& WD, vector<MapVertex>& mapVertices)
 	{
 		vector<sqlite3_int64> MapVertexRowId;
 		debugUtils debugUtil;
@@ -80,7 +80,7 @@ namespace TheWorld_MapManager
 		/*
 		* INSERT in table WorldDefiner
 		*/
-		string sql = "INSERT INTO WorldDefiner (PosX, PosZ, radius, azimuth, azimuthDegree, Level, Type, Strength, AOE) VALUES ("
+		string sql = "INSERT INTO WorldDefiner (PosX, PosZ, radius, azimuth, azimuthDegree, Level, Type, Strength, AOE, FunctionType) VALUES ("
 			+ std::to_string(WD.getPosX())
 			+ "," + std::to_string(WD.getPosZ())
 			+ "," + std::to_string(WD.getRadius())
@@ -90,6 +90,7 @@ namespace TheWorld_MapManager
 			+ "," + std::to_string((int)WD.getType())
 			+ "," + std::to_string(WD.getStrength())
 			+ "," + std::to_string(WD.getAOE())
+			+ "," + std::to_string((int)WD.getFunctionType())
 			+ ");";
 		dbOps->acquireLock();
 		int rc = sqlite3_exec(dbOps->getConn(), sql.c_str(), NULL, NULL, NULL);
@@ -98,7 +99,7 @@ namespace TheWorld_MapManager
 		if (rc != SQLITE_OK && rc != SQLITE_CONSTRAINT)
 			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite insert World Definer failed!", dbOps->errMsg(), rc));
 		if (rc == SQLITE_CONSTRAINT)
-			return false;
+			return -1;
 			//throw(MapManagerExceptionDuplicate(__FUNCTION__, "DB SQLite World Definer duplicate!"));
 
 		/*
@@ -106,8 +107,8 @@ namespace TheWorld_MapManager
 		*/
 		int numVertices = (int)mapVertices.size();
 		int idx = 0;
-		int affected = 0;
-		int notAffected = 0;
+		int affectedByWD = 0;
+		int notAffectedByWD = 0;
 		int inserted = 0;
 		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Writing vertices to MapVertex Table: ");
 		if (numVertices > 0)
@@ -117,24 +118,28 @@ namespace TheWorld_MapManager
 
 			for (idx = 0; idx < numVertices; idx++)
 			{
-				if (mapVertices[idx].affected)
-					affected++;
+				bool vertexAffectedByWD = false;
+				if (getDistance(WD.getPosX(), WD.getPosZ(), mapVertices[idx].posX(), mapVertices[idx].posZ()) <= WD.getAOE())
+				{
+					vertexAffectedByWD = true;
+					affectedByWD++;
+				}
 				else
-					notAffected++;
+					notAffectedByWD++;
 
-				rc = sqlite3_bind_double(dbOps->getStmt(), 1, mapVertices[idx].posX);
+				rc = sqlite3_bind_double(dbOps->getStmt(), 1, mapVertices[idx].posX());
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex.PosX failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-				rc = sqlite3_bind_double(dbOps->getStmt(), 2, mapVertices[idx].posZ);
+				rc = sqlite3_bind_double(dbOps->getStmt(), 2, mapVertices[idx].posZ());
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex.PosZ failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-				rc = sqlite3_bind_double(dbOps->getStmt(), 3, mapVertices[idx].radius);
+				rc = sqlite3_bind_double(dbOps->getStmt(), 3, mapVertices[idx].radius());
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex.radius failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-				rc = sqlite3_bind_double(dbOps->getStmt(), 4, mapVertices[idx].azimuth);
+				rc = sqlite3_bind_double(dbOps->getStmt(), 4, mapVertices[idx].azimuth());
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex.azimuth failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-				rc = sqlite3_bind_int(dbOps->getStmt(), 5, mapVertices[idx].level);
+				rc = sqlite3_bind_int(dbOps->getStmt(), 5, mapVertices[idx].level());
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex.level failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 				rc = sqlite3_bind_double(dbOps->getStmt(), 6, 0.0);	// Not affected vertices have 0.0 altitude, for affected vertices altitude will be computed later as they are inserted in MapVertex_Mod table
@@ -152,7 +157,7 @@ namespace TheWorld_MapManager
 				
 				dbOps->resetStmt();
 
-				if (mapVertices[idx].affected)
+				if (vertexAffectedByWD)
 				{
 					if (rc == SQLITE_CONSTRAINT)
 					{
@@ -160,7 +165,7 @@ namespace TheWorld_MapManager
 						DBSQLLiteOps dbOps1(dbFilePath());
 						dbOps1.init();
 						string sql = "SELECT rowid FROM MapVertex WHERE PosX = %s AND PosZ = %s AND Level = %s;";
-						string sql1 = dbOps1.completeSQL(sql.c_str(), to_string(mapVertices[idx].posX).c_str(), to_string(mapVertices[idx].posZ).c_str(), to_string(mapVertices[idx].level).c_str());
+						string sql1 = dbOps1.completeSQL(sql.c_str(), to_string(mapVertices[idx].posX()).c_str(), to_string(mapVertices[idx].posZ()).c_str(), to_string(mapVertices[idx].level()).c_str());
 						dbOps1.prepareStmt(sql1.c_str());
 						dbOps1.acquireLock();
 						rc = sqlite3_step(dbOps1.getStmt());
@@ -176,7 +181,7 @@ namespace TheWorld_MapManager
 
 				if (debugMode() && fmod(idx, 1024 * 100) == 0)
 				{
-					string s = to_string(idx + 1);	s += " - Affected ";	s += to_string(affected);	s += " - Not affected ";	s += to_string(notAffected);	s += " - Inserted ";	s += to_string(inserted);
+					string s = to_string(idx + 1);	s += " - Affected ";	s += to_string(affectedByWD);	s += " - Not affected ";	s += to_string(notAffectedByWD);	s += " - Inserted ";	s += to_string(inserted);
 					debugUtil.printVariablePartOfLine(s.c_str());
 				}
 			}
@@ -185,12 +190,12 @@ namespace TheWorld_MapManager
 		}
 		if (debugMode())
 		{
-			string s = to_string(idx);	s += " - Affected ";	s += to_string(affected);	s += " - Not affected ";	s += to_string(notAffected);	s += " - Inserted ";	s += to_string(inserted);
+			string s = to_string(idx);	s += " - Affected ";	s += to_string(affectedByWD);	s += " - Not affected ";	s += to_string(notAffectedByWD);	s += " - Inserted ";	s += to_string(inserted);
 			debugUtil.printVariablePartOfLine(s.c_str());
 		}
 
 		/*
-		* INSERT in table MapVertex_WD
+		* INSERT in table MapVertex_WD affecting WD
 		*/
 		int numAffectedVertices = (int)MapVertexRowId.size();
 		idx = 0;
@@ -236,7 +241,7 @@ namespace TheWorld_MapManager
 		}
 
 		/*
-		* INSERT in table MapVertex_Mod
+		* INSERT in table MapVertex_Mod vertices affected by WD inserted
 		*/
 		idx = 0;
 		inserted = 0;
@@ -288,7 +293,149 @@ namespace TheWorld_MapManager
 			dbOps->reset();
 		}
 
-		return true;
+		return WDRowID;
+	}
+
+	bool DBSQLLite::eraseWD(__int64 wd_rowid)
+	{
+		debugUtils debugUtil;
+
+		/*
+		* Initialize DB operations
+		*/
+		DBSQLLiteOps* dbOps = NULL;
+		DBSQLLiteOps temporarydbOps(dbFilePath());
+		bool endTransactionRequired = true;
+		if (m_dbOpsInternalTransaction.isTransactionOpened())
+		{
+			dbOps = &m_dbOpsInternalTransaction;
+			endTransactionRequired = false;
+		}
+		else
+		{
+			temporarydbOps.init();
+			temporarydbOps.beginTransaction();
+			dbOps = &temporarydbOps;
+		}
+
+		/*
+		* DELETE WD from WorldDefiner
+		*/
+		string sql = "DELETE FROM WorldDefiner WHERE rowid = %s;";
+		string sql1 = dbOps->completeSQL(sql.c_str(), to_string(wd_rowid).c_str());
+		dbOps->prepareStmt(sql1.c_str());
+		dbOps->acquireLock();
+		int rc = sqlite3_step(dbOps->getStmt());
+		int numDeleted = sqlite3_changes(dbOps->getConn());
+		dbOps->releaseLock();
+		if (rc != SQLITE_DONE)
+			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to update vertex altitude in MapVertex table!", sqlite3_errmsg(dbOps->getConn()), rc));
+		dbOps->finalizeStmt();
+		
+		if (numDeleted > 1)
+			throw(MapManagerExceptionDBException(__FUNCTION__, "Impossible 1!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+		if (numDeleted == 1)
+		{
+			vector<__int64> MapVertexAffectedByWD;
+
+			/*
+			SELECTING vertices affected by deleted WD
+			*/
+			string sql = "SELECT VertexRowId FROM MapVertex_WD WHERE WDRowId = %s;";
+			string sql1 = dbOps->completeSQL(sql.c_str(), to_string(wd_rowid).c_str());
+			dbOps->prepareStmt(sql1.c_str());
+			dbOps->acquireLock();
+			int rc = sqlite3_step(dbOps->getStmt());
+			dbOps->releaseLock();
+			if (rc != SQLITE_ROW && rc != SQLITE_DONE)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read vertices affected by WordlDefiner being deleted from MapVertex_WD table!", sqlite3_errmsg(dbOps->getConn()), rc));
+			while (rc == SQLITE_ROW)
+			{
+				MapVertexAffectedByWD.push_back(sqlite3_column_int64(dbOps->getStmt(), 0));
+
+				dbOps->acquireLock();
+				rc = sqlite3_step(dbOps->getStmt());
+				dbOps->releaseLock();
+				if (rc != SQLITE_ROW && rc != SQLITE_DONE)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read WorldDefiners affecting a Vertex from MapVertex_WD table!", sqlite3_errmsg(dbOps->getConn()), rc));
+			}
+			dbOps->finalizeStmt();
+
+			/*
+			DELETE rows associating vertices to deleted WD
+			*/
+			sql = "DELETE FROM MapVertex_WD WHERE WDRowId = %s;";
+			sql1 = dbOps->completeSQL(sql.c_str(), to_string(wd_rowid).c_str());
+			dbOps->prepareStmt(sql1.c_str());
+			dbOps->acquireLock();
+			rc = sqlite3_step(dbOps->getStmt());
+			int numDeleted = sqlite3_changes(dbOps->getConn());
+			dbOps->releaseLock();
+			if (rc != SQLITE_DONE)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to update vertex altitude in MapVertex table!", sqlite3_errmsg(dbOps->getConn()), rc));
+			dbOps->finalizeStmt();
+
+			int numVerticesAffectedByWD = (int)MapVertexAffectedByWD.size();
+			
+			if (numDeleted != numVerticesAffectedByWD)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "Impossible 2!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+			/*
+			* INSERT in table MapVertex_Mod vertices affected by WD deleted
+			*/
+			int idx = 0;
+			int inserted = 0;
+			if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Writing affected vertices to MapVertex_Mod Table: ");
+			if (numVerticesAffectedByWD > 0)
+			{
+				string sql = "INSERT INTO MapVertex_Mod (VertexRowId) VALUES (?);";
+				dbOps->prepareStmt(sql.c_str());
+
+				for (idx = 0; idx < numVerticesAffectedByWD; idx++)
+				{
+					// insert vertices not affected by WD (to complete the squres)
+					// affected vertices will be inserted in MapVertex_Mod table to be computed later
+					rc = sqlite3_bind_int64(dbOps->getStmt(), 1, MapVertexAffectedByWD[idx]);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex_Mod.VertexRowId failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+					dbOps->acquireLock();
+					rc = sqlite3_step(dbOps->getStmt());
+					dbOps->releaseLock();
+					if (rc == SQLITE_DONE)
+						inserted++;
+					if (rc != SQLITE_DONE && rc != SQLITE_CONSTRAINT)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB insert vertex failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+					dbOps->resetStmt();
+
+					if (debugMode() && fmod(idx, 1024 * 100) == 0)
+					{
+						string s = to_string(idx + 1);	s += " - Inserted ";	s += to_string(inserted);
+						debugUtil.printVariablePartOfLine(s.c_str());
+					}
+				}
+
+				dbOps->finalizeStmt();
+			}
+			if (debugMode())
+			{
+				string s = to_string(idx);	s += " - Inserted ";	s += to_string(inserted);
+				debugUtil.printVariablePartOfLine(s.c_str());
+			}
+		}
+
+		/*
+		* Finalize DB operations
+		*/
+		if (endTransactionRequired)
+		{
+			dbOps->endTransaction();
+			dbOps->reset();
+		}
+
+		return !(numDeleted == 0);
 	}
 
 	void DBSQLLite::updateAltitudeOfVertex(__int64 vertexRowid, float posY)
@@ -316,10 +463,10 @@ namespace TheWorld_MapManager
 		dbOps->prepareStmt(sql1.c_str());
 		dbOps->acquireLock();
 		int rc = sqlite3_step(dbOps->getStmt());
-		if (rc != SQLITE_DONE)
-			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to update vertex altitude in MapVertex table!", sqlite3_errmsg(dbOps->getConn()), rc));
 		dbOps->releaseLock();
 		dbOps->finalizeStmt();
+		if (rc != SQLITE_DONE)
+			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to update vertex altitude in MapVertex table!", sqlite3_errmsg(dbOps->getConn()), rc));
 
 		/*
 		* Finalize DB operations
@@ -363,10 +510,10 @@ namespace TheWorld_MapManager
 			dbOps->prepareStmt(sql1.c_str());
 			dbOps->acquireLock();
 			int rc = sqlite3_step(dbOps->getStmt());
-			if (rc != SQLITE_DONE)
-				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete vertex from MapVertex_Mod table!", sqlite3_errmsg(dbOps->getConn()), rc));
 			dbOps->releaseLock();
 			dbOps->finalizeStmt();
+			if (rc != SQLITE_DONE)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete vertex from MapVertex_Mod table!", sqlite3_errmsg(dbOps->getConn()), rc));
 		}
 
 		/*
@@ -380,11 +527,11 @@ namespace TheWorld_MapManager
 	}
 
 
-	void DBSQLLite::getVertex(__int64 vertexRowid, mapVertex& mapVertex)
+	void DBSQLLite::getVertex(__int64 vertexRowid, MapVertex& mapVertex)
 	{
 		DBSQLLiteOps dbOps(dbFilePath());
 		dbOps.init();
-		string sql = "SELECT PosX, PosZ, Level, radius, azimuth, PosY FROM MapVertex WHERE rowid = %s;";
+		string sql = "SELECT PosX, PosY, PosZ, Radius, Azimuth, Level FROM MapVertex WHERE rowid = %s;";
 		string sql1 = dbOps.completeSQL(sql.c_str(), to_string(vertexRowid).c_str());
 		dbOps.prepareStmt(sql1.c_str());
 		dbOps.acquireLock();
@@ -392,40 +539,78 @@ namespace TheWorld_MapManager
 		dbOps.releaseLock();
 		if (rc != SQLITE_ROW)
 			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read vertex with rowid from MapVertex table!", sqlite3_errmsg(dbOps.getConn()), rc));
-		mapVertex.posX = (float)sqlite3_column_double(dbOps.getStmt(), 0);
-		mapVertex.posZ = (float)sqlite3_column_double(dbOps.getStmt(), 1);
-		mapVertex.level = sqlite3_column_int(dbOps.getStmt(), 2);
-		mapVertex.radius = (float)sqlite3_column_double(dbOps.getStmt(), 3);
-		mapVertex.azimuth = (float)sqlite3_column_double(dbOps.getStmt(), 4);
-		mapVertex.posY = (float)sqlite3_column_double(dbOps.getStmt(), 5);
-		mapVertex.rowid = vertexRowid;
+		
+		mapVertex.setInternalValues((float)sqlite3_column_double(dbOps.getStmt(), 0),	// PosX
+									(float)sqlite3_column_double(dbOps.getStmt(), 1),	// PosY
+									(float)sqlite3_column_double(dbOps.getStmt(), 2),	// PosZ
+									(float)sqlite3_column_double(dbOps.getStmt(), 3),	// Radius
+									(float)sqlite3_column_double(dbOps.getStmt(), 4),	// Azimuth
+									sqlite3_column_int(dbOps.getStmt(), 5),				// Level
+									vertexRowid);										// rowid
 		dbOps.finalizeStmt();
 	}
 
-	void DBSQLLite::getWD(__int64 wdRowid, WorldDefiner& wd)
+	bool DBSQLLite::getWD(__int64 wdRowid, WorldDefiner& wd)
 	{
 		DBSQLLiteOps dbOps(dbFilePath());
 		dbOps.init();
-		string sql = "SELECT PosX, PosZ, Level, Type, radius, azimuth, azimuthDegree, Strength, AOE FROM WorldDefiner WHERE rowid = %s;";
+		string sql = "SELECT PosX, PosZ, Level, Type, radius, azimuth, azimuthDegree, Strength, AOE, FunctionType FROM WorldDefiner WHERE rowid = %s;";
 		string sql1 = dbOps.completeSQL(sql.c_str(), to_string(wdRowid).c_str());
 		dbOps.prepareStmt(sql1.c_str());
 		dbOps.acquireLock();
 		int rc = sqlite3_step(dbOps.getStmt());
 		dbOps.releaseLock();
-		if (rc != SQLITE_ROW)
-			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read vertex with rowid from WorldDefiner table!", sqlite3_errmsg(dbOps.getConn()), rc));
-		wd.init((float)sqlite3_column_double(dbOps.getStmt(), 0),	// PosX
-			(float)sqlite3_column_double(dbOps.getStmt(), 1),	// PosZ
-			sqlite3_column_int(dbOps.getStmt(), 2),	// level
-			(WDType)sqlite3_column_int(dbOps.getStmt(), 3),	// Type
-			(float)sqlite3_column_double(dbOps.getStmt(), 4),	// radius
-			(float)sqlite3_column_double(dbOps.getStmt(), 5),	// azimuth
-			(float)sqlite3_column_double(dbOps.getStmt(), 6),	// azimuthDegree
-			(float)sqlite3_column_double(dbOps.getStmt(), 7),	// Strength
-			(float)sqlite3_column_double(dbOps.getStmt(), 8));	// AOE
+		if (rc != SQLITE_ROW && rc != SQLITE_DONE)
+			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read WorldDefiner!", sqlite3_errmsg(dbOps.getConn()), rc));
+		if (rc == SQLITE_ROW)
+		{
+			wd.setInternalValues((float)sqlite3_column_double(dbOps.getStmt(), 0),	// PosX
+				(float)sqlite3_column_double(dbOps.getStmt(), 1),					// PosZ
+				sqlite3_column_int(dbOps.getStmt(), 2),								// level
+				(WDType)sqlite3_column_int(dbOps.getStmt(), 3),						// Type
+				(float)sqlite3_column_double(dbOps.getStmt(), 4),					// radius
+				(float)sqlite3_column_double(dbOps.getStmt(), 5),					// azimuth
+				(float)sqlite3_column_double(dbOps.getStmt(), 6),					// azimuthDegree
+				(float)sqlite3_column_double(dbOps.getStmt(), 7),					// Strength
+				(float)sqlite3_column_double(dbOps.getStmt(), 8),					// AOE
+				(WDFunctionType)sqlite3_column_int(dbOps.getStmt(), 9),				// FunctionType
+				wdRowid);															// rowid
+		}
 		dbOps.finalizeStmt();
+		
+		if (rc == SQLITE_ROW)
+			return true;
+		else
+			return false;
 	}
 
+	bool DBSQLLite::getWD(float posX, float posZ, int level, WDType type, WorldDefiner& wd)
+	{
+		DBSQLLiteOps dbOps(dbFilePath());
+		dbOps.init();
+		string sql = "SELECT rowid FROM WorldDefiner WHERE PosX = %s AND PosZ=%s AND Level = %s AND Type = %s;";
+		string sql1 = dbOps.completeSQL(sql.c_str(), to_string(posX).c_str(), to_string(posZ).c_str(), to_string(level).c_str(), to_string((int)type).c_str());
+		dbOps.prepareStmt(sql1.c_str());
+		dbOps.acquireLock();
+		int rc = sqlite3_step(dbOps.getStmt());
+		dbOps.releaseLock();
+		if (rc != SQLITE_ROW && rc != SQLITE_DONE)
+			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read WorldDefiner!", sqlite3_errmsg(dbOps.getConn()), rc));
+		if (rc == SQLITE_ROW)
+		{
+			__int64 WDRowId = sqlite3_column_int64(dbOps.getStmt(), 0);
+			bool bFound = getWD(WDRowId, wd);
+			if (!bFound)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read WorldDefiner!", sqlite3_errmsg(dbOps.getConn()), rc));
+		}
+		dbOps.finalizeStmt();
+
+		if (rc == SQLITE_ROW)
+			return true;
+		else
+			return false;
+	}
+	
 	void DBSQLLite::getWDRowIdForVertex(__int64 vertexRowid, vector<__int64>& MapWDRowId)
 	{
 		DBSQLLiteOps dbOps(dbFilePath());
@@ -440,9 +625,7 @@ namespace TheWorld_MapManager
 			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read WorldDefiners affecting a Vertex from MapVertex_WD table!", sqlite3_errmsg(dbOps.getConn()), rc));
 		while (rc == SQLITE_ROW)
 		{
-			//MapWDRowId.push_back(sqlite3_column_int64(dbOps.getStmt(), 0));
-			__int64 wd_rowid = sqlite3_column_int64(dbOps.getStmt(), 0);
-			MapWDRowId.push_back(wd_rowid);
+			MapWDRowId.push_back(sqlite3_column_int64(dbOps.getStmt(), 0));
 
 			dbOps.acquireLock();
 			rc = sqlite3_step(dbOps.getStmt());
@@ -453,7 +636,7 @@ namespace TheWorld_MapManager
 		dbOps.finalizeStmt();
 	}
 
-	bool DBSQLLite::getFirstModfiedVertex(mapVertex& mapVertex, std::vector<WorldDefiner>& wdMap)
+	bool DBSQLLite::getFirstModfiedVertex(MapVertex& mapVertex, std::vector<WorldDefiner>& wdMap)
 	{
 		if (!m_dbOpsIterationModifiedVertices.isInitialized())
 			m_dbOpsIterationModifiedVertices.init(dbFilePath());
@@ -487,7 +670,9 @@ namespace TheWorld_MapManager
 			for (int idx = 0; idx < numAffectingWDRowid; idx++)
 			{
 				WorldDefiner wd;
-				getWD(MapWDRowId[idx], wd);
+				bool bFound = getWD(MapWDRowId[idx], wd);
+				if (!bFound)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read WorldDefiner!", sqlite3_errmsg(m_dbOpsIterationModifiedVertices.getConn()), rc));
 				wdMap.push_back(wd);
 			}
 
@@ -497,7 +682,7 @@ namespace TheWorld_MapManager
 		}
 	}
 	
-	bool DBSQLLite::getNextModfiedVertex(mapVertex& mapVertex, std::vector<WorldDefiner>& wdMap)
+	bool DBSQLLite::getNextModfiedVertex(MapVertex& mapVertex, std::vector<WorldDefiner>& wdMap)
 	{
 		if (!m_dbOpsIterationModifiedVertices.isInitialized())
 			throw(MapManagerExceptionDBException(__FUNCTION__, "getFirstModfiedVertex not executed!"));
@@ -527,7 +712,9 @@ namespace TheWorld_MapManager
 			for (int idx = 0; idx < numAffectingWDRowid; idx++)
 			{
 				WorldDefiner wd;
-				getWD(MapWDRowId[idx], wd);
+				bool bFound = getWD(MapWDRowId[idx], wd);
+				if (!bFound)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read WorldDefiner!", sqlite3_errmsg(m_dbOpsIterationModifiedVertices.getConn()), rc));
 				wdMap.push_back(wd);
 			}
 

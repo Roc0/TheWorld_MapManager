@@ -35,8 +35,12 @@ namespace TheWorld_MapManager
 		bool debugMode(void) { return m_debugMode; }
 		bool instrumented(void) { return m_instrumented; };
 
-		_declspec(dllexport) bool addWD(WorldDefiner& WD);
+		_declspec(dllexport) __int64 addWD(WorldDefiner& WD);
+		_declspec(dllexport) bool eraseWD(WorldDefiner& WD);
+		_declspec(dllexport) bool eraseWD(float posX, float posZ, int level, WDType type);
+		_declspec(dllexport) bool eraseWD(__int64 wdRowid);
 		_declspec(dllexport) void UpdateValues(void);
+		_declspec(dllexport) int getNumVertexMarkedForUpdate(void);
 		
 		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }
 
