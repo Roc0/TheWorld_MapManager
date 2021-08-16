@@ -39,6 +39,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) bool eraseWD(WorldDefiner& WD);
 		_declspec(dllexport) bool eraseWD(float posX, float posZ, int level, WDType type);
 		_declspec(dllexport) bool eraseWD(__int64 wdRowid);
+		_declspec(dllexport) float computeAltitude(SQLInterface::MapVertex& mapVertex, std::vector<WorldDefiner>& wdMap);
 		_declspec(dllexport) void UpdateValues(void);
 		_declspec(dllexport) int getNumVertexMarkedForUpdate(void);
 		

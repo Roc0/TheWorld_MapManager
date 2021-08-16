@@ -190,7 +190,8 @@ namespace TheWorld_MapManager
 		{
 			idx++;
 
-			m_SqlInterface->updateAltitudeOfVertex(mapVertex.rowid(), 1.0);
+			float altitude = computeAltitude(mapVertex, wdMap);
+			m_SqlInterface->updateAltitudeOfVertex(mapVertex.rowid(), altitude);
 
 			updated++;
 			if (debugMode() && fmod(idx, 1000) == 0)
@@ -218,6 +219,11 @@ namespace TheWorld_MapManager
 		* Close Transaction
 		*/
 		m_SqlInterface->endTransaction();
+	}
+
+	float MapManager::computeAltitude(SQLInterface::MapVertex& mapVertex, std::vector<WorldDefiner>& wdMap)
+	{
+		return 1.0;
 	}
 
 	int MapManager::getNumVertexMarkedForUpdate(void)
