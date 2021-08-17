@@ -223,7 +223,63 @@ namespace TheWorld_MapManager
 
 	float MapManager::computeAltitude(SQLInterface::MapVertex& mapVertex, std::vector<WorldDefiner>& wdMap)
 	{
-		return 1.0;
+		float altitude = 0.0;
+		
+		// Looking for prevalent WD
+		int winningWDIdx = -1;
+		float maxStrength = -1;
+		int numWDs = (int)wdMap.size();
+		float distanceFromWD = -1;
+		for (int idx = 0; idx < numWDs; idx++)
+		{
+			float AOE = wdMap[idx].getAOE();
+			distanceFromWD = getDistance(mapVertex.posX(), mapVertex.posZ(), wdMap[idx].getPosX(), wdMap[idx].getPosZ());
+			if (distanceFromWD <= AOE)
+			{
+				float distanceFromBorder = AOE - distanceFromWD;
+				float strength = (distanceFromBorder / AOE) * wdMap[idx].getStrength();
+				if (strength > maxStrength)
+					winningWDIdx = idx;
+			}
+		}
+
+		if (winningWDIdx > -1)
+		{
+			switch (wdMap[winningWDIdx].getType())
+			{
+			case WDType::elevator:
+				altitude = computeAltitudeElevator(mapVertex, wdMap[winningWDIdx], distanceFromWD);
+				break;
+			default:
+				break;
+			}
+		}
+		
+		return altitude;
+	}
+
+	float MapManager::computeAltitudeElevator(SQLInterface::MapVertex& mapVertex, WorldDefiner& wd, float distanceFromWD)
+	{
+		float altitude = 0.0;
+
+		if (distanceFromWD == -1)
+			distanceFromWD = getDistance(mapVertex.posX(), mapVertex.posZ(), wd.getPosX(), wd.getPosZ());
+		
+		switch (wd.getFunctionType())
+		{
+		case WDFunctionType::cosin:
+		{
+			float d = distanceFromWD / wd.getAOE();
+			altitude = cosf(d * (float)M_PI_2);
+			altitude *= wd.getStrength();
+			//altitude = cosf( (distanceFromWD / wd.getAOE()) * (float)M_PI_2 ) * wd.getStrength();
+		}
+			break;
+		default:
+			break;
+		}
+
+		return altitude;
 	}
 
 	int MapManager::getNumVertexMarkedForUpdate(void)
