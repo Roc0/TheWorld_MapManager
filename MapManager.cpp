@@ -208,7 +208,7 @@ namespace TheWorld_MapManager
 			debugUtil.printVariablePartOfLine(s.c_str());
 		}
 
-		m_SqlInterface->eraseModifiedVertices();
+		m_SqlInterface->clearVerticesMarkedForUpdate();
 			
 			
 		if (instrumented()) clock.printDuration(__FUNCTION__);
@@ -225,36 +225,26 @@ namespace TheWorld_MapManager
 	{
 		float altitude = 0.0;
 		
-		// Looking for prevalent WD
-		int winningWDIdx = -1;
-		float maxStrength = -1;
+		// Scanning all WDs
 		int numWDs = (int)wdMap.size();
 		float distanceFromWD = -1;
 		for (int idx = 0; idx < numWDs; idx++)
 		{
 			float AOE = wdMap[idx].getAOE();
 			distanceFromWD = getDistance(mapVertex.posX(), mapVertex.posZ(), wdMap[idx].getPosX(), wdMap[idx].getPosZ());
-			if (distanceFromWD <= AOE)
+			if (distanceFromWD <= AOE)	// Vertex is influenced by current WD
 			{
-				float distanceFromBorder = AOE - distanceFromWD;
-				float strength = (distanceFromBorder / AOE) * wdMap[idx].getStrength();
-				if (strength > maxStrength)
-					winningWDIdx = idx;
+				switch (wdMap[idx].getType())
+				{
+				case WDType::elevator:
+					altitude += computeAltitudeElevator(mapVertex, wdMap[idx], distanceFromWD);
+					break;
+				default:
+					break;
+				}
 			}
 		}
 
-		if (winningWDIdx > -1)
-		{
-			switch (wdMap[winningWDIdx].getType())
-			{
-			case WDType::elevator:
-				altitude = computeAltitudeElevator(mapVertex, wdMap[winningWDIdx], distanceFromWD);
-				break;
-			default:
-				break;
-			}
-		}
-		
 		return altitude;
 	}
 
@@ -269,9 +259,10 @@ namespace TheWorld_MapManager
 		{
 		case WDFunctionType::cosin:
 		{
-			float d = distanceFromWD / wd.getAOE();
-			altitude = cosf(d * (float)M_PI_2);
-			altitude *= wd.getStrength();
+			float d = distanceFromWD / wd.getAOE();	// from 0 (on WD) to 1 (on border)
+			float argument = d * (float)M_PI_2;		// from 0 (on WD) to M_PI_2 (on border)
+			altitude = cosf(argument);				// from 1 (on WD) to 0 (on border)
+			altitude *= wd.getStrength();			// from wd.getStrength() (on WD) to 0 (on border)
 			//altitude = cosf( (distanceFromWD / wd.getAOE()) * (float)M_PI_2 ) * wd.getStrength();
 		}
 			break;

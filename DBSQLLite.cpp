@@ -478,7 +478,7 @@ namespace TheWorld_MapManager
 		}
 	}
 
-	void DBSQLLite::eraseModifiedVertices(void)
+	void DBSQLLite::clearVerticesMarkedForUpdate(void)
 	{
 		// WARNING: in case of error / rollback iterated vertices are lost anycase
 		std::vector<__int64> iteratedModifiedVerticesMap = m_iteratedModifiedVerticesMap;

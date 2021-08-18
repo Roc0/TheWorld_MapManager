@@ -106,7 +106,7 @@ namespace TheWorld_MapManager
 		virtual __int64 addWD(WorldDefiner& WD, std::vector<MapVertex>& mapVertices) = 0;
 		virtual bool eraseWD(__int64 wdRowid) = 0;
 		virtual void updateAltitudeOfVertex(__int64 vertexRowid, float posY) = 0;
-		virtual void eraseModifiedVertices(void) = 0;
+		virtual void clearVerticesMarkedForUpdate(void) = 0;
 		virtual void getVertex(__int64 vertexRowid, MapVertex& mapVertex) = 0;
 		virtual bool getWD(float posX, float posZ, int level, WDType type, WorldDefiner& WD) = 0;
 		virtual bool getWD(__int64 wdRowid, WorldDefiner& WD) = 0;

@@ -337,7 +337,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) __int64 addWD(WorldDefiner& WD, std::vector<MapVertex>& mapVertices);
 		_declspec(dllexport) bool eraseWD(__int64 wdRowid);
 		_declspec(dllexport) void updateAltitudeOfVertex(__int64 vertexRowid, float posY);
-		_declspec(dllexport) void eraseModifiedVertices(void);
+		_declspec(dllexport) void clearVerticesMarkedForUpdate(void);
 		_declspec(dllexport) void getVertex(__int64 vertexRowid, MapVertex& mapVertex);
 		_declspec(dllexport) bool getWD(float posX, float posZ, int level, WDType type, WorldDefiner& WD);
 		_declspec(dllexport) bool getWD(__int64 wdRowid, WorldDefiner& WD);
