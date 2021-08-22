@@ -46,6 +46,8 @@ namespace TheWorld_MapManager
 		
 		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }
 
+		_declspec(dllexport) void Test(void);
+
 	private:
 		float getDistance(float x1, float y1, float x2, float y2);
 		//float getDistance(Vector3f v1, Vector3f v2);

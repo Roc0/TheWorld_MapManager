@@ -11,7 +11,7 @@
 #include "MapManager.h"
 #include "DBSQLLite.h"
 
-
+#include "shapefil.h"
 
 namespace TheWorld_MapManager
 {
@@ -285,5 +285,80 @@ namespace TheWorld_MapManager
 			bFound = m_SqlInterface->getNextModfiedVertex(mapVertex, wdMap);
 		}
 		return idx;
+	}
+	
+	void MapManager::Test(void)
+	{
+		TimerMs clock; // Timer<milliseconds, steady_clock>
+		if (instrumented()) clock.tick();
+
+		//string filename = "D:\\TheWorld\\Client\\Italy_shapefile\\it_10km.shp";
+		// https://www.youtube.com/watch?v=lP52QKda3mw
+		string filename = "D:\\TheWorld\\Prove\\untitled1.shp";
+
+		SHPHandle handle = SHPOpen(filename.c_str(), "rb");
+		if (handle <= 0)
+		{
+			throw(MapManagerException(__FUNCTION__, string("File " + filename + " not found").c_str()));
+		}
+		
+		string outFileName = filename.substr(0, filename.find_last_of("\\") + 1) + "out.txt";
+		ofstream outFile;
+		outFile.open(outFileName);
+
+		int shapeType, nEntities;
+		double adfMinBound[4], adfMaxBound[4];
+		SHPGetInfo(handle, &nEntities, &shapeType, adfMinBound, adfMaxBound);
+
+		outFile << "Shape Type: " << to_string(shapeType) << "\n";
+		outFile << "Min Bound X: " << to_string(adfMinBound[0]) << "Min Bound Y: " << to_string(adfMinBound[1]) << "Min Bound Z: " << to_string(adfMinBound[2]) << "Min Bound M: " << to_string(adfMinBound[3]) << "\n";
+		outFile << "Max Bound X: " << to_string(adfMaxBound[0]) << "Max Bound Y: " << to_string(adfMaxBound[1]) << "Max Bound Z: " << to_string(adfMaxBound[2]) << "Max Bound M: " << to_string(adfMaxBound[3]) << "\n";
+
+		debugUtils debugUtil;
+		string s = "Looping into entities of: " + filename + " - Entities(" + to_string(nEntities) + "): ";
+		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str());
+		if (debugMode()) debugUtil.printNewLine();
+		for (int i = 0; i < nEntities; i++)
+		{
+			SHPObject * psShape = SHPReadObject(handle, i);
+
+			// Read only polygons, and only those without holes
+			if (
+				((psShape->nSHPType == SHPT_MULTIPOINT || psShape->nSHPType == SHPT_MULTIPOINTZ || psShape->nSHPType == SHPT_MULTIPOINTM) && psShape->nParts == 0)
+				//|| ((psShape->nSHPType == SHPT_POLYGON || psShape->nSHPType == SHPT_POLYGONZ || psShape->nSHPType == SHPT_POLYGONM) && psShape->nParts == 1)
+				)
+			{
+				outFile << "Entity: " << to_string(i) << " - Num Vertices: " << to_string(psShape->nVertices) << "\n";
+
+				double* x = psShape->padfX;
+				double* y = psShape->padfY;
+				double* z = psShape->padfZ;
+				double* m = psShape->padfM;
+
+				debugUtils debugUtil1;
+				string s = "Looping into vertices(" + to_string(psShape->nVertices) + "): ";
+				if (debugMode()) debugUtil1.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str());
+				if (debugMode()) debugUtil1.printNewLine();
+				for (int v = 0; v < psShape->nVertices; v++)
+				{
+					outFile << "Vertex X: " << to_string(x[v]) << " - Vertex Y: " << to_string(y[v]) << " - Vertex Z: " << to_string(z[v]) << " - Vertex M: " << to_string(m[v]) << "\n";
+					if (debugMode() && fmod(v + 1, 1000) == 0) debugUtil1.printVariablePartOfLine(v + 1);
+				}
+				if (debugMode()) debugUtil1.printVariablePartOfLine(psShape->nVertices);
+			}
+
+			SHPDestroyObject(psShape);
+
+			if (debugMode() && fmod(i + 1, 1000) == 0) debugUtil.printVariablePartOfLine(i + 1);
+		}
+		if (debugMode()) debugUtil.printVariablePartOfLine(nEntities);
+
+		SHPClose(handle);
+
+		outFile.close();
+
+		if (debugMode()) debugUtil.printNewLine();
+		if (instrumented()) clock.printDuration(__FUNCTION__);
+		if (debugMode()) debugUtil.printNewLine();
 	}
 }

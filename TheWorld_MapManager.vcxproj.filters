@@ -13,6 +13,18 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\Shapelib">
+      <UniqueIdentifier>{b4d6d2ea-8606-419d-bc28-652356b5d185}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Shapelib">
+      <UniqueIdentifier>{1f498c79-eb9c-4994-bc2a-4d011ae08fba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\sqlite">
+      <UniqueIdentifier>{d53cf373-d8b3-40c0-b8f7-ad2ec2fa0452}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\sqlite">
+      <UniqueIdentifier>{eda01713-3bf3-4654-88ab-7c53e2818d59}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -39,8 +51,11 @@
     <ClInclude Include="Utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="shapefil.h">
+      <Filter>Header Files\Shapelib</Filter>
+    </ClInclude>
     <ClInclude Include="sqlite3.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\sqlite</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -68,8 +83,23 @@
     <ClCompile Include="Utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="shpopen.c">
+      <Filter>Source Files\Shapelib</Filter>
+    </ClCompile>
     <ClCompile Include="sqlite3.c">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\sqlite</Filter>
+    </ClCompile>
+    <ClCompile Include="safileio.c">
+      <Filter>Source Files\Shapelib</Filter>
+    </ClCompile>
+    <ClCompile Include="dbfopen.c">
+      <Filter>Source Files\Shapelib</Filter>
+    </ClCompile>
+    <ClCompile Include="sbnsearch.c">
+      <Filter>Source Files\Shapelib</Filter>
+    </ClCompile>
+    <ClCompile Include="shptree.c">
+      <Filter>Source Files\Shapelib</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
