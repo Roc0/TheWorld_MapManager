@@ -311,19 +311,20 @@ namespace TheWorld_MapManager
 		pointMap mapAltidues;
 		pointMap::iterator it;
 		
-		//string filename = "D:\\TheWorld\\Client\\Italy_shapefile\\it_10km.shp";
+		//string filePath = "D:\\TheWorld\\Client\\Italy_shapefile\\it_10km.shp";
 		// https://www.youtube.com/watch?v=lP52QKda3mw
-		string filename = "D:\\TheWorld\\Prove\\untitled1.shp";
+		string filePath = "D:\\TheWorld\\Prove\\untitled2.shp";
 
-		SHPHandle handle = SHPOpen(filename.c_str(), "rb");
+		SHPHandle handle = SHPOpen(filePath.c_str(), "rb");
 		if (handle <= 0)
 		{
-			throw(MapManagerException(__FUNCTION__, string("File " + filename + " not found").c_str()));
+			throw(MapManagerException(__FUNCTION__, string("File " + filePath + " not found").c_str()));
 		}
 		
-		string outFileName = filename.substr(0, filename.find_last_of("\\") + 1) + "out.txt";
+		string fileName = filePath.substr(filePath.find_last_of("\\") + 1, (filePath.find_last_of(".") - filePath.find_last_of("\\") - 1));
+		string outfilePath = filePath.substr(0, filePath.find_last_of("\\") + 1) + fileName + ".txt";
 		ofstream outFile;
-		outFile.open(outFileName);
+		outFile.open(outfilePath);
 
 		int shapeType, nEntities;
 		double adfMinBound[4], adfMaxBound[4];
@@ -334,7 +335,7 @@ namespace TheWorld_MapManager
 		outFile << "Max Bound X: " << to_string(adfMaxBound[0]) << "Max Bound Y: " << to_string(adfMaxBound[1]) << "Max Bound Z: " << to_string(adfMaxBound[2]) << "Max Bound M: " << to_string(adfMaxBound[3]) << "\n";
 
 		debugUtils debugUtil;
-		string s = "Looping into entities of: " + filename + " - Entities(" + to_string(nEntities) + "): ";
+		string s = "Looping into entities of: " + filePath + " - Entities(" + to_string(nEntities) + "): ";
 		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str());
 		if (debugMode()) debugUtil.printNewLine();
 		for (int i = 0; i < nEntities; i++)
