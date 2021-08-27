@@ -292,6 +292,25 @@ namespace TheWorld_MapManager
 		TimerMs clock; // Timer<milliseconds, steady_clock>
 		if (instrumented()) clock.tick();
 
+		struct point
+		{
+			bool operator()(const point& p1, const point& p2) const
+			{
+				if (p1.x < p2.x)
+					return true;
+				if (p1.x > p2.x)
+					return false;
+				else
+					return p1.z < p2.z;
+			}
+			double x;
+			double z;
+		};
+
+		typedef map<point, vector<double>, point> pointMap;
+		pointMap mapAltidues;
+		pointMap::iterator it;
+		
 		//string filename = "D:\\TheWorld\\Client\\Italy_shapefile\\it_10km.shp";
 		// https://www.youtube.com/watch?v=lP52QKda3mw
 		string filename = "D:\\TheWorld\\Prove\\untitled1.shp";
@@ -342,6 +361,26 @@ namespace TheWorld_MapManager
 				for (int v = 0; v < psShape->nVertices; v++)
 				{
 					outFile << "Vertex X: " << to_string(x[v]) << " - Vertex Y: " << to_string(y[v]) << " - Vertex Z: " << to_string(z[v]) << " - Vertex M: " << to_string(m[v]) << "\n";
+
+					point p = { x[v], z[v] };
+
+					if (x[v] == 1195425.1762949340 && z[v] == 869.21911621093750)
+					{
+						outFile << "eccolo" << endl;
+					}
+
+					it = mapAltidues.find(p);
+					if (it == mapAltidues.end())
+					{
+						vector<double> altitudes;
+						altitudes.push_back(y[v]);
+						mapAltidues[p] = altitudes;
+					}
+					else
+					{
+						mapAltidues[p].push_back(y[v]);
+					}
+
 					if (debugMode() && fmod(v + 1, 1000) == 0) debugUtil1.printVariablePartOfLine(v + 1);
 				}
 				if (debugMode()) debugUtil1.printVariablePartOfLine(psShape->nVertices);
@@ -355,9 +394,41 @@ namespace TheWorld_MapManager
 
 		SHPClose(handle);
 
+		if (debugMode()) debugUtil.printNewLine();
+
+		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Looping into mapAltitudes (1): ");
+		if (debugMode()) debugUtil.printNewLine();
+		int idxPoint = 0;
+		for (it = mapAltidues.begin(); it != mapAltidues.end(); it++)
+		{
+			idxPoint++;
+			for (int idxAltitudes = 0; idxAltitudes < it->second.size(); idxAltitudes++)
+			{
+				outFile << "Point " << to_string(idxPoint).c_str() << " - Vertex X: " << to_string(it->first.x) << " - Vertex Z: " << to_string(it->first.z) << " - Altitude: " << to_string(it->second[idxAltitudes]) << endl;
+			}
+			if (debugMode() && fmod(idxPoint, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
+		}
+		if (debugMode()) debugUtil.printVariablePartOfLine(idxPoint);
+
+		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Looping into mapAltitudes (2): ");
+		if (debugMode()) debugUtil.printNewLine();
+		idxPoint = 0;
+		for (it = mapAltidues.begin(); it != mapAltidues.end(); it++)
+		{
+			idxPoint++;
+			double maxAltitude = 0;
+			for (int idxAltitudes = 0; idxAltitudes < it->second.size(); idxAltitudes++)
+			{
+				if (it->second[idxAltitudes] > maxAltitude)
+					maxAltitude = it->second[idxAltitudes];
+			}
+			outFile << "Point " << to_string(idxPoint).c_str() << " - Vertex X: " << to_string(it->first.x) << " - Vertex Z: " << to_string(it->first.z) << " - NumAltitudes: " << to_string(it->second.size()) << " - MaxAltitude: " << to_string(maxAltitude) << endl;
+			if (debugMode() && fmod(idxPoint, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
+		}
+		if (debugMode()) debugUtil.printVariablePartOfLine(idxPoint);
+
 		outFile.close();
 
-		if (debugMode()) debugUtil.printNewLine();
 		if (instrumented()) clock.printDuration(__FUNCTION__);
 		if (debugMode()) debugUtil.printNewLine();
 	}
