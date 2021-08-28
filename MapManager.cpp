@@ -301,16 +301,20 @@ namespace TheWorld_MapManager
 				if (p1.x > p2.x)
 					return false;
 				else
-					return p1.z < p2.z;
+					return p1.y < p2.y;
 			}
 			double x;
-			double z;
+			double y;
 		};
 
 		typedef map<point, vector<double>, point> pointMap;
 		pointMap mapAltidues;
 		pointMap::iterator it;
 		
+		// *************************************************************************
+		// W A R N I N G : Z axis  is UP (Blender uses right hand coordinate system)
+		// *************************************************************************
+
 		//string filePath = "D:\\TheWorld\\Client\\Italy_shapefile\\it_10km.shp";
 		// https://www.youtube.com/watch?v=lP52QKda3mw
 		string filePath = "D:\\TheWorld\\Prove\\untitled2.shp";
@@ -333,11 +337,12 @@ namespace TheWorld_MapManager
 		outFile << "Shape Type: " << to_string(shapeType) << "\n";
 		outFile << "Min Bound X: " << to_string(adfMinBound[0]) << "Min Bound Y: " << to_string(adfMinBound[1]) << "Min Bound Z: " << to_string(adfMinBound[2]) << "Min Bound M: " << to_string(adfMinBound[3]) << "\n";
 		outFile << "Max Bound X: " << to_string(adfMaxBound[0]) << "Max Bound Y: " << to_string(adfMaxBound[1]) << "Max Bound Z: " << to_string(adfMaxBound[2]) << "Max Bound M: " << to_string(adfMaxBound[3]) << "\n";
+		outFile << "Size X: " << to_string(adfMaxBound[0] - adfMinBound[0]) << "Size Y: " << to_string(adfMaxBound[1] - adfMinBound[1]) << "Size Z: " << to_string(adfMaxBound[2] - adfMinBound[2]) << "Size M: " << to_string(adfMaxBound[3] - adfMinBound[3]) << "\n";
 
 		debugUtils debugUtil;
+		debugUtils debugUtil1;
 		string s = "Looping into entities of: " + filePath + " - Entities(" + to_string(nEntities) + "): ";
 		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str());
-		if (debugMode()) debugUtil.printNewLine();
 		for (int i = 0; i < nEntities; i++)
 		{
 			SHPObject * psShape = SHPReadObject(handle, i);
@@ -355,31 +360,30 @@ namespace TheWorld_MapManager
 				double* z = psShape->padfZ;
 				double* m = psShape->padfM;
 
-				debugUtils debugUtil1;
-				string s = "Looping into vertices(" + to_string(psShape->nVertices) + "): ";
-				if (debugMode()) debugUtil1.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str());
+				string s = "Dumping vertices(" + to_string(psShape->nVertices) + "): ";
+				if (debugMode()) debugUtil1.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str(), &debugUtil);
 				if (debugMode()) debugUtil1.printNewLine();
 				for (int v = 0; v < psShape->nVertices; v++)
 				{
 					outFile << "Vertex X: " << to_string(x[v]) << " - Vertex Y: " << to_string(y[v]) << " - Vertex Z: " << to_string(z[v]) << " - Vertex M: " << to_string(m[v]) << "\n";
 
-					point p = { x[v], z[v] };
+					point p = { x[v], y[v] };
 
-					if (x[v] == 1195425.1762949340 && z[v] == 869.21911621093750)
+					/*if (x[v] == 1195425.1762949340 && z[v] == 869.21911621093750)
 					{
 						outFile << "eccolo" << endl;
-					}
+					}*/
 
 					it = mapAltidues.find(p);
 					if (it == mapAltidues.end())
 					{
 						vector<double> altitudes;
-						altitudes.push_back(y[v]);
+						altitudes.push_back(z[v]);
 						mapAltidues[p] = altitudes;
 					}
 					else
 					{
-						mapAltidues[p].push_back(y[v]);
+						mapAltidues[p].push_back(z[v]);
 					}
 
 					if (debugMode() && fmod(v + 1, 1000) == 0) debugUtil1.printVariablePartOfLine(v + 1);
@@ -395,24 +399,20 @@ namespace TheWorld_MapManager
 
 		SHPClose(handle);
 
-		if (debugMode()) debugUtil.printNewLine();
-
-		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Looping into mapAltitudes (1): ");
-		if (debugMode()) debugUtil.printNewLine();
+		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Dumping altitudes for every point of the plane: ", &debugUtil1);
 		int idxPoint = 0;
 		for (it = mapAltidues.begin(); it != mapAltidues.end(); it++)
 		{
 			idxPoint++;
 			for (int idxAltitudes = 0; idxAltitudes < it->second.size(); idxAltitudes++)
 			{
-				outFile << "Point " << to_string(idxPoint).c_str() << " - Vertex X: " << to_string(it->first.x) << " - Vertex Z: " << to_string(it->first.z) << " - Altitude: " << to_string(it->second[idxAltitudes]) << endl;
+				outFile << "Point " << to_string(idxPoint).c_str() << " - Vertex X: " << to_string(it->first.x) << " - Vertex Y: " << to_string(it->first.y) << " - Altitude: " << to_string(it->second[idxAltitudes]) << endl;
 			}
 			if (debugMode() && fmod(idxPoint, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
 		}
 		if (debugMode()) debugUtil.printVariablePartOfLine(idxPoint);
 
-		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Looping into mapAltitudes (2): ");
-		if (debugMode()) debugUtil.printNewLine();
+		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Dumping max altitude for every point of the plane: ", &debugUtil);
 		idxPoint = 0;
 		for (it = mapAltidues.begin(); it != mapAltidues.end(); it++)
 		{
@@ -423,14 +423,15 @@ namespace TheWorld_MapManager
 				if (it->second[idxAltitudes] > maxAltitude)
 					maxAltitude = it->second[idxAltitudes];
 			}
-			outFile << "Point " << to_string(idxPoint).c_str() << " - Vertex X: " << to_string(it->first.x) << " - Vertex Z: " << to_string(it->first.z) << " - NumAltitudes: " << to_string(it->second.size()) << " - MaxAltitude: " << to_string(maxAltitude) << endl;
+			outFile << "Point " << to_string(idxPoint).c_str() << " - Vertex X: " << to_string(it->first.x) << " - Vertex Y: " << to_string(it->first.y) << " - NumAltitudes: " << to_string(it->second.size()) << " - MaxAltitude: " << to_string(maxAltitude) << endl;
 			if (debugMode() && fmod(idxPoint, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
+			if (it->second.size() != 1)
+				outFile << endl;
 		}
 		if (debugMode()) debugUtil.printVariablePartOfLine(idxPoint);
 
 		outFile.close();
 
 		if (instrumented()) clock.printDuration(__FUNCTION__);
-		if (debugMode()) debugUtil.printNewLine();
 	}
 }

@@ -45,13 +45,22 @@ namespace TheWorld_MapManager
 		debugUtils()
 		{
 			m_console = GetStdHandle(STD_OUTPUT_HANDLE);
+			m_startCursorPosition = { 0, 0 };
 			m_cursorPosition = { 0, 0 };
 		}
 
-		void printFixedPartOfLine(const char*classname, const char *functionname, const char* m)
+		void printFixedPartOfLine(const char*classname, const char *functionname, const char* m, debugUtils *pPreviousPos = NULL)
 		{
-			std::cout << functionname << " - " << m;
+			if (pPreviousPos)
+			{
+				SetConsoleCursorPosition(m_console, pPreviousPos->getStartPosition());
+				printNewLine();
+			}
+			
 			CONSOLE_SCREEN_BUFFER_INFO cbsi;
+			GetConsoleScreenBufferInfo(m_console, &cbsi);
+			m_startCursorPosition = cbsi.dwCursorPosition;
+			std::cout << functionname << " - " << m;
 			GetConsoleScreenBufferInfo(m_console, &cbsi);
 			m_cursorPosition = cbsi.dwCursorPosition;
 		}
@@ -73,10 +82,12 @@ namespace TheWorld_MapManager
 			std::cout << "\n";
 		}
 
+		COORD getStartPosition(void) { return m_startCursorPosition; }
+
 	private:
 		void* m_console;
+		COORD m_startCursorPosition;
 		COORD m_cursorPosition;
-
 	};
 
 	std::string getModuleLoadPath(void);
