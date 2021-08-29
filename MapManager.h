@@ -43,10 +43,10 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) float computeAltitudeElevator(SQLInterface::MapVertex& mapVertex, WorldDefiner& wd, float distanceFromWD = -1);
 		_declspec(dllexport) void UpdateValues(void);
 		_declspec(dllexport) int getNumVertexMarkedForUpdate(void);
-		
-		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }
+		_declspec(dllexport) void LoadGISMap(const char* fileInput, bool writeReport, int level = 0);
+		_declspec(dllexport) void DumpDB(void);
 
-		_declspec(dllexport) void Test(void);
+		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }
 
 	private:
 		float getDistance(float x1, float y1, float x2, float y2);

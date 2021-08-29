@@ -24,6 +24,7 @@ create table MapVertex(
 	Level INTEGER NOT NULL,
 	Radius REAL NOT NULL,
 	Azimuth REAL NOT NULL,
+	InitialAltitude REAL NOT NULL,
 	PosY REAL NOT NULL,
 	PRIMARY KEY(PosX, PosZ, Level)
 );

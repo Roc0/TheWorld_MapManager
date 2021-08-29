@@ -3,7 +3,6 @@ namespace TheWorld_MapManager
 {
 	enum class WDType
 	{
-		unitTest = -1,
 		elevator = 0,
 		depressor = 1,
 		flattener = 2
@@ -11,7 +10,6 @@ namespace TheWorld_MapManager
 	
 	enum class WDFunctionType
 	{
-		unitTest = -1,
 		cosin = 0
 	};
 
