@@ -40,6 +40,13 @@ namespace TheWorld_MapManager
 		class MapVertex
 		{
 		public:
+			enum latlong_type
+			{
+				degrees = 1,
+				minutes = 2,
+				seconds = 3
+			};
+
 			MapVertex()
 			{
 				m_posX = 0.0;
@@ -56,6 +63,12 @@ namespace TheWorld_MapManager
 				m_posX = posX;
 				m_posY = 0.0;
 				m_posZ = posZ;
+				getLatLong(posX, latlong_type::degrees);
+				getLatLong(posX, latlong_type::minutes);
+				getLatLong(posX, latlong_type::seconds);
+				getLatLong(posZ, latlong_type::degrees);
+				getLatLong(posZ, latlong_type::minutes);
+				getLatLong(posZ, latlong_type::seconds);
 				m_level = level;
 				m_initialAltitude = 0.0;
 				m_radius = sqrtf(powf(m_posX, 2.0) + powf(m_posZ, 2.0));
@@ -73,6 +86,9 @@ namespace TheWorld_MapManager
 
 			MapVertex(float posX, float posZ, float initialAltitude, int level = 0)
 			{
+				// EPSG:3857 WGS 84 / Pseudo-Mercator ==> EPSG:4326 WGS 84
+				// https://epsg.io/transform#s_srs=3857&t_srs=4326&x=1195475.1220960&y=5467999.2554860
+				// 
 				m_posX = posX;
 				m_posY = 0.0;
 				m_posZ = posZ;
@@ -103,6 +119,12 @@ namespace TheWorld_MapManager
 				m_level = level;
 				m_initialAltitude = initialAltitude;
 				m_rowid = rowid;
+			}
+
+			float getLatLong(float coord, latlong_type type)
+			{
+				// TODO
+				return 0.0;
 			}
 			
 			float posX(void) { return m_posX; };
