@@ -60,8 +60,20 @@ namespace TheWorld_MapManager
 			}
 			MapVertex(float posX, float posZ, int level = 0)
 			{
+				initMapVertex(posX, posZ, 0.0, level);
+			}
+
+			MapVertex(float posX, float posZ, float initialAltitude, int level = 0)
+			{
+				initMapVertex(posX, posZ, initialAltitude, level);
+			}
+
+			~MapVertex() {}
+
+			void initMapVertex(float posX, float posZ, float initialAltitude, int level = 0)
+			{
 				m_posX = posX;
-				m_posY = 0.0;
+				m_posY = 0.0;		// Altitude will be calculated later
 				m_posZ = posZ;
 				getLatLong(posX, latlong_type::degrees);
 				getLatLong(posX, latlong_type::minutes);
@@ -69,29 +81,6 @@ namespace TheWorld_MapManager
 				getLatLong(posZ, latlong_type::degrees);
 				getLatLong(posZ, latlong_type::minutes);
 				getLatLong(posZ, latlong_type::seconds);
-				m_level = level;
-				m_initialAltitude = 0.0;
-				m_radius = sqrtf(powf(m_posX, 2.0) + powf(m_posZ, 2.0));
-				if ((m_posX == 0 && m_posZ == 0) || m_radius == 0)
-					m_azimuth = 0;
-				else
-				{
-					//angle of radius with x-axus (complementar of 2PI if Z < 0)
-					m_azimuth = acosf(m_posX / m_radius);
-					if (m_posZ < 0)
-						m_azimuth = (float)(M_PI * 2.0) - m_azimuth;
-				}
-				m_rowid = -1;
-			}
-
-			MapVertex(float posX, float posZ, float initialAltitude, int level = 0)
-			{
-				// EPSG:3857 WGS 84 / Pseudo-Mercator ==> EPSG:4326 WGS 84
-				// https://epsg.io/transform#s_srs=3857&t_srs=4326&x=1195475.1220960&y=5467999.2554860
-				// 
-				m_posX = posX;
-				m_posY = 0.0;
-				m_posZ = posZ;
 				m_level = level;
 				m_initialAltitude = initialAltitude;
 				m_radius = sqrtf(powf(m_posX, 2.0) + powf(m_posZ, 2.0));
@@ -106,9 +95,7 @@ namespace TheWorld_MapManager
 				}
 				m_rowid = -1;
 			}
-
-			~MapVertex() {}
-
+			
 			void setInternalValues(float posX, float posY, float posZ, float radius, float azimuth, int level, float initialAltitude, __int64 rowid)
 			{
 				m_posX = posX;
@@ -124,6 +111,16 @@ namespace TheWorld_MapManager
 			float getLatLong(float coord, latlong_type type)
 			{
 				// TODO
+				// EPSG:3857 WGS 84 / Pseudo-Mercator ==> EPSG:4326 WGS 84
+				// https://epsg.io/transform#s_srs=3857&t_srs=4326&x=1195475.1220960&y=5467999.2554860
+				// 
+				// https://gis.stackexchange.com/questions/48949/epsg-3857-or-4326-for-googlemaps-openstreetmap-and-leaflet
+				// 
+				// Google Earth is in a Geographic coordinate system with the wgs84 datum. (EPSG: 4326)
+				// Google Maps is in a projected coordinate system that is based on the wgs84 datum. (EPSG 3857)
+				// The data in Open Street Map database is stored in a gcs with units decimal degrees& datum of wgs84. (EPSG: 4326)
+				// The Open Street Map tilesand the WMS webservice, are in the projected coordinate system that is based on the wgs84 datum. (EPSG 3857)
+				//
 				return 0.0;
 			}
 			
