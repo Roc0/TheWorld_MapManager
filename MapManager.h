@@ -50,6 +50,8 @@ namespace TheWorld_MapManager
 
 	private:
 		float getDistance(float x1, float y1, float x2, float y2);
+		bool TransformProjectedCoordEPSG3857ToGeoCoordEPSG4326(double X, double Y, double& lon, double& lat, int& lonDegrees, int& lonMinutes, double& lonSeconds, int& latDegrees, int& latMinutes, double& latSeconds);
+		void DecimalDegreesToDMS(double decimalDegrees, double& degrees, double& minutes, double& seconds);
 		//float getDistance(Vector3f v1, Vector3f v2);
 
 	private:

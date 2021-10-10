@@ -75,12 +75,6 @@ namespace TheWorld_MapManager
 				m_posX = posX;
 				m_posY = 0.0;		// Altitude will be calculated later
 				m_posZ = posZ;
-				getLatLong(posX, latlong_type::degrees);
-				getLatLong(posX, latlong_type::minutes);
-				getLatLong(posX, latlong_type::seconds);
-				getLatLong(posZ, latlong_type::degrees);
-				getLatLong(posZ, latlong_type::minutes);
-				getLatLong(posZ, latlong_type::seconds);
 				m_level = level;
 				m_initialAltitude = initialAltitude;
 				m_radius = sqrtf(powf(m_posX, 2.0) + powf(m_posZ, 2.0));
@@ -108,22 +102,6 @@ namespace TheWorld_MapManager
 				m_rowid = rowid;
 			}
 
-			float getLatLong(float coord, latlong_type type)
-			{
-				// TODO
-				// EPSG:3857 WGS 84 / Pseudo-Mercator ==> EPSG:4326 WGS 84
-				// https://epsg.io/transform#s_srs=3857&t_srs=4326&x=1195475.1220960&y=5467999.2554860
-				// 
-				// https://gis.stackexchange.com/questions/48949/epsg-3857-or-4326-for-googlemaps-openstreetmap-and-leaflet
-				// 
-				// Google Earth is in a Geographic coordinate system with the wgs84 datum. (EPSG: 4326)
-				// Google Maps is in a projected coordinate system that is based on the wgs84 datum. (EPSG 3857)
-				// The data in Open Street Map database is stored in a gcs with units decimal degrees& datum of wgs84. (EPSG: 4326)
-				// The Open Street Map tilesand the WMS webservice, are in the projected coordinate system that is based on the wgs84 datum. (EPSG 3857)
-				//
-				return 0.0;
-			}
-			
 			float posX(void) { return m_posX; };
 			float posY(void) { return m_posY; };
 			float posZ(void) { return m_posZ; };

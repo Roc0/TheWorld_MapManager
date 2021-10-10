@@ -127,14 +127,14 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\eigen-3.3.9;..\GSL\Include;..\jsoncpp\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\eigen-3.3.9;..\GSL\Include;..\jsoncpp\include;..\PROJ\src</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>..\x64;$(SolutionDir)$(Platform)\</AdditionalLibraryDirectories>
-      <AdditionalDependencies>lib_json_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\x64;..\PROJ\Bin\lib\Debug;$(SolutionDir)$(Platform)\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>lib_json_d.lib;proj_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -147,7 +147,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\eigen-3.3.9;..\GSL\Include;..\jsoncpp\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\eigen-3.3.9;..\GSL\Include;..\jsoncpp\include;..\PROJ\src</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -155,7 +155,8 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>..\x64;$(SolutionDir)$(Platform)\</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\x64;..\PROJ\Bin\lib\Release;$(SolutionDir)$(Platform)\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>lib_json.lib;proj.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -54,7 +54,7 @@ namespace TheWorld_MapManager
 		m_dbOpsInternalTransaction.endTransaction(commit);
 	}
 
-	__int64 DBSQLLite::addWDAndVertices(WorldDefiner* pWD, vector<MapVertex>& mapVertices)
+	__int64 DBSQLLite::addWDAndVertices(WorldDefiner* pWD, vector<MapVertex>& vectMapVertices)
 	{
 		vector<sqlite3_int64> MapVertexRowId;
 		debugUtils debugUtil;
@@ -110,7 +110,7 @@ namespace TheWorld_MapManager
 		/*
 		* INSERT in table MapVertex
 		*/
-		int numVertices = (int)mapVertices.size();
+		int numVertices = (int)vectMapVertices.size();
 		int idx = 0;
 		int affectedByWD = 0;
 		int notAffectedByWD = 0;
@@ -124,7 +124,7 @@ namespace TheWorld_MapManager
 			for (idx = 0; idx < numVertices; idx++)
 			{
 				bool vertexAffectedByWD = false;
-				if (pWD && getDistance(pWD->getPosX(), pWD->getPosZ(), mapVertices[idx].posX(), mapVertices[idx].posZ()) <= pWD->getAOE())
+				if (pWD && getDistance(pWD->getPosX(), pWD->getPosZ(), vectMapVertices[idx].posX(), vectMapVertices[idx].posZ()) <= pWD->getAOE())
 				{
 					vertexAffectedByWD = true;
 					affectedByWD++;
@@ -132,31 +132,31 @@ namespace TheWorld_MapManager
 				else
 					notAffectedByWD++;
 
-				int rc = sqlite3_bind_double(dbOps->getStmt(), 1, mapVertices[idx].posX());
+				int rc = sqlite3_bind_double(dbOps->getStmt(), 1, vectMapVertices[idx].posX());
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex.PosX failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 				
-				rc = sqlite3_bind_double(dbOps->getStmt(), 2, mapVertices[idx].posZ());
+				rc = sqlite3_bind_double(dbOps->getStmt(), 2, vectMapVertices[idx].posZ());
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex.PosZ failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 				
-				rc = sqlite3_bind_double(dbOps->getStmt(), 3, mapVertices[idx].radius());
+				rc = sqlite3_bind_double(dbOps->getStmt(), 3, vectMapVertices[idx].radius());
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex.radius failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 				
-				rc = sqlite3_bind_double(dbOps->getStmt(), 4, mapVertices[idx].azimuth());
+				rc = sqlite3_bind_double(dbOps->getStmt(), 4, vectMapVertices[idx].azimuth());
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex.azimuth failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 				
-				rc = sqlite3_bind_int(dbOps->getStmt(), 5, mapVertices[idx].level());
+				rc = sqlite3_bind_int(dbOps->getStmt(), 5, vectMapVertices[idx].level());
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex.level failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 				
-				rc = sqlite3_bind_double(dbOps->getStmt(), 6, mapVertices[idx].initialAltitude());
+				rc = sqlite3_bind_double(dbOps->getStmt(), 6, vectMapVertices[idx].initialAltitude());
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex.initialAltitude failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 				
-				rc = sqlite3_bind_double(dbOps->getStmt(), 7, mapVertices[idx].initialAltitude());	// Not affected vertices have 0.0 altitude, for affected vertices altitude will be computed later as they are inserted in MapVertex_Mod table
+				rc = sqlite3_bind_double(dbOps->getStmt(), 7, vectMapVertices[idx].initialAltitude());	// Not affected vertices have 0.0 altitude, for affected vertices altitude will be computed later as they are inserted in MapVertex_Mod table
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind MapVertex.PosY failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 
@@ -166,7 +166,7 @@ namespace TheWorld_MapManager
 				dbOps->releaseLock();
 				if (rc != SQLITE_DONE && rc != SQLITE_CONSTRAINT)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB insert vertex failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-				if (rc == SQLITE_CONSTRAINT && mapVertices[idx].initialAltitude() != 0.0)
+				if (rc == SQLITE_CONSTRAINT && vectMapVertices[idx].initialAltitude() != 0.0)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB insert vertex failed (duplicate Vertex in imported mesh)", sqlite3_errmsg(dbOps->getConn()), rc));
 				if (rc == SQLITE_DONE)
 					inserted++;
@@ -181,7 +181,7 @@ namespace TheWorld_MapManager
 						DBSQLLiteOps dbOps1(dbFilePath());
 						dbOps1.init();
 						string sql = "SELECT rowid FROM MapVertex WHERE PosX = %s AND PosZ = %s AND Level = %s;";
-						string sql1 = dbOps1.completeSQL(sql.c_str(), to_string(mapVertices[idx].posX()).c_str(), to_string(mapVertices[idx].posZ()).c_str(), to_string(mapVertices[idx].level()).c_str());
+						string sql1 = dbOps1.completeSQL(sql.c_str(), to_string(vectMapVertices[idx].posX()).c_str(), to_string(vectMapVertices[idx].posZ()).c_str(), to_string(vectMapVertices[idx].level()).c_str());
 						dbOps1.prepareStmt(sql1.c_str());
 						dbOps1.acquireLock();
 						rc = sqlite3_step(dbOps1.getStmt());
