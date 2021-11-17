@@ -45,54 +45,38 @@ namespace TheWorld_MapManager
 
 		// we have to find all the vertices affected by AOE according to the fact that the map can grow with square map of point of g_DBGrowingBlockVertexNumber vertices
 		float minAOEX = WD.getPosX() - WD.getAOE();
-		if (minAOEX < 0 && -minAOEX < g_DBGrowingBlockVertexNumber)
-			minAOEX = -g_DBGrowingBlockVertexNumber;
-
 		float maxAOEX = WD.getPosX() + WD.getAOE();
-		if (maxAOEX > 0 && maxAOEX < g_DBGrowingBlockVertexNumber)
-			maxAOEX = g_DBGrowingBlockVertexNumber;
-
 		float minAOEZ = WD.getPosZ() - WD.getAOE();
-		if (minAOEZ < 0 && -minAOEZ < g_DBGrowingBlockVertexNumber)
-			minAOEZ = -g_DBGrowingBlockVertexNumber;
-
 		float maxAOEZ = WD.getPosZ() + WD.getAOE();
-		if (maxAOEZ > 0 && maxAOEZ < g_DBGrowingBlockVertexNumber)
-			maxAOEZ = g_DBGrowingBlockVertexNumber;
 
-		int minVertexX = int(minAOEX / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
-		if (minVertexX < 0 && minVertexX != minAOEX)
-			minVertexX -= g_DBGrowingBlockVertexNumber;
-		
-		int maxVertexX = int(maxAOEX / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
-		if (maxVertexX > 0 && maxVertexX != maxAOEX)
-			maxVertexX += g_DBGrowingBlockVertexNumber;
+		int minGridPosX = 0;
+		int maxGridPosX = 0;
+		int minGridPosZ = 0;
+		int maxGridPosZ = 0;
 
-		int minVertexZ = int(minAOEZ / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
-		if (minVertexZ < 0 && minVertexZ != minAOEZ)
-			minVertexZ -= g_DBGrowingBlockVertexNumber;
+		float gridStepInWU = 0.0;
 
-		int maxVertexZ = int(maxAOEZ / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
-		if (maxVertexZ > 0 && maxVertexZ != maxAOEZ)
-			maxVertexZ += g_DBGrowingBlockVertexNumber;
+		// we need to calculate the grid so that it is expressed of square patches with a number of vertices for every size equal to g_DBGrowingBlockVertexNumber
+		// they are spaced by a number of WU equal to gridStepInWU (g_gridStepInWU)
+		calcSquareGridMinMax(minAOEX, maxAOEX, minAOEZ, maxAOEZ, minGridPosX, maxGridPosX, minGridPosZ, maxGridPosZ, gridStepInWU);
 
-		int mapVertexSize = (maxVertexX - minVertexX + 1) * (maxVertexZ - minVertexZ + 1);
+		int gridSize = (maxGridPosX - minGridPosX + 1) * (maxGridPosZ - minGridPosZ + 1);
 		vector<SQLInterface::MapVertex> v;
 		
 		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Computing affected vertices by WorldDefiner: ");
 
 		int numVertices = 0;
-		for (int x = minVertexX; x <= maxVertexX; x++)
+		for (int x = minGridPosX; x <= maxGridPosX; x++)
 		{
-			for (int z = minVertexZ; z <= maxVertexZ; z++)
+			for (int z = minGridPosZ; z <= maxGridPosZ; z++)
 			{
 				// guard
 				{
 					numVertices++;
-					assert(numVertices <= mapVertexSize);
+					assert(numVertices <= gridSize);
 				}
 
-				SQLInterface::MapVertex mapv((float)(x * g_distanceFromVerticesInWU), (float)(z * g_distanceFromVerticesInWU), WD.getLevel());
+				SQLInterface::MapVertex mapv(float(x) * gridStepInWU, float(z) * gridStepInWU, WD.getLevel());
 				v.push_back(mapv);
 
 				if (debugMode() && fmod(numVertices, 1024 * 1000) == 0) debugUtil.printVariablePartOfLine(numVertices);
@@ -109,6 +93,73 @@ namespace TheWorld_MapManager
 		if (debugMode()) debugUtil.printNewLine();
 
 		return rowid;
+	}
+
+	// Return a square grid with a number of vertices for every size multiple of g_DBGrowingBlockVertexNumber, they are spaced by a number of WU equal to g_gridStepInWU
+	// every point of the grid is defined by its X and Z coord expressed in WU in whole numbers 
+	void MapManager::calcSquareGridMinMax(float minAOEX, float maxAOEX, float minAOEZ, float maxAOEZ, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU)
+	{
+		if (minAOEX < 0 && -minAOEX < g_DBGrowingBlockVertexNumber)
+			minAOEX = -g_DBGrowingBlockVertexNumber;
+
+		if (maxAOEX > 0 && maxAOEX < g_DBGrowingBlockVertexNumber)
+			maxAOEX = g_DBGrowingBlockVertexNumber;
+
+		if (minAOEZ < 0 && -minAOEZ < g_DBGrowingBlockVertexNumber)
+			minAOEZ = -g_DBGrowingBlockVertexNumber;
+
+		if (maxAOEZ > 0 && maxAOEZ < g_DBGrowingBlockVertexNumber)
+			maxAOEZ = g_DBGrowingBlockVertexNumber;
+
+		// transform: WU ==> grid step
+		minAOEX /= g_gridStepInWU;
+		maxAOEX /= g_gridStepInWU;
+		minAOEZ /= g_gridStepInWU;
+		maxAOEZ /= g_gridStepInWU;
+
+		minGridPosX = int(minAOEX / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
+		if (minGridPosX < 0 && minGridPosX != minAOEX)
+			minGridPosX -= g_DBGrowingBlockVertexNumber;
+
+		maxGridPosX = int(maxAOEX / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
+		if (maxGridPosX > 0 && maxGridPosX != maxAOEX)
+			maxGridPosX += g_DBGrowingBlockVertexNumber;
+
+		minGridPosZ = int(minAOEZ / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
+		if (minGridPosZ < 0 && minGridPosZ != minAOEZ)
+			minGridPosZ -= g_DBGrowingBlockVertexNumber;
+
+		maxGridPosZ = int(maxAOEZ / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
+		if (maxGridPosZ > 0 && maxGridPosZ != maxAOEZ)
+			maxGridPosZ += g_DBGrowingBlockVertexNumber;
+
+		gridStepInWU = g_gridStepInWU;
+	}
+	
+	void MapManager::getSquareGrid(float minAOEX, float maxAOEX, float minAOEZ, float maxAOEZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU)
+	{
+		int minGridPosX = 0;
+		int maxGridPosX = 0;
+		int minGridPosZ = 0;
+		int maxGridPosZ = 0;
+
+		calcSquareGridMinMax(minAOEX, maxAOEX, minAOEZ, maxAOEZ, minGridPosX, maxGridPosX, minGridPosZ, maxGridPosZ, gridStepInWU);
+
+		numPointX = maxGridPosX - minGridPosX + 1;
+		numPointZ = maxGridPosZ - minGridPosZ + 1;
+
+		grid.clear();
+
+		for (int x = minGridPosX; x <= maxGridPosX; x++)
+		{
+			for (int z = minGridPosZ; z <= maxGridPosZ; z++)
+			{
+				gridPoint p;
+				p.x = float(x) * gridStepInWU;
+				p.z = float(z) * gridStepInWU;
+				grid.push_back(p);
+			}
+		}
 	}
 
 	bool MapManager::eraseWD(__int64 wdRowid)
@@ -293,30 +344,18 @@ namespace TheWorld_MapManager
 		// RMTODO
 	}
 
-	void MapManager::LoadGISMap(const char* fileInput, bool writeReport, int level)
+	void MapManager::LoadGISMap(const char* fileInput, bool writeReport, float metersInWU, int level)
 	{
+		// ***************************************************************************************************
+		// W A R N I N G : assuming coordinates are in projected coordinates EPSG 3857 where the unit is metre
+		// ***************************************************************************************************
+
 		TimerMs clock; // Timer<milliseconds, steady_clock>
 		if (instrumented()) clock.tick();
 
-		struct point
-		{
-			bool operator()(const point& p1, const point& p2) const
-			{
-				if (p1.x < p2.x)
-					return true;
-				if (p1.x > p2.x)
-					return false;
-				else
-					return p1.y < p2.y;
-			}
-			double x;
-			double y;
-		};
+		debugUtils debugUtil;
+		debugUtils debugUtil1;
 
-		typedef map<point, vector<double>, point> pointMap;
-		pointMap altiduesMap;
-		pointMap::iterator it;
-		
 		// *************************************************************************
 		// W A R N I N G : Z axis  is UP (Blender uses right hand coordinate system)
 		// *************************************************************************
@@ -352,8 +391,72 @@ namespace TheWorld_MapManager
 			outFile << "Size X: " << to_string(adfMaxBound[0] - adfMinBound[0]) << " Size Y: " << to_string(adfMaxBound[1] - adfMinBound[1]) << " Size Z: " << to_string(adfMaxBound[2] - adfMinBound[2]) << " Size M: " << to_string(adfMaxBound[3] - adfMinBound[3]) << "\n";
 		}
 
-		debugUtils debugUtil;
-		debugUtils debugUtil1;
+		// transfom: meters ==> WUs
+		float minAOEX = (float)adfMinBound[0] / metersInWU;
+		float maxAOEX = (float)adfMaxBound[0] / metersInWU;
+		float minAOEZ = (float)adfMinBound[1] / metersInWU;
+		float maxAOEZ = (float)adfMaxBound[1] / metersInWU;
+
+		vector<gridPoint> grid;
+		int numPointX = 0;
+		int numPointZ = 0;
+		float gridStepInWU = 0.0;
+
+		// we need to calculate the grid so that it is expressed of square patches with a number of vertices for every size equal to g_DBGrowingBlockVertexNumber
+		// so the grid has a number of vertices equal to a multiple of g_DBGrowingBlockVertexNumber, they are spaced by a number of WU equal to gridStepInWU (g_gridStepInWU)
+		getSquareGrid(minAOEX, maxAOEX, minAOEZ, maxAOEZ, grid, numPointX, numPointZ, gridStepInWU);
+
+		if (writeReport)
+		{
+			string s = "Dumping grid - Num points: " + to_string(numPointX * numPointZ) + " (" + to_string(numPointX) + " x " + to_string(numPointZ) + ") - Point: ";
+
+			outFile << endl << "Inizio grid Num points: " << to_string(numPointX * numPointZ) << " (" << to_string(numPointX) << " x " << to_string(numPointZ) << ")" << endl;
+			if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str());
+			int idxPoint = 0, row = 0, col = 0;
+			for (int x = 0; x < numPointX; x++)
+			{
+				row++;
+				col = 0;
+				for (int z = 0; z < numPointZ; z++)
+				{
+					if (z == 0)
+						outFile << "Row: " << to_string(row) << " - X: " << to_string(grid[idxPoint].x) << endl;
+
+					col++;
+					outFile << "   Col: " << to_string(col) << " - Z: " << to_string(grid[idxPoint].z) << endl;
+					idxPoint++;
+					if (debugMode() && fmod(idxPoint + 1, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
+				}
+			}
+			outFile << endl << "Fine grid" << endl;
+
+			if (debugMode())
+			{
+				debugUtil.printVariablePartOfLine(idxPoint);
+				debugUtil.printNewLine();
+			}
+		}
+			
+		struct point
+		{
+			// use to keep the map sorted by x, y
+			bool operator()(const point& p1, const point& p2) const
+			{
+				if (p1.x < p2.x)
+					return true;
+				if (p1.x > p2.x)
+					return false;
+				else
+					return p1.y < p2.y;
+			}
+			double x;
+			double y;
+		};
+
+		typedef map<point, vector<double>, point> pointMap;
+		pointMap altiduesMap;
+		pointMap::iterator it;
+
 		string s = "Looping into entities of: " + filePath + " - Entities(" + to_string(nEntities) + "): ";
 		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str());
 		for (int i = 0; i < nEntities; i++)
@@ -374,9 +477,12 @@ namespace TheWorld_MapManager
 				double* z = psShape->padfZ;
 				double* m = psShape->padfM;
 
-				string s = "Dumping vertices(" + to_string(psShape->nVertices) + "): ";
-				if (debugMode()) debugUtil1.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str(), &debugUtil);
-				if (debugMode()) debugUtil1.printNewLine();
+				if (debugMode())
+				{
+					string s = "Dumping vertices(" + to_string(psShape->nVertices) + "): ";
+					debugUtil1.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str(), &debugUtil);
+					debugUtil1.printNewLine();
+				}
 				for (int v = 0; v < psShape->nVertices; v++)
 				{
 					if (writeReport)
@@ -415,12 +521,10 @@ namespace TheWorld_MapManager
 
 		SHPClose(handle);
 
-		int idxPoint = 0;
-
-		if (writeReport)
+		/*if (writeReport)
 		{
 			if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Dumping altitudes for every point of the plane: ", &debugUtil1);
-			idxPoint = 0;
+			int idxPoint = 0;
 			for (it = altiduesMap.begin(); it != altiduesMap.end(); it++)
 			{
 				idxPoint++;
@@ -431,14 +535,52 @@ namespace TheWorld_MapManager
 				if (debugMode() && fmod(idxPoint, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
 			}
 			if (debugMode()) debugUtil.printVariablePartOfLine(idxPoint);
+		}*/
+
+		// Test
+		if (writeReport) 
+		{
+			if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Dumping Row / Column for every point of the plane: ", &debugUtil1);
+
+			int idxPoint = 0;
+			outFile << endl << "Inizio test" << endl;
+			int row = 0, col = 0, maxCols = 0;
+			double lastX = 0.0;
+			for (it = altiduesMap.begin(); it != altiduesMap.end(); it++)
+			{
+				if (it->second.size() != 1)
+					throw(MapManagerException(__FUNCTION__, "Found point with a number of altitudes not equal 1"));
+
+				idxPoint++;
+
+				if (it->first.x != lastX)
+				{
+					lastX = it->first.x;
+					row++;
+					if (col > maxCols)
+						maxCols = col;
+					col = 0;
+					outFile << "Row: " << to_string(row) << " - Vertex X: " << to_string(it->first.x) << endl;
+				}
+				col++;
+				outFile << "   Col: " << to_string(col) << " - Vertex Y: " << to_string(it->first.y) << " - Altitude: " << it->second[0] << endl;
+
+				if (debugMode() && fmod(idxPoint, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
+			}
+			outFile << endl << "Fine test - Rows: " << to_string(row) << " - MaxCols: " << to_string(maxCols) << endl;
+
+			if (debugMode()) debugUtil.printVariablePartOfLine(idxPoint);
 		}
 
 		vector<SQLInterface::MapVertex> vectMapVertices;
 
 		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Dumping max altitude for every point of the plane: ", &debugUtil);
-		idxPoint = 0;
+		int idxPoint = 0;
 		for (it = altiduesMap.begin(); it != altiduesMap.end(); it++)
 		{
+			if (it->second.size() != 1)
+				throw(MapManagerException(__FUNCTION__, "Found point with a number of altitudes not equal 1"));
+
 			idxPoint++;
 			double maxAltitude = 0;
 			for (int idxAltitudes = 0; idxAltitudes < it->second.size(); idxAltitudes++)
@@ -449,10 +591,8 @@ namespace TheWorld_MapManager
 			if (writeReport)
 				outFile << "Point " << to_string(idxPoint).c_str() << " - Vertex X: " << to_string(it->first.x) << " - Vertex Y: " << to_string(it->first.y) << " - NumAltitudes: " << to_string(it->second.size()) << " - MaxAltitude: " << to_string(maxAltitude) << endl;
 			if (debugMode() && fmod(idxPoint, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
-			if (it->second.size() != 1)
-				throw(MapManagerException(__FUNCTION__, "Found point with a number of altitudes not equal 1"));
 			
-			SQLInterface::MapVertex mapVertex((float)(it->first.x), (float)(it->first.y), (float)maxAltitude, level);
+			SQLInterface::MapVertex mapVertex((float)(it->first.x) / metersInWU, (float)(it->first.y) / metersInWU, (float)maxAltitude / g_gridStepInWU, level);
 			vectMapVertices.push_back(mapVertex);
 		}
 		if (debugMode()) debugUtil.printVariablePartOfLine(idxPoint);
@@ -460,7 +600,7 @@ namespace TheWorld_MapManager
 		if (writeReport)
 			outFile.close();
 
-		__int64 rowid = m_SqlInterface->addWDAndVertices(NULL, vectMapVertices);
+		//__int64 rowid = m_SqlInterface->addWDAndVertices(NULL, vectMapVertices);
 
 		
 		if (instrumented()) clock.printDuration(__FUNCTION__);
@@ -538,28 +678,24 @@ namespace TheWorld_MapManager
 
 		// https://www.calculatorsoup.com/calculators/conversions/convert-decimal-degrees-to-degrees-minutes-seconds.php
 
-		double _lonDegrees, _lonMinutes;
-		DecimalDegreesToDMS(lonDecimalDegrees, _lonDegrees, _lonMinutes, lonSeconds);
-		lonDegrees = (int)_lonDegrees;
-		lonMinutes = (int)_lonMinutes;
+		DecimalDegreesToDegreesMinutesSeconds(lonDecimalDegrees, lonDegrees, lonMinutes, lonSeconds);
 
-		double _latDegrees, _latMinutes;
-		DecimalDegreesToDMS(latDecimalDegrees, _latDegrees, _latMinutes, latSeconds);
-		latDegrees = (int)_latDegrees;
-		latMinutes = (int)_latMinutes;
+		DecimalDegreesToDegreesMinutesSeconds(latDecimalDegrees, latDegrees, latMinutes, latSeconds);
 
 		return true;
 	}
 
-	void MapManager::DecimalDegreesToDMS(double decimalDegrees, double& degrees, double& minutes, double& seconds)
+	void MapManager::DecimalDegreesToDegreesMinutesSeconds(double decimalDegrees, int& degrees, int& minutes, double& seconds)
 	{
 		//Follow these steps to convert decimal degrees to DMS :
 		// For the degrees use the whole number part of the decimal
 		// For the minutes multiply the remaining decimal by 60. Use the whole number part of the answer as minutes.
 		// For the seconds multiply the new remaining decimal by 60
-		degrees = floor(decimalDegrees);
-		decimalDegrees = (decimalDegrees - degrees) * 60;
-		minutes = floor(decimalDegrees);
-		seconds = (decimalDegrees - minutes) * 60;
+		double d = floor(decimalDegrees);
+		degrees = (int)d;
+		decimalDegrees = (decimalDegrees - d) * 60;
+		d = floor(decimalDegrees);
+		minutes = (int)d;
+		seconds = (decimalDegrees - d) * 60;
 	}
 }
