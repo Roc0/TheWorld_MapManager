@@ -99,6 +99,75 @@ namespace TheWorld_MapManager
 	// every point of the grid is defined by its X and Z coord expressed in WU in whole numbers 
 	void MapManager::calcSquareGridMinMax(float minAOEX, float maxAOEX, float minAOEZ, float maxAOEZ, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU)
 	{
+		gridStepInWU = g_gridStepInWU;
+
+		float GrowingBlockInWU = g_DBGrowingBlockVertexNumber * gridStepInWU;
+		
+		//minAOEX = -10.0;
+		//maxAOEX = 10.0;
+		//minAOEZ = -10.0;
+		//maxAOEZ = 10.0;
+
+		if (minAOEX > 0)
+		{
+			if (minAOEX < GrowingBlockInWU)
+				minAOEX = 0;
+		}
+		else if (minAOEX < 0)
+		{
+			if (abs(minAOEX) < GrowingBlockInWU)
+				minAOEX = -GrowingBlockInWU;
+		}
+
+
+		if (maxAOEX > 0)
+		{
+			if (maxAOEX < GrowingBlockInWU)
+				maxAOEX = GrowingBlockInWU;
+		}
+		else if (maxAOEX < 0)
+		{
+			if (abs(maxAOEX) < GrowingBlockInWU)
+				maxAOEX = 0;
+		}
+
+		if (minAOEZ > 0)
+		{
+			if (minAOEZ < GrowingBlockInWU)
+				minAOEZ = 0;
+		}
+		else if (minAOEZ < 0)
+		{
+			if (abs(minAOEZ) < GrowingBlockInWU)
+				minAOEZ = -GrowingBlockInWU;
+		}
+
+		if (maxAOEZ > 0)
+		{
+			if (maxAOEZ < GrowingBlockInWU)
+				maxAOEZ = GrowingBlockInWU;
+		}
+		else if (maxAOEZ < 0)
+		{
+			if (abs(maxAOEZ) < GrowingBlockInWU)
+				maxAOEZ = 0;
+		}
+
+		float minPosX = floorf(minAOEX / GrowingBlockInWU) * GrowingBlockInWU;
+		float maxPosX = floorf(maxAOEX / GrowingBlockInWU) * GrowingBlockInWU;
+		if (maxPosX < maxAOEX)
+			maxPosX += GrowingBlockInWU;
+		float minPosZ = floorf(minAOEZ / GrowingBlockInWU) * GrowingBlockInWU;
+		float maxPosZ = floorf(maxAOEZ / GrowingBlockInWU) * GrowingBlockInWU;
+		if (maxPosZ < maxAOEZ)
+			maxPosZ += GrowingBlockInWU;
+
+		minGridPosX = int(minPosX / gridStepInWU);
+		maxGridPosX = int(maxPosX / gridStepInWU);
+		minGridPosZ = int(minPosZ / gridStepInWU);
+		maxGridPosZ = int(maxPosZ / gridStepInWU);
+
+		/*
 		if (minAOEX < 0 && -minAOEX < g_DBGrowingBlockVertexNumber)
 			minAOEX = -g_DBGrowingBlockVertexNumber;
 
@@ -118,6 +187,8 @@ namespace TheWorld_MapManager
 		maxAOEZ /= g_gridStepInWU;
 
 		minGridPosX = int(minAOEX / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
+		//float minPosX = floorf(minAOEX / (g_DBGrowingBlockVertexNumber * g_gridStepInWU)) * (g_DBGrowingBlockVertexNumber * g_gridStepInWU);
+		//minGridPosX = minPosX / g_gridStepInWU;
 		if (minGridPosX < 0 && minGridPosX != minAOEX)
 			minGridPosX -= g_DBGrowingBlockVertexNumber;
 
@@ -134,8 +205,10 @@ namespace TheWorld_MapManager
 			maxGridPosZ += g_DBGrowingBlockVertexNumber;
 
 		gridStepInWU = g_gridStepInWU;
+		*/
 	}
 	
+	// return a square grid as a vector of gridPoint stepped by gridStepInWU (g_gridStepInWU) which is in size numPointX x numPointZ and placed as a sequence of rows (a row incrementng z)
 	void MapManager::getSquareGrid(float minAOEX, float maxAOEX, float minAOEZ, float maxAOEZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU)
 	{
 		int minGridPosX = 0;
@@ -150,9 +223,9 @@ namespace TheWorld_MapManager
 
 		grid.clear();
 
-		for (int x = minGridPosX; x <= maxGridPosX; x++)
+		for (int z = minGridPosZ; z <= maxGridPosZ; z++)
 		{
-			for (int z = minGridPosZ; z <= maxGridPosZ; z++)
+			for (int x = minGridPosX; x <= maxGridPosX; x++)
 			{
 				gridPoint p;
 				p.x = float(x) * gridStepInWU;
@@ -344,11 +417,31 @@ namespace TheWorld_MapManager
 		// RMTODO
 	}
 
+	struct GISPoint
+	{
+		// use to keep the map sorted by x, y in fact the third parameter of a map definition defaults to std::less<point> which uses operator<
+		bool operator<(const GISPoint& p) const
+		{
+			if (x < p.x)
+				return true;
+			if (x > p.x)
+				return false;
+			else
+				return y < p.y;
+		}
+		double x;
+		double y;
+	};
+	typedef map<int, vector<GISPoint>> _GISPointsAffectingGridPoints;
+
+	//typedef map<point, vector<double>, std::less<point>> pointMap;
+	typedef map<GISPoint, vector<double>> _GISPointMap;
+
 	void MapManager::LoadGISMap(const char* fileInput, bool writeReport, float metersInWU, int level)
 	{
-		// ***************************************************************************************************
-		// W A R N I N G : assuming coordinates are in projected coordinates EPSG 3857 where the unit is metre
-		// ***************************************************************************************************
+		// *****************************************************************************************************************
+		// W A R N I N G : assuming coordinates in input file are in projected coordinates EPSG 3857 where the unit is metre
+		// *****************************************************************************************************************
 
 		TimerMs clock; // Timer<milliseconds, steady_clock>
 		if (instrumented()) clock.tick();
@@ -356,9 +449,9 @@ namespace TheWorld_MapManager
 		debugUtils debugUtil;
 		debugUtils debugUtil1;
 
-		// *************************************************************************
-		// W A R N I N G : Z axis  is UP (Blender uses right hand coordinate system)
-		// *************************************************************************
+		// ***************************************************************************
+		// W A R N I N G : Z axis  is UP (Blender uses right handed coordinate system: X left to right, Y front to back, Z top to bottom)
+		// ***************************************************************************
 
 		//string filePath = "D:\\TheWorld\\Client\\Italy_shapefile\\it_10km.shp";
 		// https://www.youtube.com/watch?v=lP52QKda3mw
@@ -391,33 +484,40 @@ namespace TheWorld_MapManager
 			outFile << "Size X: " << to_string(adfMaxBound[0] - adfMinBound[0]) << " Size Y: " << to_string(adfMaxBound[1] - adfMinBound[1]) << " Size Z: " << to_string(adfMaxBound[2] - adfMinBound[2]) << " Size M: " << to_string(adfMaxBound[3] - adfMinBound[3]) << "\n";
 		}
 
-		// transfom: meters ==> WUs
-		float minAOEX = (float)adfMinBound[0] / metersInWU;
-		float maxAOEX = (float)adfMaxBound[0] / metersInWU;
-		float minAOEZ = (float)adfMinBound[1] / metersInWU;
-		float maxAOEZ = (float)adfMaxBound[1] / metersInWU;
+		double minAltitude = adfMinBound[2];
+		
+		// B O U N D I N G   B O X   I N   W U s
+		// transfom: meters ==> WUs, we need to express di bounding box in WUs
+		float minAOE_X_WU = (float)adfMinBound[0] / metersInWU;
+		float maxAOE_X_WU = (float)adfMaxBound[0] / metersInWU;
+		float minAOE_Z_WU = (float)adfMinBound[1] / metersInWU;
+		float maxAOE_Z_WU = (float)adfMaxBound[1] / metersInWU;
 
 		vector<gridPoint> grid;
-		int numPointX = 0;
-		int numPointZ = 0;
-		float gridStepInWU = 0.0;
+		int numPointX;
+		int numPointZ;
+		float gridStepInWU;
 
-		// we need to calculate the grid so that it is expressed of square patches with a number of vertices for every size equal to g_DBGrowingBlockVertexNumber
+		// we need to calculate the grid so that the map grows of multiples of square patches with a number of vertices for every size equal to g_DBGrowingBlockVertexNumber
 		// so the grid has a number of vertices equal to a multiple of g_DBGrowingBlockVertexNumber, they are spaced by a number of WU equal to gridStepInWU (g_gridStepInWU)
-		getSquareGrid(minAOEX, maxAOEX, minAOEZ, maxAOEZ, grid, numPointX, numPointZ, gridStepInWU);
+		getSquareGrid(minAOE_X_WU, maxAOE_X_WU, minAOE_Z_WU, maxAOE_Z_WU, grid, numPointX, numPointZ, gridStepInWU);
 
+		/*
+		// Print the GRID
 		if (writeReport)
 		{
 			string s = "Dumping grid - Num points: " + to_string(numPointX * numPointZ) + " (" + to_string(numPointX) + " x " + to_string(numPointZ) + ") - Point: ";
 
-			outFile << endl << "Inizio grid Num points: " << to_string(numPointX * numPointZ) << " (" << to_string(numPointX) << " x " << to_string(numPointZ) << ")" << endl;
 			if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str());
+
+			outFile << endl << "************************* INIZIO SEZIONE *************************" << endl;
+			outFile << "Inizio grid Num points: " << to_string(numPointX * numPointZ) << " (" << to_string(numPointX) << " x " << to_string(numPointZ) << ")" << endl;
 			int idxPoint = 0, row = 0, col = 0;
-			for (int x = 0; x < numPointX; x++)
+			for (int z = 0; z < numPointZ; z++)
 			{
 				row++;
 				col = 0;
-				for (int z = 0; z < numPointZ; z++)
+				for (int x = 0; x < numPointX; x++)
 				{
 					if (z == 0)
 						outFile << "Row: " << to_string(row) << " - X: " << to_string(grid[idxPoint].x) << endl;
@@ -428,37 +528,28 @@ namespace TheWorld_MapManager
 					if (debugMode() && fmod(idxPoint + 1, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
 				}
 			}
-			outFile << endl << "Fine grid" << endl;
+			outFile << "Fine grid" << endl;
+			outFile << "************************* FINE SEZIONE ***************************" << endl;
 
 			if (debugMode())
 			{
 				debugUtil.printVariablePartOfLine(idxPoint);
 				debugUtil.printNewLine();
 			}
-		}
+		}*/
 			
-		struct point
-		{
-			// use to keep the map sorted by x, y
-			bool operator()(const point& p1, const point& p2) const
-			{
-				if (p1.x < p2.x)
-					return true;
-				if (p1.x > p2.x)
-					return false;
-				else
-					return p1.y < p2.y;
-			}
-			double x;
-			double y;
-		};
+		_GISPointMap GISPointAltiduesMap;
+		_GISPointMap::iterator itGISPointAltiduesMap;
 
-		typedef map<point, vector<double>, point> pointMap;
-		pointMap altiduesMap;
-		pointMap::iterator it;
+		_GISPointsAffectingGridPoints GISPointsAffectingGridPoints;
+		_GISPointsAffectingGridPoints::iterator itGISPointsAffectingGridPoints;
 
-		string s = "Looping into entities of: " + filePath + " - Entities(" + to_string(nEntities) + "): ";
+		// ****************************************
+		// Read input file and create the point map
+		// ****************************************
+		string s = "FIRST LOOP - Looping into entities of: " + filePath + " - Entities(" + to_string(nEntities) + "): ";
 		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str());
+		if (writeReport) outFile << endl << "************************* INIZIO SEZIONE *************************" << endl << s.c_str() << endl;
 		for (int i = 0; i < nEntities; i++)
 		{
 			SHPObject * psShape = SHPReadObject(handle, i);
@@ -469,8 +560,7 @@ namespace TheWorld_MapManager
 					//|| ((psShape->nSHPType == SHPT_POLYGON || psShape->nSHPType == SHPT_POLYGONZ || psShape->nSHPType == SHPT_POLYGONM) && psShape->nParts == 1)
 				)
 			{
-				if (writeReport)
-					outFile << "Entity: " << to_string(i) << " - Num Vertices: " << to_string(psShape->nVertices) << "\n";
+				if (writeReport) outFile << "Entity: " << to_string(i) << " - Num Vertices: " << to_string(psShape->nVertices) << "\n";
 
 				double* x = psShape->padfX;
 				double* y = psShape->padfY;
@@ -479,33 +569,64 @@ namespace TheWorld_MapManager
 
 				if (debugMode())
 				{
-					string s = "Dumping vertices(" + to_string(psShape->nVertices) + "): ";
+					string s = "   Dumping vertices(" + to_string(psShape->nVertices) + "): ";
 					debugUtil1.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str(), &debugUtil);
 					debugUtil1.printNewLine();
 				}
 				for (int v = 0; v < psShape->nVertices; v++)
 				{
-					if (writeReport)
-						outFile << "Vertex X: " << to_string(x[v]) << " - Vertex Y: " << to_string(y[v]) << " - Vertex Z: " << to_string(z[v]) << " - Vertex M: " << to_string(m[v]) << "\n";
+					if (writeReport) outFile << "Vertex X: " << to_string(x[v]) << " - Vertex Y: " << to_string(y[v]) << " - Vertex Z: " << to_string(z[v]) << " - Vertex M: " << to_string(m[v]) << "\n";
 
-					// For every point we colect all its alitudes (detecting if it can have more than one)
+					// From now we consider only WUs
+					GISPoint p = { x[v] / metersInWU, y[v] / metersInWU };
+
+					// For every point read from input file we colect all its alitudes (detecting if it can have more than one)
 					{
-						point p = { x[v], y[v] };
 						/*if (x[v] == 1195425.1762949340 && z[v] == 869.21911621093750)
 						{
 							outFile << "eccolo" << endl;
 						}*/
-						it = altiduesMap.find(p);
-						if (it == altiduesMap.end())
+						itGISPointAltiduesMap = GISPointAltiduesMap.find(p);
+						if (itGISPointAltiduesMap == GISPointAltiduesMap.end())
 						{
 							vector<double> altitudes;
-							altitudes.push_back(z[v]);
-							altiduesMap[p] = altitudes;
+							altitudes.push_back(z[v] / metersInWU);
+							GISPointAltiduesMap[p] = altitudes;
 						}
 						else
 						{
-							altiduesMap[p].push_back(z[v]);
+							GISPointAltiduesMap[p].push_back(z[v] / metersInWU);
+							assert(GISPointAltiduesMap[p].size() == 1);
 						}
+					}
+
+					// for every point of input file we assign it as an altitude modifier of the grid map point vertices of the grid map square in which it is contained (it will determine its altitude interpolating every affecting GIS points)
+					// assuming points are inside af the square and not placed on the vertices of the grid map then for every grid map point we have to interpolate its altidue considering all the point modifiying it
+					if (z[v] != minAltitude)
+					{
+						double offsetX = (p.x - grid[0].x);
+						int idxMinAffectedGridPointX = (int)floor(offsetX / gridStepInWU);		// 0 to numPointX - 1
+						double offsetZ = (p.y - grid[0].z);
+						int idxMinAffectedGridPointZ = (int)floor(offsetZ / gridStepInWU);		// 0 to numPointZ - 1
+						
+						//	.	.	.	.	.	.	.
+						//	.	.	.	.	.	.	.
+						//	.	.	P1	P2	.	.	.
+						//	.	.	P3	P4	.	.	.
+						//	.	.	.	.	.	.	.
+						//	.	.	.	.	.	.	.
+						//	.	.	.	.	.	.	.
+						int idxGridP1 = idxMinAffectedGridPointZ * numPointX + idxMinAffectedGridPointX;			// + 1 to position on the first point of the line after bypassing the points of the upper lines
+						int idxGridP2 = idxGridP1 + 1;
+						//int idxGridP3 = (idxMinAffectedGridPointZ + 1) * numPointX + idxMinAffectedGridPointX;
+						int idxGridP3 = idxGridP1 + numPointX;
+						int idxGridP4 = idxGridP3 + 1;
+
+						void LoadGISMap_pushPointsAffectingPointMap(TheWorld_MapManager::_GISPointsAffectingGridPoints& map, TheWorld_MapManager::GISPoint& p, int idxPoint);
+						LoadGISMap_pushPointsAffectingPointMap(GISPointsAffectingGridPoints, p, idxGridP1);
+						LoadGISMap_pushPointsAffectingPointMap(GISPointsAffectingGridPoints, p, idxGridP2);
+						LoadGISMap_pushPointsAffectingPointMap(GISPointsAffectingGridPoints, p, idxGridP3);
+						LoadGISMap_pushPointsAffectingPointMap(GISPointsAffectingGridPoints, p, idxGridP4);
 					}
 
 					if (debugMode() && fmod(v + 1, 1000) == 0) debugUtil1.printVariablePartOfLine(v + 1);
@@ -517,8 +638,11 @@ namespace TheWorld_MapManager
 
 			if (debugMode() && fmod(i + 1, 1000) == 0) debugUtil.printVariablePartOfLine(i + 1);
 		}
+		if (writeReport) outFile << "************************* FINE SEZIONE ***************************" << endl;
 		if (debugMode()) debugUtil.printVariablePartOfLine(nEntities);
-
+		if (debugMode()) debugUtil.printNewLine();
+		if (debugMode()) debugUtil.printNewLine();
+		if (debugMode()) debugUtil.printNewLine();
 		SHPClose(handle);
 
 		/*if (writeReport)
@@ -537,70 +661,96 @@ namespace TheWorld_MapManager
 			if (debugMode()) debugUtil.printVariablePartOfLine(idxPoint);
 		}*/
 
-		// Test
-		if (writeReport) 
+		// We need to know for every point of the point map read from the input file in which square of the grid is placed (the grid is spaced by g_gridStepInWU WUs and the input file express points in meters)
+		// TODO
+		/*if (writeReport) 
 		{
 			if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Dumping Row / Column for every point of the plane: ", &debugUtil1);
 
 			int idxPoint = 0;
-			outFile << endl << "Inizio test" << endl;
+			outFile << endl << "************************* INIZIO SEZIONE *************************" << endl;
+			outFile << "Inizio test" << endl;
 			int row = 0, col = 0, maxCols = 0;
 			double lastX = 0.0;
-			for (it = altiduesMap.begin(); it != altiduesMap.end(); it++)
+			for (itAltiduesMap = altiduesMap.begin(); itAltiduesMap != altiduesMap.end(); itAltiduesMap++)
 			{
-				if (it->second.size() != 1)
+				if (itAltiduesMap->second.size() != 1)
 					throw(MapManagerException(__FUNCTION__, "Found point with a number of altitudes not equal 1"));
 
 				idxPoint++;
 
-				if (it->first.x != lastX)
+				if (itAltiduesMap->first.x != lastX)
 				{
-					lastX = it->first.x;
+					lastX = itAltiduesMap->first.x;
 					row++;
 					if (col > maxCols)
 						maxCols = col;
 					col = 0;
-					outFile << "Row: " << to_string(row) << " - Vertex X: " << to_string(it->first.x) << endl;
+					outFile << "Row: " << to_string(row) << " - Vertex X: " << to_string(itAltiduesMap->first.x) << endl;
 				}
 				col++;
-				outFile << "   Col: " << to_string(col) << " - Vertex Y: " << to_string(it->first.y) << " - Altitude: " << it->second[0] << endl;
+				outFile << "   Col: " << to_string(col) << " - Vertex Y: " << to_string(itAltiduesMap->first.y) << " - Altitude: " << itAltiduesMap->second[0] << endl;
 
 				if (debugMode() && fmod(idxPoint, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
 			}
 			outFile << endl << "Fine test - Rows: " << to_string(row) << " - MaxCols: " << to_string(maxCols) << endl;
+			outFile << "************************* FINE SEZIONE ***************************" << endl;
 
 			if (debugMode()) debugUtil.printVariablePartOfLine(idxPoint);
-		}
+		}*/
 
 		vector<SQLInterface::MapVertex> vectMapVertices;
 
-		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Dumping max altitude for every point of the plane: ", &debugUtil);
-		int idxPoint = 0;
-		for (it = altiduesMap.begin(); it != altiduesMap.end(); it++)
+		int maxNumGISPointsAffectingGridPoints = 0;
+
+		s = "SECOND LOOP - Filling map to DB - Num Grid points : " + to_string(numPointX * numPointZ) + " (" + to_string(numPointX) + " x " + to_string(numPointZ) + ") - Grig boxes: " + to_string(numPointX - 1) + " x " + to_string(numPointZ - 1);
+		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, (s + " - Point: ").c_str(), &debugUtil1);
+		if (writeReport) outFile << endl << "************************* INIZIO SEZIONE *************************" << endl << s.c_str() << endl;
+		int idxGridPoint = 0, row = 0, col = 0;
+		for (int z = 0; z < numPointZ; z++)
 		{
-			if (it->second.size() != 1)
-				throw(MapManagerException(__FUNCTION__, "Found point with a number of altitudes not equal 1"));
-
-			idxPoint++;
-			double maxAltitude = 0;
-			for (int idxAltitudes = 0; idxAltitudes < it->second.size(); idxAltitudes++)
+			row++;
+			col = 0;
+			for (int x = 0; x < numPointX; x++)
 			{
-				if (it->second[idxAltitudes] > maxAltitude)
-					maxAltitude = it->second[idxAltitudes];
+
+				col++;
+
+				double LoadGISMap_interpolateAltitudOfGridPOint(vector<gridPoint>& grid, int idxGridPoint, _GISPointsAffectingGridPoints& GISPointsAffectingGridPoints, _GISPointMap& GISPointAltidues);
+				double altidue = LoadGISMap_interpolateAltitudOfGridPOint(grid, idxGridPoint, GISPointsAffectingGridPoints, GISPointAltiduesMap);
+
+				SQLInterface::MapVertex mapVertex(grid[idxGridPoint].x, grid[idxGridPoint].z, (float)altidue, level);
+				vectMapVertices.push_back(mapVertex); 
+
+				if (writeReport)
+				{
+					if (x == 0)
+						outFile << "Row: " << to_string(row) << " - Z: " << to_string(grid[idxGridPoint].z) << endl;
+					if (GISPointsAffectingGridPoints[idxGridPoint].size() > maxNumGISPointsAffectingGridPoints)
+						maxNumGISPointsAffectingGridPoints = (int)GISPointsAffectingGridPoints[idxGridPoint].size();
+					outFile << "   Grid Map Idx: " << to_string(idxGridPoint) << " - Row: " << to_string(row) << " - Col: " << to_string(col) << " - X: " << to_string(grid[idxGridPoint].x) << " - Z: " << to_string(grid[idxGridPoint].z) << " - Altitude : " << to_string((float)altidue) << " - Num affecting GIS points : " << to_string(GISPointsAffectingGridPoints[idxGridPoint].size()) << endl;
+					for (int idx = 0; idx < GISPointsAffectingGridPoints[idxGridPoint].size(); idx++)
+					{
+						double LoadGISMap_getAltitude(TheWorld_MapManager::GISPoint& GISP, TheWorld_MapManager::_GISPointMap& GISPointAltidues);
+						double GISAltitude = LoadGISMap_getAltitude(GISPointsAffectingGridPoints[idxGridPoint][idx], GISPointAltiduesMap);
+						outFile << "      GIS X: " << to_string(GISPointsAffectingGridPoints[idxGridPoint][idx].x) << " - GIS Y: " << to_string(GISPointsAffectingGridPoints[idxGridPoint][idx].y) << " - Altitude: " << to_string((float)GISAltitude) << endl;
+					}
+				}
+
+				idxGridPoint++;
+				if (debugMode() && fmod(idxGridPoint + 1, 1000) == 0) debugUtil.printVariablePartOfLine(idxGridPoint);
 			}
-			if (writeReport)
-				outFile << "Point " << to_string(idxPoint).c_str() << " - Vertex X: " << to_string(it->first.x) << " - Vertex Y: " << to_string(it->first.y) << " - NumAltitudes: " << to_string(it->second.size()) << " - MaxAltitude: " << to_string(maxAltitude) << endl;
-			if (debugMode() && fmod(idxPoint, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
-			
-			SQLInterface::MapVertex mapVertex((float)(it->first.x) / metersInWU, (float)(it->first.y) / metersInWU, (float)maxAltitude / g_gridStepInWU, level);
-			vectMapVertices.push_back(mapVertex);
 		}
-		if (debugMode()) debugUtil.printVariablePartOfLine(idxPoint);
-
 		if (writeReport)
-			outFile.close();
+		{
+			outFile << "Max num GIS points affecting Grid points: " << to_string(maxNumGISPointsAffectingGridPoints ) << endl;
+			outFile << "************************* FINE SEZIONE ***************************" << endl;
+		}
+		if (debugMode()) debugUtil.printVariablePartOfLine(idxGridPoint);
 
-		//__int64 rowid = m_SqlInterface->addWDAndVertices(NULL, vectMapVertices);
+		if (writeReport) outFile.close();
+
+		__int64 rowid = m_SqlInterface->addWDAndVertices(NULL, vectMapVertices);
 
 		
 		if (instrumented()) clock.printDuration(__FUNCTION__);
@@ -698,4 +848,80 @@ namespace TheWorld_MapManager
 		minutes = (int)d;
 		seconds = (decimalDegrees - d) * 60;
 	}
+}
+
+void LoadGISMap_pushPointsAffectingPointMap(TheWorld_MapManager::_GISPointsAffectingGridPoints& map, TheWorld_MapManager::GISPoint& point, int idxPoint)
+{
+	TheWorld_MapManager::_GISPointsAffectingGridPoints::iterator itPointsAffectingPointMap = map.find(idxPoint);
+	if (itPointsAffectingPointMap == map.end())
+	{
+		vector<TheWorld_MapManager::GISPoint> points;
+		points.push_back(point);
+		map[idxPoint] = points;
+	}
+	else
+	{
+		map[idxPoint].push_back(point);
+	}
+}
+
+double LoadGISMap_interpolateAltitudOfGridPOint(vector<TheWorld_MapManager::MapManager::gridPoint>& grid, int idxGridPoint, TheWorld_MapManager::_GISPointsAffectingGridPoints& GISPointsAffectingGridPoints,
+	TheWorld_MapManager::_GISPointMap& GISPointAltidues)
+{
+	// I N T E R P O L A T I O N : we use the "inverse distance weighted" algorithm
+	// rapporto tra la sommatoria per ogni punto da interpolare di altitudine su distanza dal punto target e la sommatoria di 1 su distanza dal punto target
+	
+	// DEBUG
+	//TheWorld_MapManager::MapManager::gridPoint gridP = grid[idxGridPoint];
+	//vector<TheWorld_MapManager::GISPoint> GISPoints = GISPointsAffectingGridPoints[idxGridPoint];
+	// DEBUG
+
+	if (GISPointsAffectingGridPoints[idxGridPoint].size() == 0)
+		return 0.0;
+
+	double numerator = 0.0, denominator = 0.0;
+	for (int idx = 0; idx < GISPointsAffectingGridPoints[idxGridPoint].size(); idx++)
+	{
+		
+		// DEBUG
+		//{
+		//	size_t a = 0;
+		//	if (GISPointsAffectingGridPoints[idxGridPoint].size() > 15)
+		//		a = GISPointsAffectingGridPoints[idxGridPoint].size();
+		//}
+		// DEBUG
+
+		double LoadGISMap_getAltitude(TheWorld_MapManager::GISPoint & GISP, TheWorld_MapManager::_GISPointMap & GISPointAltidues);
+		double altitude = LoadGISMap_getAltitude(GISPointsAffectingGridPoints[idxGridPoint][idx], GISPointAltidues);
+
+		double LoadGISMap_getDistance(TheWorld_MapManager::MapManager::gridPoint& gridP, TheWorld_MapManager::GISPoint& GISP);
+		double distance = LoadGISMap_getDistance(grid[idxGridPoint], GISPointsAffectingGridPoints[idxGridPoint][idx]);
+
+		if (distance == 0.0)
+		{
+			numerator += altitude;
+			denominator += 1.0;
+		}
+		else
+		{
+			numerator += (altitude / distance);
+			denominator += (1.0 / distance);
+		}
+	}
+	
+	return (numerator / denominator);
+}
+
+double LoadGISMap_getDistance(TheWorld_MapManager::MapManager::gridPoint& gridP, TheWorld_MapManager::GISPoint& GISP)
+{
+	return sqrt(pow(((double)gridP.x - GISP.x), 2.0) + pow(((double)gridP.z - GISP.y), 2.0));
+}
+
+double LoadGISMap_getAltitude(TheWorld_MapManager::GISPoint& GISP, TheWorld_MapManager::_GISPointMap& GISPointAltidues)
+{
+	TheWorld_MapManager::_GISPointMap::iterator itGISPointAltiduesMap = GISPointAltidues.find(GISP);
+	if (itGISPointAltiduesMap == GISPointAltidues.end())
+		return 0.0;
+	else
+		return GISPointAltidues[GISP][0];
 }

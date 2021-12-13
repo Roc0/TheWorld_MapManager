@@ -12,11 +12,18 @@
 
 namespace TheWorld_MapManager
 {
+	// ************************************************************************************
 	// I M P O R T A N T: the metrics in this class is always expressed in World Units (WU)
-	// size of the grid of vertices used to expand the map (for example on new WD), this size is expressed in number of vertices so it is an int
+	// ************************************************************************************
+
+	// ************************************************************************************************************************************************
+	// size of the square grid of vertices used to expand the map (for example on new WD), this size is expressed in number of vertices so it is an int
+	// ************************************************************************************************************************************************
 	//const int g_DBGrowingBlockVertexNumberShift = 10;	// 10 ==> g_DBGrowingBlockVertexNumber = 1024;
 	const int g_DBGrowingBlockVertexNumberShift = 8;	// 8 ==> g_DBGrowingBlockVertexNumber = 256;
 	const int g_DBGrowingBlockVertexNumber = 1 << g_DBGrowingBlockVertexNumberShift;
+	// ************************************************************************************************************************************************
+
 	const float g_gridStepInWU = 10.0;		// distance in world unit between a vertice of the grid and the next
 
 	class MapManager
@@ -49,23 +56,24 @@ namespace TheWorld_MapManager
 
 		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }
 
-	private:
-		void calcSquareGridMinMax(float minAOEX, float maxAOEX, float minAOEZ, float maxAOEZ, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU);
 		struct gridPoint
 		{
-			// use to keep the map sorted by x, y if used as key in a map 
-			bool operator()(const gridPoint& p1, const gridPoint& p2) const
+			// use to keep the map sorted by x and by y if same x if used as key in a map 
+			bool operator<(const gridPoint& p) const
 			{
-				if (p1.x < p2.x)
+				if (x < p.x)
 					return true;
-				if (p1.x > p2.x)
+				if (x > p.x)
 					return false;
 				else
-					return p1.z < p2.z;
+					return z < p.z;
 			}
 			float x;
 			float z;
 		};
+
+	private:
+		void calcSquareGridMinMax(float minAOEX, float maxAOEX, float minAOEZ, float maxAOEZ, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU);
 		void getSquareGrid(float minAOEX, float maxAOEX, float minAOEZ, float maxAOEZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU);
 		float getDistance(float x1, float y1, float x2, float y2);
 		bool TransformProjectedCoordEPSG3857ToGeoCoordEPSG4326(double X, double Y, double& lon, double& lat, int& lonDegrees, int& lonMinutes, double& lonSeconds, int& latDegrees, int& latMinutes, double& latSeconds);
