@@ -77,17 +77,19 @@ namespace TheWorld_MapManager
 			center = 0,
 			upperleftcorner = 1
 		} ;
-		_declspec(dllexport) void getMesh(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::MapVertex>& mesh);
+		_declspec(dllexport) void getMesh(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int level = 0);
 
 		_declspec(dllexport) void UpdateValues(void);
 
 		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }
 
 	private:
-		float computeAltitude(SQLInterface::MapVertex& mapVertex, std::vector<WorldDefiner>& wdMap);
-		float computeAltitudeElevator(SQLInterface::MapVertex& mapVertex, WorldDefiner& wd, float distanceFromWD = -1);
-		void calcSquareGridMinMax(float minAOEX, float maxAOEX, float minAOEZ, float maxAOEZ, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU);
-		void getSquareGrid(float minAOEX, float maxAOEX, float minAOEZ, float maxAOEZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU);
+		float computeAltitude(SQLInterface::GridVertex& gridVertex, std::vector<WorldDefiner>& wdMap);
+		float computeAltitudeElevator(SQLInterface::GridVertex& gridVertex, WorldDefiner& wd, float distanceFromWD = -1);
+		void calcSquareGridMinMaxToExpand(float minX, float maxX, float minZ, float maxZ, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU);
+		void getSquareGridToExpand(float minX, float maxX, float minZ, float maxZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU);
+		void getSquareGrid(float minX, float maxX, float minZ, float maxZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU);
+		void getSquareEmptyVertexGrid(vector<gridPoint>& grid, vector<SQLInterface::GridVertex>& mesh, int level = 0);
 		inline float calcPreviousCoordOnTheGrid(float coord);
 		inline float calcNextCoordOnTheGrid(float coord);
 		float getDistance(float x1, float y1, float x2, float y2);

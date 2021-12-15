@@ -7,6 +7,7 @@
 #include "json/json.h"
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 
 #include "MapManager.h"
 #include "DBSQLLite.h"
@@ -68,10 +69,10 @@ namespace TheWorld_MapManager
 
 		// we need to calculate the grid so that it is expressed of square patches with a number of vertices for every size equal to g_DBGrowingBlockVertexNumber
 		// they are spaced by a number of WU equal to gridStepInWU (g_gridStepInWU)
-		calcSquareGridMinMax(minAOEX, maxAOEX, minAOEZ, maxAOEZ, minGridPosX, maxGridPosX, minGridPosZ, maxGridPosZ, gridStepInWU);
+		calcSquareGridMinMaxToExpand(minAOEX, maxAOEX, minAOEZ, maxAOEZ, minGridPosX, maxGridPosX, minGridPosZ, maxGridPosZ, gridStepInWU);
 
 		int gridSize = (maxGridPosX - minGridPosX + 1) * (maxGridPosZ - minGridPosZ + 1);
-		vector<SQLInterface::MapVertex> v;
+		vector<SQLInterface::GridVertex> v;
 		
 		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Computing affected vertices by WorldDefiner: ");
 
@@ -86,7 +87,7 @@ namespace TheWorld_MapManager
 					assert(numVertices <= gridSize);
 				}
 
-				SQLInterface::MapVertex mapv(float(x) * gridStepInWU, float(z) * gridStepInWU, WD.getLevel());
+				SQLInterface::GridVertex mapv(float(x) * gridStepInWU, float(z) * gridStepInWU, WD.getLevel());
 				v.push_back(mapv);
 
 				if (debugMode() && fmod(numVertices, 1024 * 1000) == 0) debugUtil.printVariablePartOfLine(numVertices);
@@ -107,7 +108,7 @@ namespace TheWorld_MapManager
 
 	// Return a square grid with a number of vertices for every size multiple of g_DBGrowingBlockVertexNumber, they are spaced by a number of WU equal to g_gridStepInWU
 	// every point of the grid is defined by its X and Z coord expressed in WU in whole numbers 
-	void MapManager::calcSquareGridMinMax(float minAOEX, float maxAOEX, float minAOEZ, float maxAOEZ, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU)
+	void MapManager::calcSquareGridMinMaxToExpand(float minX, float maxX, float minZ, float maxZ, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU)
 	{
 		gridStepInWU = g_gridStepInWU;
 
@@ -118,58 +119,58 @@ namespace TheWorld_MapManager
 		//minAOEZ = -10.0;
 		//maxAOEZ = 10.0;
 
-		if (minAOEX > 0)
+		if (minX > 0)
 		{
-			if (minAOEX < GrowingBlockInWU)
-				minAOEX = 0;
+			if (minX < GrowingBlockInWU)
+				minX = 0;
 		}
-		else if (minAOEX < 0)
+		else if (minX < 0)
 		{
-			if (abs(minAOEX) < GrowingBlockInWU)
-				minAOEX = -GrowingBlockInWU;
-		}
-
-
-		if (maxAOEX > 0)
-		{
-			if (maxAOEX < GrowingBlockInWU)
-				maxAOEX = GrowingBlockInWU;
-		}
-		else if (maxAOEX < 0)
-		{
-			if (abs(maxAOEX) < GrowingBlockInWU)
-				maxAOEX = 0;
+			if (abs(minX) < GrowingBlockInWU)
+				minX = -GrowingBlockInWU;
 		}
 
-		if (minAOEZ > 0)
+
+		if (maxX > 0)
 		{
-			if (minAOEZ < GrowingBlockInWU)
-				minAOEZ = 0;
+			if (maxX < GrowingBlockInWU)
+				maxX = GrowingBlockInWU;
 		}
-		else if (minAOEZ < 0)
+		else if (maxX < 0)
 		{
-			if (abs(minAOEZ) < GrowingBlockInWU)
-				minAOEZ = -GrowingBlockInWU;
+			if (abs(maxX) < GrowingBlockInWU)
+				maxX = 0;
 		}
 
-		if (maxAOEZ > 0)
+		if (minZ > 0)
 		{
-			if (maxAOEZ < GrowingBlockInWU)
-				maxAOEZ = GrowingBlockInWU;
+			if (minZ < GrowingBlockInWU)
+				minZ = 0;
 		}
-		else if (maxAOEZ < 0)
+		else if (minZ < 0)
 		{
-			if (abs(maxAOEZ) < GrowingBlockInWU)
-				maxAOEZ = 0;
+			if (abs(minZ) < GrowingBlockInWU)
+				minZ = -GrowingBlockInWU;
 		}
 
-		float minPosX = floorf(minAOEX / GrowingBlockInWU) * GrowingBlockInWU;
-		float maxPosX = floorf(maxAOEX / GrowingBlockInWU) * GrowingBlockInWU;
-		if (maxPosX < maxAOEX)
+		if (maxZ > 0)
+		{
+			if (maxZ < GrowingBlockInWU)
+				maxZ = GrowingBlockInWU;
+		}
+		else if (maxZ < 0)
+		{
+			if (abs(maxZ) < GrowingBlockInWU)
+				maxZ = 0;
+		}
+
+		float minPosX = floorf(minX / GrowingBlockInWU) * GrowingBlockInWU;
+		float maxPosX = floorf(maxX / GrowingBlockInWU) * GrowingBlockInWU;
+		if (maxPosX < maxX)
 			maxPosX += GrowingBlockInWU;
-		float minPosZ = floorf(minAOEZ / GrowingBlockInWU) * GrowingBlockInWU;
-		float maxPosZ = floorf(maxAOEZ / GrowingBlockInWU) * GrowingBlockInWU;
-		if (maxPosZ < maxAOEZ)
+		float minPosZ = floorf(minZ / GrowingBlockInWU) * GrowingBlockInWU;
+		float maxPosZ = floorf(maxZ / GrowingBlockInWU) * GrowingBlockInWU;
+		if (maxPosZ < maxZ)
 			maxPosZ += GrowingBlockInWU;
 
 		minGridPosX = int(minPosX / gridStepInWU);
@@ -179,14 +180,14 @@ namespace TheWorld_MapManager
 	}
 	
 	// return a square grid as a vector of gridPoint stepped by gridStepInWU (g_gridStepInWU) which is in size numPointX x numPointZ and placed as a sequence of rows (a row incrementng z)
-	void MapManager::getSquareGrid(float minAOEX, float maxAOEX, float minAOEZ, float maxAOEZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU)
+	void MapManager::getSquareGridToExpand(float minX, float maxX, float minZ, float maxZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU)
 	{
 		int minGridPosX = 0;
 		int maxGridPosX = 0;
 		int minGridPosZ = 0;
 		int maxGridPosZ = 0;
 
-		calcSquareGridMinMax(minAOEX, maxAOEX, minAOEZ, maxAOEZ, minGridPosX, maxGridPosX, minGridPosZ, maxGridPosZ, gridStepInWU);
+		calcSquareGridMinMaxToExpand(minX, maxX, minZ, maxZ, minGridPosX, maxGridPosX, minGridPosZ, maxGridPosZ, gridStepInWU);
 
 		numPointX = maxGridPosX - minGridPosX + 1;
 		numPointZ = maxGridPosZ - minGridPosZ + 1;
@@ -202,6 +203,45 @@ namespace TheWorld_MapManager
 				p.z = float(z) * gridStepInWU;
 				grid.push_back(p);
 			}
+		}
+	}
+
+	void MapManager::getSquareGrid(float minX, float maxX, float minZ, float maxZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU)
+	{
+		gridStepInWU = g_gridStepInWU;
+
+		float f = calcPreviousCoordOnTheGrid(minX);
+		int minGridPosX = int(f / gridStepInWU);
+		f = calcNextCoordOnTheGrid(maxX);
+		int maxGridPosX = int(f / gridStepInWU);
+		int minGridPosZ = int(calcPreviousCoordOnTheGrid(minZ) / gridStepInWU);
+		int maxGridPosZ = int(calcNextCoordOnTheGrid(maxZ) / gridStepInWU);
+
+		numPointX = maxGridPosX - minGridPosX + 1;
+		numPointZ = maxGridPosZ - minGridPosZ + 1;
+
+		grid.clear();
+
+		for (int z = minGridPosZ; z <= maxGridPosZ; z++)
+		{
+			for (int x = minGridPosX; x <= maxGridPosX; x++)
+			{
+				gridPoint p;
+				p.x = float(x) * gridStepInWU;
+				p.z = float(z) * gridStepInWU;
+				grid.push_back(p);
+			}
+		}
+	}
+
+	void MapManager::getSquareEmptyVertexGrid(vector<gridPoint>& grid, vector<SQLInterface::GridVertex>& emptyGridVertex, int level)
+	{
+		emptyGridVertex.clear();
+		vector<gridPoint>::iterator it;
+		for (it = grid.begin(); it != grid.end(); it++)
+		{
+			SQLInterface::GridVertex gridVertex(it->x, it->z, level);
+			emptyGridVertex.push_back(gridVertex);
 		}
 	}
 
@@ -278,15 +318,15 @@ namespace TheWorld_MapManager
 		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Updating vertices marked for update: ");
 		int updated = 0;
 		int idx = 0;
-		SQLInterface::MapVertex mapVertex;
-		vector<WorldDefiner> wdMap;
-		bool bFound = m_SqlInterface->getFirstModfiedVertex(mapVertex, wdMap);
+		SQLInterface::GridVertex gridVertex;
+		vector<WorldDefiner> vectWD;
+		bool bFound = m_SqlInterface->getFirstModfiedVertex(gridVertex, vectWD);
 		while (bFound)
 		{
 			idx++;
 
-			float altitude = computeAltitude(mapVertex, wdMap);
-			m_SqlInterface->updateAltitudeOfVertex(mapVertex.rowid(), altitude);
+			float altitude = computeAltitude(gridVertex, vectWD);
+			m_SqlInterface->updateAltitudeOfVertex(gridVertex.rowid(), altitude);
 
 			updated++;
 			if (debugMode() && fmod(idx, 1000) == 0)
@@ -295,7 +335,7 @@ namespace TheWorld_MapManager
 				debugUtil.printVariablePartOfLine(s.c_str());
 			}
 
-			bFound = m_SqlInterface->getNextModfiedVertex(mapVertex, wdMap);
+			bFound = m_SqlInterface->getNextModfiedVertex(gridVertex, vectWD);
 		}
 		if (debugMode())
 		{
@@ -316,9 +356,9 @@ namespace TheWorld_MapManager
 		m_SqlInterface->endTransaction();
 	}
 
-	float MapManager::computeAltitude(SQLInterface::MapVertex& mapVertex, std::vector<WorldDefiner>& wdMap)
+	float MapManager::computeAltitude(SQLInterface::GridVertex& gridVertex, std::vector<WorldDefiner>& wdMap)
 	{
-		float altitude = mapVertex.initialAltitude();
+		float altitude = gridVertex.initialAltitude();
 		
 		// Scanning all WDs
 		int numWDs = (int)wdMap.size();
@@ -326,13 +366,13 @@ namespace TheWorld_MapManager
 		for (int idx = 0; idx < numWDs; idx++)
 		{
 			float AOE = wdMap[idx].getAOE();
-			distanceFromWD = getDistance(mapVertex.posX(), mapVertex.posZ(), wdMap[idx].getPosX(), wdMap[idx].getPosZ());
+			distanceFromWD = getDistance(gridVertex.posX(), gridVertex.posZ(), wdMap[idx].getPosX(), wdMap[idx].getPosZ());
 			if (distanceFromWD <= AOE)	// Vertex is influenced by current WD
 			{
 				switch (wdMap[idx].getType())
 				{
 				case WDType::elevator:
-					altitude += computeAltitudeElevator(mapVertex, wdMap[idx], distanceFromWD);
+					altitude += computeAltitudeElevator(gridVertex, wdMap[idx], distanceFromWD);
 					break;
 				default:
 					break;
@@ -343,12 +383,12 @@ namespace TheWorld_MapManager
 		return altitude;
 	}
 
-	float MapManager::computeAltitudeElevator(SQLInterface::MapVertex& mapVertex, WorldDefiner& wd, float distanceFromWD)
+	float MapManager::computeAltitudeElevator(SQLInterface::GridVertex& gridVertex, WorldDefiner& wd, float distanceFromWD)
 	{
 		float altitude = 0.0;
 
 		if (distanceFromWD == -1)
-			distanceFromWD = getDistance(mapVertex.posX(), mapVertex.posZ(), wd.getPosX(), wd.getPosZ());
+			distanceFromWD = getDistance(gridVertex.posX(), gridVertex.posZ(), wd.getPosX(), wd.getPosZ());
 		
 		switch (wd.getFunctionType())
 		{
@@ -370,14 +410,14 @@ namespace TheWorld_MapManager
 
 	int MapManager::getNumVertexMarkedForUpdate(void)
 	{
-		SQLInterface::MapVertex mapVertex;
-		vector<WorldDefiner> wdMap;
-		bool bFound = m_SqlInterface->getFirstModfiedVertex(mapVertex, wdMap);
+		SQLInterface::GridVertex gridVertex;
+		vector<WorldDefiner> vectWD;
+		bool bFound = m_SqlInterface->getFirstModfiedVertex(gridVertex, vectWD);
 		int idx = 0;
 		while (bFound)
 		{
 			idx++;
-			bFound = m_SqlInterface->getNextModfiedVertex(mapVertex, wdMap);
+			bFound = m_SqlInterface->getNextModfiedVertex(gridVertex, vectWD);
 		}
 		return idx;
 	}
@@ -389,16 +429,25 @@ namespace TheWorld_MapManager
 
 	float MapManager::calcPreviousCoordOnTheGrid(float coord)
 	{
-		return (floorf(coord / g_gridStepInWU) * g_gridStepInWU);
+		float f = floorf(coord / g_gridStepInWU) * g_gridStepInWU;
+		return f;
 	}
 
 	float MapManager::calcNextCoordOnTheGrid(float coord)
 	{
-		return ((floorf(coord / g_gridStepInWU) * g_gridStepInWU) + g_gridStepInWU);
+		float nextCoord = floorf(coord / g_gridStepInWU) * g_gridStepInWU;
+		if (nextCoord < coord)
+			return nextCoord + g_gridStepInWU;
+		else
+			return coord;
 	}
 
-	void MapManager::getMesh(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::MapVertex>& mesh)
+	void MapManager::getMesh(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int level)
 	{
+		debugUtils debugUtil;
+		TimerMs clock; // Timer<milliseconds, steady_clock>
+		if (instrumented()) clock.tick();
+
 		float min_X_OnTheGrid, max_X_OnTheGrid, min_Z_OnTheGrid, max_Z_OnTheGrid;
 
 		if (type == anchorType::center)
@@ -418,6 +467,61 @@ namespace TheWorld_MapManager
 		else
 			throw(MapManagerException(__FUNCTION__, string("Unkwon anchor type").c_str()));
 
+		int numPointX, numPointZ;
+		float gridStepInWU;
+		vector<gridPoint> grid;
+		getSquareGrid(min_X_OnTheGrid, max_X_OnTheGrid, min_Z_OnTheGrid, max_Z_OnTheGrid, grid, numPointX, numPointZ, gridStepInWU);
+		getSquareEmptyVertexGrid(grid, mesh, level);
+
+		vector<SQLInterface::GridVertex> vectGridVerticesFromDB;
+		m_SqlInterface->getVertices(min_X_OnTheGrid, max_X_OnTheGrid, min_Z_OnTheGrid, max_Z_OnTheGrid, vectGridVerticesFromDB, level);
+
+		std::sort(vectGridVerticesFromDB.begin(), vectGridVerticesFromDB.end());
+		std::sort(mesh.begin(), mesh.end());
+
+		int numFoundInDB = 0;
+		
+		vector<SQLInterface::GridVertex>::iterator itGridFromDB = vectGridVerticesFromDB.begin();
+		vector<SQLInterface::GridVertex>::iterator itMesh = mesh.begin();
+		for (;;)
+		{
+			if (itMesh == mesh.end())
+				break;
+
+			if (itGridFromDB == vectGridVerticesFromDB.end())
+				break;
+
+			if (*itMesh == *itGridFromDB)
+			{
+				*itMesh = *itGridFromDB;
+				itGridFromDB++;
+				itMesh++;
+				numFoundInDB++;
+			}
+			else if (*itMesh < *itGridFromDB)
+			{
+				itMesh++;
+				continue;
+			}
+			else
+			{
+				while (itGridFromDB != vectGridVerticesFromDB.end() && !(*itMesh < *itGridFromDB))
+					itGridFromDB++;
+
+				if (itGridFromDB == vectGridVerticesFromDB.end())
+					break;
+
+				if (*itMesh == *itGridFromDB)
+				{
+					*itMesh = *itGridFromDB;
+					itGridFromDB++;
+					itMesh++;
+					numFoundInDB++;
+				}
+			}
+		}
+
+		if (instrumented()) clock.printDuration((string(__FUNCTION__) + " - Num Vertices: " + to_string(mesh.size()) + " - (X x Z): " + to_string(numPointX) + " x " + to_string(numPointZ) + " - Found in DB: " + to_string(numFoundInDB)).c_str());
 	}
 
 	struct GISPoint
@@ -504,7 +608,7 @@ namespace TheWorld_MapManager
 
 		// we need to calculate the grid so that the map grows of multiples of square patches with a number of vertices for every size equal to g_DBGrowingBlockVertexNumber
 		// so the grid has a number of vertices equal to a multiple of g_DBGrowingBlockVertexNumber, they are spaced by a number of WU equal to gridStepInWU (g_gridStepInWU)
-		getSquareGrid(minAOE_X_WU, maxAOE_X_WU, minAOE_Z_WU, maxAOE_Z_WU, grid, numPointX, numPointZ, gridStepInWU);
+		getSquareGridToExpand(minAOE_X_WU, maxAOE_X_WU, minAOE_Z_WU, maxAOE_Z_WU, grid, numPointX, numPointZ, gridStepInWU);
 
 		_GISPointMap GISPointAltiduesMap;
 		_GISPointMap::iterator itGISPointAltiduesMap;
@@ -648,7 +752,7 @@ namespace TheWorld_MapManager
 			if (debugMode()) debugUtil.printVariablePartOfLine(idxPoint);
 		}*/
 
-		vector<SQLInterface::MapVertex> vectMapVertices;
+		vector<SQLInterface::GridVertex> vectGridVertices;
 
 		int maxNumGISPointsAffectingGridPoints = 0;
 
@@ -672,8 +776,8 @@ namespace TheWorld_MapManager
 				double LoadGISMap_interpolateAltitudOfGridPOint(vector<gridPoint>& grid, int idxGridPoint, _GISPointsAffectingGridPoints& GISPointsAffectingGridPoints, _GISPointMap& GISPointAltidues);
 				double altidue = LoadGISMap_interpolateAltitudOfGridPOint(grid, idxGridPoint, GISPointsAffectingGridPoints, GISPointAltiduesMap);
 
-				SQLInterface::MapVertex mapVertex(grid[idxGridPoint].x, grid[idxGridPoint].z, (float)altidue, level);
-				vectMapVertices.push_back(mapVertex); 
+				SQLInterface::GridVertex gridVertex(grid[idxGridPoint].x, grid[idxGridPoint].z, (float)altidue, level);
+				vectGridVertices.push_back(gridVertex);
 
 				if (writeReport)
 				{
@@ -703,7 +807,7 @@ namespace TheWorld_MapManager
 
 		if (writeReport) outFile.close();
 
-		__int64 rowid = m_SqlInterface->addWDAndVertices(NULL, vectMapVertices);
+		__int64 rowid = m_SqlInterface->addWDAndVertices(NULL, vectGridVertices);
 
 		
 		if (instrumented()) clock.printDuration(__FUNCTION__);

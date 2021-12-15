@@ -1,8 +1,8 @@
 drop table Params;
 drop table WorldDefiner;
-drop table MapVertex;
-drop table MapVertex_WD;
-drop table MapVertex_Mod;
+drop table GridVertex;
+drop table GridVertex_WD;
+drop table GridVertex_Mod;
 
 create table Params(
 	ParamName REAL NOT NULL,
@@ -21,11 +21,12 @@ create table WorldDefiner(
 	Strength REAL NOT NULL,
 	AOE REAL NOT NULL,
 	FunctionType INTEGER NOT NULL,
-	PRIMARY KEY(PosZ, PosX, Level, Type)
+	WDRowId INTEGER PRIMARY KEY
 );
+create unique index WorldDefiner_CartesianCoord on WorldDefiner(PosZ, PosX, Level, Type);
 create index WorldDefiner_PolarCoord on WorldDefiner(radius, azimuth, level, Type);
 	
-create table MapVertex(
+create table GridVertex(
 	PosX REAL NOT NULL,
 	PosZ REAL NOT NULL,
 	Level INTEGER NOT NULL,
@@ -33,19 +34,20 @@ create table MapVertex(
 	Azimuth REAL NOT NULL,
 	InitialAltitude REAL NOT NULL,
 	PosY REAL NOT NULL,
-	PRIMARY KEY(PosZ, PosX, Level)
+	VertexRowId INTEGER PRIMARY KEY
 );
-create index MapVertex_PolarCoord on MapVertex(radius, azimuth, level);
+create unique index GridVertex_CartesianCoord on GridVertex(PosZ, PosX, Level);
+create index GridVertex_PolarCoord on GridVertex(radius, azimuth, level);
 
-create table MapVertex_WD(
+create table GridVertex_WD(
 	VertexRowId INTEGER NOT NULL,
 	WDRowId INTEGER NOT NULL,
 	PRIMARY KEY(VertexRowId, WDRowId)
 );
-create index MapVertex_WD_Vertex on MapVertex_WD(VertexRowId);
-create index MapVertex_WD_WDRowId on MapVertex_WD(WDRowId);
+create index GridVertex_WD_Vertex on GridVertex_WD(VertexRowId);
+create index GridVertex_WD_WDRowId on GridVertex_WD(WDRowId);
 
-create table MapVertex_Mod(
+create table GridVertex_Mod(
 	VertexRowId INTEGER NOT NULL,
 	PRIMARY KEY(VertexRowId)
 );

@@ -37,7 +37,7 @@ namespace TheWorld_MapManager
 		void debugMode(bool b) { m_debugMode = b; };
 		bool debugMode(void) { return m_debugMode; }
 
-		class MapVertex
+		class GridVertex
 		{
 		public:
 			enum class latlong_type
@@ -47,7 +47,7 @@ namespace TheWorld_MapManager
 				seconds = 3
 			};
 
-			MapVertex()
+			GridVertex()
 			{
 				m_posX = 0.0;
 				m_posY = 0.0;
@@ -58,19 +58,19 @@ namespace TheWorld_MapManager
 				m_initialAltitude = 0.0;
 				m_rowid = -1;
 			}
-			MapVertex(float posX, float posZ, int level = 0)
+			GridVertex(float posX, float posZ, int level = 0)
 			{
-				initMapVertex(posX, posZ, 0.0, level);
+				initGridVertex(posX, posZ, 0.0, level);
 			}
 
-			MapVertex(float posX, float posZ, float initialAltitude, int level = 0)
+			GridVertex(float posX, float posZ, float initialAltitude, int level = 0)
 			{
-				initMapVertex(posX, posZ, initialAltitude, level);
+				initGridVertex(posX, posZ, initialAltitude, level);
 			}
 
-			~MapVertex() {}
+			~GridVertex() {}
 
-			void initMapVertex(float posX, float posZ, float initialAltitude, int level = 0)
+			void initGridVertex(float posX, float posZ, float initialAltitude, int level = 0)
 			{
 				m_posX = posX;
 				m_posY = 0.0;		// Altitude will be calculated later
@@ -90,9 +90,9 @@ namespace TheWorld_MapManager
 				m_rowid = -1;
 			}
 			
-			// needed to use an istance of MapVertex as a key in a map (to keep the map sorted by m_posZ and by m_posX for equal m_posZ)
+			// needed to use an istance of GridVertex as a key in a map (to keep the map sorted by m_posZ and by m_posX for equal m_posZ)
 			// first row, second row, ... etc
-			bool operator<(const MapVertex& p) const
+			bool operator<(const GridVertex& p) const
 			{
 				if (m_posZ < p.m_posZ)
 					return true;
@@ -100,6 +100,14 @@ namespace TheWorld_MapManager
 					return false;
 				else
 					return m_posX < p.m_posX;
+			}
+
+			bool operator==(const GridVertex& p) const
+			{
+				if (m_posZ == p.m_posZ && m_posX == p.m_posX && m_level == p.m_level)
+					return true;
+				else
+					return false;
 			}
 
 			void setInternalValues(float posX, float posY, float posZ, float radius, float azimuth, int level, float initialAltitude, __int64 rowid)
@@ -138,17 +146,17 @@ namespace TheWorld_MapManager
 		virtual std::string readParam(std::string paranName) = 0;
 		virtual void beginTransaction(void) = 0;
 		virtual void endTransaction(bool commit = true) = 0;
-		virtual __int64 addWDAndVertices(WorldDefiner* pWD, std::vector<MapVertex>& mapVertices) = 0;
+		virtual __int64 addWDAndVertices(WorldDefiner* pWD, std::vector<GridVertex>& vectGridVertices) = 0;
 		virtual bool eraseWD(__int64 wdRowid) = 0;
 		virtual void updateAltitudeOfVertex(__int64 vertexRowid, float posY) = 0;
 		virtual void clearVerticesMarkedForUpdate(void) = 0;
-		virtual void getVertex(__int64 vertexRowid, MapVertex& mapVertex) = 0;
-		virtual void getVertices(float minX, float maxX, float minZ, float maxZ, std::vector<MapVertex>& vertices) = 0;
+		virtual void getVertex(__int64 vertexRowid, GridVertex& gridVertex, int level) = 0;
+		virtual void getVertices(float minX, float maxX, float minZ, float maxZ, std::vector<GridVertex>& vectGridVertices, int level) = 0;
 		virtual bool getWD(float posX, float posZ, int level, WDType type, WorldDefiner& WD) = 0;
 		virtual bool getWD(__int64 wdRowid, WorldDefiner& WD) = 0;
-		virtual void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& MapWDRowId) = 0;
-		virtual bool getFirstModfiedVertex(MapVertex& mapVertex, std::vector<WorldDefiner>& wdMap) = 0;
-		virtual bool getNextModfiedVertex(MapVertex& mapVertex, std::vector<WorldDefiner>& wdMap) = 0;
+		virtual void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& vectWDRowId) = 0;
+		virtual bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
+		virtual bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
 		virtual void finalizeDB(void) = 0;
 
 	private:
