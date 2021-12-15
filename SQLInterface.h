@@ -40,7 +40,7 @@ namespace TheWorld_MapManager
 		class MapVertex
 		{
 		public:
-			enum latlong_type
+			enum class latlong_type
 			{
 				degrees = 1,
 				minutes = 2,
@@ -90,6 +90,18 @@ namespace TheWorld_MapManager
 				m_rowid = -1;
 			}
 			
+			// needed to use an istance of MapVertex as a key in a map (to keep the map sorted by m_posZ and by m_posX for equal m_posZ)
+			// first row, second row, ... etc
+			bool operator<(const MapVertex& p) const
+			{
+				if (m_posZ < p.m_posZ)
+					return true;
+				if (m_posZ > p.m_posZ)
+					return false;
+				else
+					return m_posX < p.m_posX;
+			}
+
 			void setInternalValues(float posX, float posY, float posZ, float radius, float azimuth, int level, float initialAltitude, __int64 rowid)
 			{
 				m_posX = posX;
@@ -102,14 +114,14 @@ namespace TheWorld_MapManager
 				m_rowid = rowid;
 			}
 
-			float posX(void) { return m_posX; };
-			float posY(void) { return m_posY; };
-			float posZ(void) { return m_posZ; };
-			float radius(void) { return m_radius; };
-			float azimuth(void) { return m_azimuth; };
-			int level(void) { return m_level; };
-			float initialAltitude(void) { return m_initialAltitude; };
-			__int64 rowid(void) { return m_rowid; };
+			float posX(void) { return m_posX; }
+			float posY(void) { return m_posY; }
+			float posZ(void) { return m_posZ; }
+			float radius(void) { return m_radius; }
+			float azimuth(void) { return m_azimuth; }
+			int level(void) { return m_level; }
+			float initialAltitude(void) { return m_initialAltitude; }
+			__int64 rowid(void) { return m_rowid; }
 
 		private:
 			float m_posX;
@@ -123,6 +135,7 @@ namespace TheWorld_MapManager
 		};
 
 		// Pure	virtual functions
+		virtual std::string readParam(std::string paranName) = 0;
 		virtual void beginTransaction(void) = 0;
 		virtual void endTransaction(bool commit = true) = 0;
 		virtual __int64 addWDAndVertices(WorldDefiner* pWD, std::vector<MapVertex>& mapVertices) = 0;
@@ -130,6 +143,7 @@ namespace TheWorld_MapManager
 		virtual void updateAltitudeOfVertex(__int64 vertexRowid, float posY) = 0;
 		virtual void clearVerticesMarkedForUpdate(void) = 0;
 		virtual void getVertex(__int64 vertexRowid, MapVertex& mapVertex) = 0;
+		virtual void getVertices(float minX, float maxX, float minZ, float maxZ, std::vector<MapVertex>& vertices) = 0;
 		virtual bool getWD(float posX, float posZ, int level, WDType type, WorldDefiner& WD) = 0;
 		virtual bool getWD(__int64 wdRowid, WorldDefiner& WD) = 0;
 		virtual void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& MapWDRowId) = 0;

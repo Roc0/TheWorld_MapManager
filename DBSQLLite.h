@@ -332,6 +332,7 @@ namespace TheWorld_MapManager
 
 		const char* dbFilePath(void) { return m_dbFilePath.c_str(); }
 
+		_declspec(dllexport) std::string readParam(std::string paranName);
 		_declspec(dllexport) void beginTransaction(void);
 		_declspec(dllexport) void endTransaction(bool commit = true);
 		_declspec(dllexport) __int64 addWDAndVertices(WorldDefiner* pWD, std::vector<MapVertex>& mapVertices);
@@ -339,6 +340,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void updateAltitudeOfVertex(__int64 vertexRowid, float posY);
 		_declspec(dllexport) void clearVerticesMarkedForUpdate(void);
 		_declspec(dllexport) void getVertex(__int64 vertexRowid, MapVertex& mapVertex);
+		_declspec(dllexport) void getVertices(float minX, float maxX, float minZ, float maxZ, vector<MapVertex>& vertices);
 		_declspec(dllexport) bool getWD(float posX, float posZ, int level, WDType type, WorldDefiner& WD);
 		_declspec(dllexport) bool getWD(__int64 wdRowid, WorldDefiner& WD);
 		_declspec(dllexport) void getWDRowIdForVertex(__int64 vertexRowid, vector<__int64>& MapWDRowId);

@@ -29,6 +29,16 @@ namespace TheWorld_MapManager
 		m_SqlInterface = new DBSQLLite(DBType::SQLLite, m_dataPath.c_str());
 		m_instrumented = false;
 		m_debugMode = false;
+
+		s = m_SqlInterface->readParam(GrowingBlockVertexNumberShiftParamName);
+		if (s.empty())
+			throw(MapManagerException(__FUNCTION__, string("Param <" + GrowingBlockVertexNumberShiftParamName + "> not read from DB").c_str()));
+		g_DBGrowingBlockVertexNumberShift = stoi(s);
+		g_DBGrowingBlockVertexNumber = 1 << g_DBGrowingBlockVertexNumberShift;
+		s = m_SqlInterface->readParam(GridStepInWUParamName);
+		if (s.empty())
+			throw(MapManagerException(__FUNCTION__, string("Param <" + GridStepInWUParamName + "> not read from DB").c_str()));
+		g_gridStepInWU = stof(s);
 	}
 
 	MapManager::~MapManager()
@@ -166,46 +176,6 @@ namespace TheWorld_MapManager
 		maxGridPosX = int(maxPosX / gridStepInWU);
 		minGridPosZ = int(minPosZ / gridStepInWU);
 		maxGridPosZ = int(maxPosZ / gridStepInWU);
-
-		/*
-		if (minAOEX < 0 && -minAOEX < g_DBGrowingBlockVertexNumber)
-			minAOEX = -g_DBGrowingBlockVertexNumber;
-
-		if (maxAOEX > 0 && maxAOEX < g_DBGrowingBlockVertexNumber)
-			maxAOEX = g_DBGrowingBlockVertexNumber;
-
-		if (minAOEZ < 0 && -minAOEZ < g_DBGrowingBlockVertexNumber)
-			minAOEZ = -g_DBGrowingBlockVertexNumber;
-
-		if (maxAOEZ > 0 && maxAOEZ < g_DBGrowingBlockVertexNumber)
-			maxAOEZ = g_DBGrowingBlockVertexNumber;
-
-		// transform: WU ==> grid step
-		minAOEX /= g_gridStepInWU;
-		maxAOEX /= g_gridStepInWU;
-		minAOEZ /= g_gridStepInWU;
-		maxAOEZ /= g_gridStepInWU;
-
-		minGridPosX = int(minAOEX / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
-		//float minPosX = floorf(minAOEX / (g_DBGrowingBlockVertexNumber * g_gridStepInWU)) * (g_DBGrowingBlockVertexNumber * g_gridStepInWU);
-		//minGridPosX = minPosX / g_gridStepInWU;
-		if (minGridPosX < 0 && minGridPosX != minAOEX)
-			minGridPosX -= g_DBGrowingBlockVertexNumber;
-
-		maxGridPosX = int(maxAOEX / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
-		if (maxGridPosX > 0 && maxGridPosX != maxAOEX)
-			maxGridPosX += g_DBGrowingBlockVertexNumber;
-
-		minGridPosZ = int(minAOEZ / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
-		if (minGridPosZ < 0 && minGridPosZ != minAOEZ)
-			minGridPosZ -= g_DBGrowingBlockVertexNumber;
-
-		maxGridPosZ = int(maxAOEZ / g_DBGrowingBlockVertexNumber) * g_DBGrowingBlockVertexNumber;
-		if (maxGridPosZ > 0 && maxGridPosZ != maxAOEZ)
-			maxGridPosZ += g_DBGrowingBlockVertexNumber;
-
-		gridStepInWU = g_gridStepInWU;
-		*/
 	}
 	
 	// return a square grid as a vector of gridPoint stepped by gridStepInWU (g_gridStepInWU) which is in size numPointX x numPointZ and placed as a sequence of rows (a row incrementng z)
@@ -417,17 +387,51 @@ namespace TheWorld_MapManager
 		// RMTODO
 	}
 
+	float MapManager::calcPreviousCoordOnTheGrid(float coord)
+	{
+		return (floorf(coord / g_gridStepInWU) * g_gridStepInWU);
+	}
+
+	float MapManager::calcNextCoordOnTheGrid(float coord)
+	{
+		return ((floorf(coord / g_gridStepInWU) * g_gridStepInWU) + g_gridStepInWU);
+	}
+
+	void MapManager::getMesh(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::MapVertex>& mesh)
+	{
+		float min_X_OnTheGrid, max_X_OnTheGrid, min_Z_OnTheGrid, max_Z_OnTheGrid;
+
+		if (type == anchorType::center)
+		{
+			min_X_OnTheGrid = calcPreviousCoordOnTheGrid(anchorX - size / 2);
+			max_X_OnTheGrid = calcNextCoordOnTheGrid(anchorX + size / 2);
+			min_Z_OnTheGrid = calcPreviousCoordOnTheGrid(anchorZ - size / 2);
+			max_Z_OnTheGrid = calcNextCoordOnTheGrid(anchorZ + size / 2);
+		}
+		else if (type == anchorType::upperleftcorner)
+		{
+			min_X_OnTheGrid = calcPreviousCoordOnTheGrid(anchorX);
+			max_X_OnTheGrid = calcNextCoordOnTheGrid(anchorX + size);
+			min_Z_OnTheGrid = calcPreviousCoordOnTheGrid(anchorZ);
+			max_Z_OnTheGrid = calcNextCoordOnTheGrid(anchorZ + size);
+		}
+		else
+			throw(MapManagerException(__FUNCTION__, string("Unkwon anchor type").c_str()));
+
+	}
+
 	struct GISPoint
 	{
-		// use to keep the map sorted by x, y in fact the third parameter of a map definition defaults to std::less<point> which uses operator<
+		// needed to use an istance of GISPoint as a key in a map (to keep the map sorted by y and by x for equal y)
+		// first row, second row, ... etc
 		bool operator<(const GISPoint& p) const
 		{
-			if (x < p.x)
+			if (y < p.y)
 				return true;
-			if (x > p.x)
+			if (y > p.y)
 				return false;
 			else
-				return y < p.y;
+				return x < p.x;
 		}
 		double x;
 		double y;
@@ -468,7 +472,7 @@ namespace TheWorld_MapManager
 		if (writeReport)
 		{
 			fileName = filePath.substr(filePath.find_last_of("\\") + 1, (filePath.find_last_of(".") - filePath.find_last_of("\\") - 1));
-			outfilePath = filePath.substr(0, filePath.find_last_of("\\") + 1) + fileName + ".txt";
+			outfilePath = filePath.substr(0, filePath.find_last_of("\\") + 1) + "LoadGISMap_" + fileName + ".txt";
 			outFile.open(outfilePath);
 		}
 
@@ -502,42 +506,6 @@ namespace TheWorld_MapManager
 		// so the grid has a number of vertices equal to a multiple of g_DBGrowingBlockVertexNumber, they are spaced by a number of WU equal to gridStepInWU (g_gridStepInWU)
 		getSquareGrid(minAOE_X_WU, maxAOE_X_WU, minAOE_Z_WU, maxAOE_Z_WU, grid, numPointX, numPointZ, gridStepInWU);
 
-		/*
-		// Print the GRID
-		if (writeReport)
-		{
-			string s = "Dumping grid - Num points: " + to_string(numPointX * numPointZ) + " (" + to_string(numPointX) + " x " + to_string(numPointZ) + ") - Point: ";
-
-			if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str());
-
-			outFile << endl << "************************* INIZIO SEZIONE *************************" << endl;
-			outFile << "Inizio grid Num points: " << to_string(numPointX * numPointZ) << " (" << to_string(numPointX) << " x " << to_string(numPointZ) << ")" << endl;
-			int idxPoint = 0, row = 0, col = 0;
-			for (int z = 0; z < numPointZ; z++)
-			{
-				row++;
-				col = 0;
-				for (int x = 0; x < numPointX; x++)
-				{
-					if (z == 0)
-						outFile << "Row: " << to_string(row) << " - X: " << to_string(grid[idxPoint].x) << endl;
-
-					col++;
-					outFile << "   Col: " << to_string(col) << " - Z: " << to_string(grid[idxPoint].z) << endl;
-					idxPoint++;
-					if (debugMode() && fmod(idxPoint + 1, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
-				}
-			}
-			outFile << "Fine grid" << endl;
-			outFile << "************************* FINE SEZIONE ***************************" << endl;
-
-			if (debugMode())
-			{
-				debugUtil.printVariablePartOfLine(idxPoint);
-				debugUtil.printNewLine();
-			}
-		}*/
-			
 		_GISPointMap GISPointAltiduesMap;
 		_GISPointMap::iterator itGISPointAltiduesMap;
 
@@ -640,26 +608,7 @@ namespace TheWorld_MapManager
 		}
 		if (writeReport) outFile << "************************* FINE SEZIONE ***************************" << endl;
 		if (debugMode()) debugUtil.printVariablePartOfLine(nEntities);
-		if (debugMode()) debugUtil.printNewLine();
-		if (debugMode()) debugUtil.printNewLine();
-		if (debugMode()) debugUtil.printNewLine();
 		SHPClose(handle);
-
-		/*if (writeReport)
-		{
-			if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Dumping altitudes for every point of the plane: ", &debugUtil1);
-			int idxPoint = 0;
-			for (it = altiduesMap.begin(); it != altiduesMap.end(); it++)
-			{
-				idxPoint++;
-				for (int idxAltitudes = 0; idxAltitudes < it->second.size(); idxAltitudes++)
-				{
-					outFile << "Point " << to_string(idxPoint).c_str() << " - Vertex X: " << to_string(it->first.x) << " - Vertex Y: " << to_string(it->first.y) << " - Altitude: " << to_string(it->second[idxAltitudes]) << endl;
-				}
-				if (debugMode() && fmod(idxPoint, 1000) == 0) debugUtil.printVariablePartOfLine(idxPoint);
-			}
-			if (debugMode()) debugUtil.printVariablePartOfLine(idxPoint);
-		}*/
 
 		// We need to know for every point of the point map read from the input file in which square of the grid is placed (the grid is spaced by g_gridStepInWU WUs and the input file express points in meters)
 		// TODO
@@ -703,8 +652,12 @@ namespace TheWorld_MapManager
 
 		int maxNumGISPointsAffectingGridPoints = 0;
 
-		s = "SECOND LOOP - Filling map to DB - Num Grid points : " + to_string(numPointX * numPointZ) + " (" + to_string(numPointX) + " x " + to_string(numPointZ) + ") - Grig boxes: " + to_string(numPointX - 1) + " x " + to_string(numPointZ - 1);
-		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, (s + " - Point: ").c_str(), &debugUtil1);
+		s = "GrowingBlockVertexNumber: " + to_string(g_DBGrowingBlockVertexNumber) + " - GridStepInWU : " + to_string(g_gridStepInWU);
+		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str(), &debugUtil1);
+		if (writeReport) outFile << endl << s.c_str() << endl;
+
+		s = "SECOND LOOP - Filling map to DB - Num Grid points : " + to_string(numPointX * numPointZ) + " (" + to_string(numPointX) + " x " + to_string(numPointZ) + ") - Grid boxes: " + to_string(numPointX - 1) + " x " + to_string(numPointZ - 1);
+		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, (s + " - Point: ").c_str(), &debugUtil);
 		if (writeReport) outFile << endl << "************************* INIZIO SEZIONE *************************" << endl << s.c_str() << endl;
 		int idxGridPoint = 0, row = 0, col = 0;
 		for (int z = 0; z < numPointZ; z++)

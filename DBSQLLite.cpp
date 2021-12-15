@@ -32,6 +32,24 @@ namespace TheWorld_MapManager
 			m_dbOpsInternalTransaction.endTransaction(false);
 	}
 
+	string DBSQLLite::readParam(std::string paranName)
+	{
+		string paramValue = "";
+		
+		DBSQLLiteOps dbOps(dbFilePath());
+		dbOps.init();
+		string sql = "SELECT ParamValue FROM Params WHERE ParamName = '" + paranName + "';";
+		dbOps.prepareStmt(sql.c_str());
+		dbOps.acquireLock();
+		int rc = sqlite3_step(dbOps.getStmt());
+		dbOps.releaseLock();
+		if (rc == SQLITE_ROW)
+			paramValue = (char *)sqlite3_column_text(dbOps.getStmt(), 0);
+		dbOps.finalizeStmt();
+
+		return paramValue;
+	}
+
 	void DBSQLLite::beginTransaction(void)
 	{
 		if (!m_dbOpsInternalTransaction.isInitialized())
@@ -84,7 +102,7 @@ namespace TheWorld_MapManager
 			/*
 			* INSERT in table WorldDefiner
 			*/
-			string sql = "INSERT INTO WorldDefiner (PosX, PosZ, radius, azimuth, azimuthDegree, Level, Type, Strength, AOE, FunctionType) VALUES ("
+			string sql = "INSERT INTO WorldDefiner (PosX, PosZ, radius, azimuth, azimuthDegree, Level, Type, Strength, AOE, FunctionType) VALUES (" 
 				+ std::to_string(pWD->getPosX())
 				+ "," + std::to_string(pWD->getPosZ())
 				+ "," + std::to_string(pWD->getRadius())
@@ -572,6 +590,10 @@ namespace TheWorld_MapManager
 									(float)sqlite3_column_int(dbOps.getStmt(), 6),		// InitialAltitude
 									vertexRowid);										// rowid
 		dbOps.finalizeStmt();
+	}
+
+	void DBSQLLite::getVertices(float minX, float maxX, float minZ, float maxZ, vector<MapVertex>& vertices)
+	{
 	}
 
 	bool DBSQLLite::getWD(__int64 wdRowid, WorldDefiner& wd)
