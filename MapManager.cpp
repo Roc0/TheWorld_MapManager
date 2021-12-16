@@ -179,8 +179,8 @@ namespace TheWorld_MapManager
 		maxGridPosZ = int(maxPosZ / gridStepInWU);
 	}
 	
-	// return a square grid as a vector of gridPoint stepped by gridStepInWU (g_gridStepInWU) which is in size numPointX x numPointZ and placed as a sequence of rows (a row incrementng z)
-	void MapManager::getSquareGridToExpand(float minX, float maxX, float minZ, float maxZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU)
+	// return a square grid as a vector of GridPoint stepped by gridStepInWU (g_gridStepInWU) which is in size numPointX x numPointZ and placed as a sequence of rows (a row incrementng z)
+	void MapManager::getSquareGridToExpand(float minX, float maxX, float minZ, float maxZ, vector<GridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU)
 	{
 		int minGridPosX = 0;
 		int maxGridPosX = 0;
@@ -193,20 +193,22 @@ namespace TheWorld_MapManager
 		numPointZ = maxGridPosZ - minGridPosZ + 1;
 
 		grid.clear();
+		grid.reserve(size_t(numPointX) * size_t(numPointZ));
 
 		for (int z = minGridPosZ; z <= maxGridPosZ; z++)
 		{
 			for (int x = minGridPosX; x <= maxGridPosX; x++)
 			{
-				gridPoint p;
+				GridPoint p;
 				p.x = float(x) * gridStepInWU;
 				p.z = float(z) * gridStepInWU;
 				grid.push_back(p);
 			}
 		}
+		assert(grid.size() == size_t(numPointX) * size_t(numPointZ));
 	}
 
-	void MapManager::getSquareGrid(float minX, float maxX, float minZ, float maxZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU)
+	void MapManager::getGrid(float minX, float maxX, float minZ, float maxZ, vector<GridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU)
 	{
 		gridStepInWU = g_gridStepInWU;
 
@@ -221,23 +223,25 @@ namespace TheWorld_MapManager
 		numPointZ = maxGridPosZ - minGridPosZ + 1;
 
 		grid.clear();
+		grid.reserve(size_t(numPointX) * size_t(numPointZ));
 
 		for (int z = minGridPosZ; z <= maxGridPosZ; z++)
 		{
 			for (int x = minGridPosX; x <= maxGridPosX; x++)
 			{
-				gridPoint p;
+				GridPoint p;
 				p.x = float(x) * gridStepInWU;
 				p.z = float(z) * gridStepInWU;
 				grid.push_back(p);
 			}
 		}
+		assert(grid.size() == size_t(numPointX) * size_t(numPointZ));
 	}
 
-	void MapManager::getSquareEmptyVertexGrid(vector<gridPoint>& grid, vector<SQLInterface::GridVertex>& emptyGridVertex, int level)
+	void MapManager::getEmptyVertexGrid(vector<GridPoint>& grid, vector<SQLInterface::GridVertex>& emptyGridVertex, int level)
 	{
 		emptyGridVertex.clear();
-		vector<gridPoint>::iterator it;
+		vector<GridPoint>::iterator it;
 		for (it = grid.begin(); it != grid.end(); it++)
 		{
 			SQLInterface::GridVertex gridVertex(it->x, it->z, level);
@@ -442,7 +446,7 @@ namespace TheWorld_MapManager
 			return coord;
 	}
 
-	void MapManager::getMesh(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int level)
+	void MapManager::getMesh(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level)
 	{
 		debugUtils debugUtil;
 		TimerMs clock; // Timer<milliseconds, steady_clock>
@@ -467,11 +471,9 @@ namespace TheWorld_MapManager
 		else
 			throw(MapManagerException(__FUNCTION__, string("Unkwon anchor type").c_str()));
 
-		int numPointX, numPointZ;
-		float gridStepInWU;
-		vector<gridPoint> grid;
-		getSquareGrid(min_X_OnTheGrid, max_X_OnTheGrid, min_Z_OnTheGrid, max_Z_OnTheGrid, grid, numPointX, numPointZ, gridStepInWU);
-		getSquareEmptyVertexGrid(grid, mesh, level);
+		vector<GridPoint> grid;
+		getGrid(min_X_OnTheGrid, max_X_OnTheGrid, min_Z_OnTheGrid, max_Z_OnTheGrid, grid, numPointX, numPointZ, gridStepInWU);
+		getEmptyVertexGrid(grid, mesh, level);
 
 		vector<SQLInterface::GridVertex> vectGridVerticesFromDB;
 		m_SqlInterface->getVertices(min_X_OnTheGrid, max_X_OnTheGrid, min_Z_OnTheGrid, max_Z_OnTheGrid, vectGridVerticesFromDB, level);
@@ -522,6 +524,46 @@ namespace TheWorld_MapManager
 		}
 
 		if (instrumented()) clock.printDuration((string(__FUNCTION__) + " - Num Vertices: " + to_string(mesh.size()) + " - (X x Z): " + to_string(numPointX) + " x " + to_string(numPointZ) + " - Found in DB: " + to_string(numFoundInDB)).c_str());
+	}
+
+	void MapManager::getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level)
+	{
+		debugUtils debugUtil;
+		TimerMs clock; // Timer<milliseconds, steady_clock>
+		if (instrumented()) clock.tick();
+
+		patches.clear();
+		
+		int numPointX = 0, numPointZ = 0;
+		vector<SQLInterface::GridVertex> mesh;
+		getMesh(anchorX, anchorZ, type, size, mesh, numPointX, numPointZ, gridStepInWU, level);
+
+		if (mesh.size() <= 1)
+			return;
+
+		numPatchX = numPointX - 1;
+		numPatchZ = numPointZ - 1;
+		
+		patches.reserve(size_t(numPatchX) * size_t(numPatchZ));
+		
+		// Collecting patches: the patch is the one wich has the current grid vertex as upper left corner
+		for (size_t idx = 0; idx < mesh.size(); idx++)
+		{
+			SQLInterface::GridVertex upperLeftGridVertex = mesh[idx];
+			assert(idx + 1 < mesh.size());
+			SQLInterface::GridVertex upperRightGridVertex = mesh[idx + 1];
+			if (upperLeftGridVertex.posZ() != upperRightGridVertex.posZ())
+				continue;	// the current grid vertex (p1) is the last of the row so it doesn't point to a patch
+			if (idx + numPointX >= mesh.size())
+				break;		// the current grid vertex (p1) is on the last row of the grid so it doesn't point to a patch nor any of the following: we can exit loop
+			SQLInterface::GridVertex lowerLeftGridVertex = mesh[idx + numPointX];
+			SQLInterface::GridVertex lowerRightGridVertex = mesh[idx + numPointX + 1];
+			GridPatch patch(upperLeftGridVertex, upperRightGridVertex, lowerLeftGridVertex, lowerRightGridVertex);
+			patches.push_back(patch);
+		}
+		assert((int)patches.size() == numPatchX * numPatchZ);
+
+		if (instrumented()) clock.printDuration((string(__FUNCTION__) + " - Num patches: " + to_string(patches.size()) + " - (X x Z): " + to_string(numPatchX) + " x " + to_string(numPatchZ)).c_str());
 	}
 
 	struct GISPoint
@@ -601,7 +643,7 @@ namespace TheWorld_MapManager
 		float minAOE_Z_WU = (float)adfMinBound[1] / metersInWU;
 		float maxAOE_Z_WU = (float)adfMaxBound[1] / metersInWU;
 
-		vector<gridPoint> grid;
+		vector<GridPoint> grid;
 		int numPointX;
 		int numPointZ;
 		float gridStepInWU;
@@ -773,8 +815,8 @@ namespace TheWorld_MapManager
 
 				col++;
 
-				double LoadGISMap_interpolateAltitudOfGridPOint(vector<gridPoint>& grid, int idxGridPoint, _GISPointsAffectingGridPoints& GISPointsAffectingGridPoints, _GISPointMap& GISPointAltidues);
-				double altidue = LoadGISMap_interpolateAltitudOfGridPOint(grid, idxGridPoint, GISPointsAffectingGridPoints, GISPointAltiduesMap);
+				double LoadGISMap_interpolateAltitudeOfGridPOint(vector<GridPoint>& grid, int idxGridPoint, _GISPointsAffectingGridPoints& GISPointsAffectingGridPoints, _GISPointMap& GISPointAltidues);
+				double altidue = LoadGISMap_interpolateAltitudeOfGridPOint(grid, idxGridPoint, GISPointsAffectingGridPoints, GISPointAltiduesMap);
 
 				SQLInterface::GridVertex gridVertex(grid[idxGridPoint].x, grid[idxGridPoint].z, (float)altidue, level);
 				vectGridVertices.push_back(gridVertex);
@@ -811,6 +853,33 @@ namespace TheWorld_MapManager
 
 		
 		if (instrumented()) clock.printDuration(__FUNCTION__);
+	}
+
+	float MapManager::interpolateAltitude(vector<SQLInterface::GridVertex>& vectGridVertex, GridPoint& pos)
+	{
+		// I N T E R P O L A T I O N : we use the "inverse distance weighted" algorithm
+		// rapporto tra la sommatoria per ogni punto da interpolare di altitudine su distanza dal punto target e la sommatoria di 1 su distanza dal punto target
+
+		if (vectGridVertex.size() == 0)
+			return 0.0;
+		
+		float numerator = 0.0, denominator = 0.0;
+		for (int idx = 0; idx < vectGridVertex.size(); idx++)
+		{
+			float altitude = vectGridVertex[idx].altitude();
+			float distance = sqrtf(powf((pos.x - vectGridVertex[idx].posX()), 2.0) + powf((pos.z - vectGridVertex[idx].posZ()), 2.0));
+			if (distance == 0.0)
+			{
+				numerator += altitude;
+				denominator += 1.0;
+			}
+			else
+			{
+				numerator += (altitude / distance);
+				denominator += (1.0f / distance);
+			}
+		}
+		return (numerator / denominator);
 	}
 
 	bool MapManager::TransformProjectedCoordEPSG3857ToGeoCoordEPSG4326(double X, double Y, double& lonDecimalDegrees, double& latDecimalDegrees, int& lonDegrees, int& lonMinutes, double& lonSeconds, int& latDegrees, int& latMinutes, double& latSeconds)
@@ -922,7 +991,7 @@ void LoadGISMap_pushPointsAffectingPointMap(TheWorld_MapManager::_GISPointsAffec
 	}
 }
 
-double LoadGISMap_interpolateAltitudOfGridPOint(vector<TheWorld_MapManager::MapManager::gridPoint>& grid, int idxGridPoint, TheWorld_MapManager::_GISPointsAffectingGridPoints& GISPointsAffectingGridPoints,
+double LoadGISMap_interpolateAltitudeOfGridPOint(vector<TheWorld_MapManager::MapManager::GridPoint>& grid, int idxGridPoint, TheWorld_MapManager::_GISPointsAffectingGridPoints& GISPointsAffectingGridPoints,
 	TheWorld_MapManager::_GISPointMap& GISPointAltidues)
 {
 	// I N T E R P O L A T I O N : we use the "inverse distance weighted" algorithm
@@ -951,7 +1020,7 @@ double LoadGISMap_interpolateAltitudOfGridPOint(vector<TheWorld_MapManager::MapM
 		double LoadGISMap_getAltitude(TheWorld_MapManager::GISPoint & GISP, TheWorld_MapManager::_GISPointMap & GISPointAltidues);
 		double altitude = LoadGISMap_getAltitude(GISPointsAffectingGridPoints[idxGridPoint][idx], GISPointAltidues);
 
-		double LoadGISMap_getDistance(TheWorld_MapManager::MapManager::gridPoint& gridP, TheWorld_MapManager::GISPoint& GISP);
+		double LoadGISMap_getDistance(TheWorld_MapManager::MapManager::GridPoint & gridP, TheWorld_MapManager::GISPoint& GISP);
 		double distance = LoadGISMap_getDistance(grid[idxGridPoint], GISPointsAffectingGridPoints[idxGridPoint][idx]);
 
 		if (distance == 0.0)
@@ -969,7 +1038,7 @@ double LoadGISMap_interpolateAltitudOfGridPOint(vector<TheWorld_MapManager::MapM
 	return (numerator / denominator);
 }
 
-double LoadGISMap_getDistance(TheWorld_MapManager::MapManager::gridPoint& gridP, TheWorld_MapManager::GISPoint& GISP)
+double LoadGISMap_getDistance(TheWorld_MapManager::MapManager::GridPoint& gridP, TheWorld_MapManager::GISPoint& GISP)
 {
 	return sqrt(pow(((double)gridP.x - GISP.x), 2.0) + pow(((double)gridP.z - GISP.y), 2.0));
 }

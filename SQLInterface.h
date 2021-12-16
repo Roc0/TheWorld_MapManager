@@ -50,7 +50,7 @@ namespace TheWorld_MapManager
 			GridVertex()
 			{
 				m_posX = 0.0;
-				m_posY = 0.0;
+				m_altitude = 0.0;
 				m_posZ = 0.0;
 				m_radius = 0.0;
 				m_azimuth = 0.0;
@@ -73,7 +73,7 @@ namespace TheWorld_MapManager
 			void initGridVertex(float posX, float posZ, float initialAltitude, int level = 0)
 			{
 				m_posX = posX;
-				m_posY = 0.0;		// Altitude will be calculated later
+				m_altitude = 0.0;		// Altitude will be calculated later
 				m_posZ = posZ;
 				m_level = level;
 				m_initialAltitude = initialAltitude;
@@ -110,10 +110,10 @@ namespace TheWorld_MapManager
 					return false;
 			}
 
-			void setInternalValues(float posX, float posY, float posZ, float radius, float azimuth, int level, float initialAltitude, __int64 rowid)
+			void setInternalValues(float posX, float altitude, float posZ, float radius, float azimuth, int level, float initialAltitude, __int64 rowid)
 			{
 				m_posX = posX;
-				m_posY = posY;
+				m_altitude = altitude;
 				m_posZ = posZ;
 				m_radius = radius;
 				m_azimuth = azimuth;
@@ -123,7 +123,7 @@ namespace TheWorld_MapManager
 			}
 
 			float posX(void) { return m_posX; }
-			float posY(void) { return m_posY; }
+			float altitude(void) { return m_altitude; }
 			float posZ(void) { return m_posZ; }
 			float radius(void) { return m_radius; }
 			float azimuth(void) { return m_azimuth; }
@@ -133,7 +133,7 @@ namespace TheWorld_MapManager
 
 		private:
 			float m_posX;
-			float m_posY;
+			float m_altitude;
 			float m_posZ;
 			float m_radius;
 			float m_azimuth;
@@ -148,7 +148,7 @@ namespace TheWorld_MapManager
 		virtual void endTransaction(bool commit = true) = 0;
 		virtual __int64 addWDAndVertices(WorldDefiner* pWD, std::vector<GridVertex>& vectGridVertices) = 0;
 		virtual bool eraseWD(__int64 wdRowid) = 0;
-		virtual void updateAltitudeOfVertex(__int64 vertexRowid, float posY) = 0;
+		virtual void updateAltitudeOfVertex(__int64 vertexRowid, float altitude) = 0;
 		virtual void clearVerticesMarkedForUpdate(void) = 0;
 		virtual void getVertex(__int64 vertexRowid, GridVertex& gridVertex, int level) = 0;
 		virtual void getVertices(float minX, float maxX, float minZ, float maxZ, std::vector<GridVertex>& vectGridVertices, int level) = 0;

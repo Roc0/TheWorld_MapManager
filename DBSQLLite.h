@@ -337,7 +337,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void endTransaction(bool commit = true);
 		_declspec(dllexport) __int64 addWDAndVertices(WorldDefiner* pWD, std::vector<GridVertex>& vectGridVertices);
 		_declspec(dllexport) bool eraseWD(__int64 wdRowid);
-		_declspec(dllexport) void updateAltitudeOfVertex(__int64 vertexRowid, float posY);
+		_declspec(dllexport) void updateAltitudeOfVertex(__int64 vertexRowid, float altitude);
 		_declspec(dllexport) void clearVerticesMarkedForUpdate(void);
 		_declspec(dllexport) void getVertex(__int64 vertexRowid, GridVertex& gridVertex, int level = 0);
 		_declspec(dllexport) void getVertices(float minX, float maxX, float minZ, float maxZ, vector<GridVertex>& vectGridVertices, int level = 0);

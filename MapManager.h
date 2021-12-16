@@ -27,11 +27,104 @@ namespace TheWorld_MapManager
 	// ************************************************************************************************************************************************
 
 	const string GridStepInWUParamName = "GridStepInWU";
-	float g_gridStepInWU = 0.0;		// distance in world unit between a vertice of the grid and the next
+	float g_gridStepInWU = 0.0f;		// distance in world unit between a vertice of the grid and the next
 
 	class MapManager
 	{
 	public:
+		// Grid / GridPoint are in WUs
+		class GridPoint
+		{
+		public:
+			GridPoint(void) : x(0.0f), z(0.0f) {}
+			GridPoint(float _x, float _z) { this->x = _x;	this->z = _z; }
+			// needed to use an istance of gridPoint as a key in a map (to keep the map sorted by z and by x for equal z)
+			// first row, second row, ... etc
+			bool operator<(const GridPoint& p) const
+			{
+				if (z < p.z)
+					return true;
+				if (z > p.z)
+					return false;
+				else
+					return x < p.x;
+			}
+			float x;
+			float z;
+		};
+
+		class GridPatch
+		{
+		public:
+			GridPatch(SQLInterface::GridVertex& upperLeftGridVertex, SQLInterface::GridVertex& upperRightGridVertex, SQLInterface::GridVertex& lowerLeftGridVertex, SQLInterface::GridVertex& lowerRightGridVertex)
+			{
+				if (g_gridStepInWU == 0.0f)
+					throw(MapManagerException(__FUNCTION__, string("Initialize DB!").c_str()));
+
+				gridVertex.push_back(upperLeftGridVertex);
+				gridVertex.push_back(upperRightGridVertex);
+				gridVertex.push_back(lowerLeftGridVertex);
+				gridVertex.push_back(lowerRightGridVertex);
+
+				GridPoint p((upperLeftGridVertex.posX() + upperRightGridVertex.posX()) / 2, (upperLeftGridVertex.posZ() + lowerLeftGridVertex.posZ()) / 2);
+				m_altitude = MapManager::interpolateAltitude(gridVertex, p);
+
+				// 0 based prog of the patch on the X axis: 0 is the coord of the first patch on the X axis along the positive direction, -1 is the coord of the first patch on the X axis along the negative direction
+				m_posX = int(upperLeftGridVertex.posX() / g_gridStepInWU);
+				// 0 based prog of the patch on the Z axis: 0 is the coord of the first patch on the Z axis along the positive direction, -1 is the coord of the first patch on the Z axis along the negative direction
+				m_posZ = int(upperLeftGridVertex.posZ() / g_gridStepInWU);
+			}
+
+			// needed to use an istance of gridPoint as a key in a map (to keep the map sorted by z and by x for equal z)
+			// first row, second row, ... etc
+			bool operator<(const GridPatch& p) const
+			{
+				if (m_posZ < p.m_posZ)
+					return true;
+				if (m_posZ > p.m_posZ)
+					return false;
+				else
+					return m_posX < p.m_posX;
+			}
+			bool operator==(const GridPatch& p) const
+			{
+				if (m_posZ == p.m_posZ && m_posX == p.m_posX)
+					return true;
+				else
+					return false;
+			}
+			float getAltitude(void) { return m_altitude; };
+			enum class vertexPos
+			{
+				upper_left = 0,		// P1	idx 0
+				upper_right = 1,	// P2	idx 1
+				lower_left = 2,		// P3	idx 2
+				lower_right = 3		// P4	idx 3
+			};
+			SQLInterface::GridVertex getVertex(vertexPos pos)
+			{
+				switch (pos)
+				{
+				case vertexPos::upper_left:
+					return gridVertex[0];
+				case vertexPos::upper_right:
+					return gridVertex[1];
+				case vertexPos::lower_left:
+					return gridVertex[2];
+				case vertexPos::lower_right:
+					return gridVertex[3];
+				default:
+					throw(MapManagerException(__FUNCTION__, string("Unknown vertxPos").c_str()));
+				}
+			}
+
+		private:
+			vector<SQLInterface::GridVertex> gridVertex;
+			float m_altitude;
+			int m_posX;
+			int m_posZ;
+		};
+
 		_declspec(dllexport) MapManager();
 		_declspec(dllexport) ~MapManager();
 		virtual const char* classname() { return "MapManager"; }
@@ -46,24 +139,6 @@ namespace TheWorld_MapManager
 		bool debugMode(void) { return m_debugMode; }
 		bool instrumented(void) { return m_instrumented; };
 
-		// Grid / GridPoint are in WUs
-		struct gridPoint
-		{
-			// needed to use an istance of gridPoint as a key in a map (to keep the map sorted by z and by x for equal z)
-			// first row, second row, ... etc
-			bool operator<(const gridPoint& p) const
-			{
-				if (z < p.z)
-					return true;
-				if (z > p.z)
-					return false;
-				else
-					return x < p.x;
-			}
-			float x;
-			float z;
-		};
-
 		_declspec(dllexport) __int64 addWD(WorldDefiner& WD);
 		_declspec(dllexport) bool eraseWD(WorldDefiner& WD);
 		_declspec(dllexport) bool eraseWD(float posX, float posZ, int level, WDType type);
@@ -77,7 +152,10 @@ namespace TheWorld_MapManager
 			center = 0,
 			upperleftcorner = 1
 		} ;
-		_declspec(dllexport) void getMesh(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int level = 0);
+		
+		_declspec(dllexport) void getMesh(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level = 0);
+		
+		_declspec(dllexport) void getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level = 0);
 
 		_declspec(dllexport) void UpdateValues(void);
 
@@ -87,15 +165,16 @@ namespace TheWorld_MapManager
 		float computeAltitude(SQLInterface::GridVertex& gridVertex, std::vector<WorldDefiner>& wdMap);
 		float computeAltitudeElevator(SQLInterface::GridVertex& gridVertex, WorldDefiner& wd, float distanceFromWD = -1);
 		void calcSquareGridMinMaxToExpand(float minX, float maxX, float minZ, float maxZ, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU);
-		void getSquareGridToExpand(float minX, float maxX, float minZ, float maxZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU);
-		void getSquareGrid(float minX, float maxX, float minZ, float maxZ, vector<gridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU);
-		void getSquareEmptyVertexGrid(vector<gridPoint>& grid, vector<SQLInterface::GridVertex>& mesh, int level = 0);
+		void getSquareGridToExpand(float minX, float maxX, float minZ, float maxZ, vector<GridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU);
+		void getGrid(float minX, float maxX, float minZ, float maxZ, vector<GridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU);
+		void getEmptyVertexGrid(vector<GridPoint>& grid, vector<SQLInterface::GridVertex>& mesh, int level = 0);
 		inline float calcPreviousCoordOnTheGrid(float coord);
 		inline float calcNextCoordOnTheGrid(float coord);
 		float getDistance(float x1, float y1, float x2, float y2);
 		bool TransformProjectedCoordEPSG3857ToGeoCoordEPSG4326(double X, double Y, double& lon, double& lat, int& lonDegrees, int& lonMinutes, double& lonSeconds, int& latDegrees, int& latMinutes, double& latSeconds);
 		void DecimalDegreesToDegreesMinutesSeconds(double decimalDegrees, int& degrees, int& minutes, double& seconds);
 		//float getDistance(Vector3f v1, Vector3f v2);
+		static float interpolateAltitude(vector<SQLInterface::GridVertex>& vectGridVertex, GridPoint& pos);
 
 	private:
 		SQLInterface* m_SqlInterface;
