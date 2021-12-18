@@ -12,22 +12,11 @@
 
 namespace TheWorld_MapManager
 {
+	extern float g_gridStepInWU;
+
 	// ************************************************************************************
 	// I M P O R T A N T: the metrics in this class is always expressed in World Units (WU)
 	// ************************************************************************************
-
-	// ************************************************************************************************************************************************
-	// size of the square grid of vertices used to expand the map (for example on new WD), this size is expressed in number of vertices so it is an int
-	// ************************************************************************************************************************************************
-	const string GrowingBlockVertexNumberShiftParamName = "GrowingBlockVertexNumberShift";
-	//int g_DBGrowingBlockVertexNumberShift = 10;	// 10 ==> g_DBGrowingBlockVertexNumber = 1024;
-	//int g_DBGrowingBlockVertexNumberShift = 8;	// 8 ==> g_DBGrowingBlockVertexNumber = 256;
-	int g_DBGrowingBlockVertexNumberShift = 0;
-	int g_DBGrowingBlockVertexNumber = 1 << g_DBGrowingBlockVertexNumberShift;
-	// ************************************************************************************************************************************************
-
-	const string GridStepInWUParamName = "GridStepInWU";
-	float g_gridStepInWU = 0.0f;		// distance in world unit between a vertice of the grid and the next
 
 	class MapManager
 	{
@@ -125,7 +114,7 @@ namespace TheWorld_MapManager
 			int m_posZ;
 		};
 
-		_declspec(dllexport) MapManager();
+		_declspec(dllexport) MapManager(char * configFileName = NULL);
 		_declspec(dllexport) ~MapManager();
 		virtual const char* classname() { return "MapManager"; }
 
@@ -146,20 +135,17 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) int getNumVertexMarkedForUpdate(void);
 		_declspec(dllexport) void LoadGISMap(const char* fileInput, bool writeReport, float metersInWU = 1.0, int level = 0);
 		_declspec(dllexport) void DumpDB(void);
+		_declspec(dllexport) void UpdateValues(void);
+		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }
+		_declspec(dllexport) float gridStepInWU(void);
 
 		enum class anchorType
 		{
 			center = 0,
 			upperleftcorner = 1
 		} ;
-		
-		_declspec(dllexport) void getMesh(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level = 0);
-		
+		_declspec(dllexport) void getVertices(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) void getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level = 0);
-
-		_declspec(dllexport) void UpdateValues(void);
-
-		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }
 
 	private:
 		float computeAltitude(SQLInterface::GridVertex& gridVertex, std::vector<WorldDefiner>& wdMap);

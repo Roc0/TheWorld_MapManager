@@ -17,10 +17,26 @@
 
 namespace TheWorld_MapManager
 {
-	MapManager::MapManager()
+	// ************************************************************************************************************************************************
+	// size of the square grid of vertices used to expand the map (for example on new WD), this size is expressed in number of vertices so it is an int
+	// ************************************************************************************************************************************************
+	const string GrowingBlockVertexNumberShiftParamName = "GrowingBlockVertexNumberShift";
+	//int g_DBGrowingBlockVertexNumberShift = 10;	// 10 ==> g_DBGrowingBlockVertexNumber = 1024;
+	//int g_DBGrowingBlockVertexNumberShift = 8;	// 8 ==> g_DBGrowingBlockVertexNumber = 256;
+	int g_DBGrowingBlockVertexNumberShift = 0;
+	int g_DBGrowingBlockVertexNumber = 1 << g_DBGrowingBlockVertexNumberShift;
+	// ************************************************************************************************************************************************
+
+	const string GridStepInWUParamName = "GridStepInWU";
+	float g_gridStepInWU = 0.0f;		// distance in world unit between a vertice of the grid and the next
+
+	MapManager::MapManager(char* configFileName)
 	{
 		string s = getModuleLoadPath();
-		s += "\\TheWorld_MapManager.json";
+		if (configFileName == NULL)
+			s += "\\TheWorld_MapManager.json";
+		else
+			s += string ("\\") + configFileName;
 
 		Json::Value root;
 		std::ifstream jsonFile(s);
@@ -48,6 +64,13 @@ namespace TheWorld_MapManager
 			m_SqlInterface->finalizeDB();
 	}
 
+	float MapManager::gridStepInWU(void)
+	{
+		if (g_gridStepInWU == 0.0f)
+			throw(MapManagerException(__FUNCTION__, string("MapManager not initialized!").c_str()));
+		return g_gridStepInWU;
+	}
+
 	__int64 MapManager::addWD(WorldDefiner& WD)
 	{
 		debugUtils debugUtil;
@@ -68,7 +91,7 @@ namespace TheWorld_MapManager
 		float gridStepInWU = 0.0;
 
 		// we need to calculate the grid so that it is expressed of square patches with a number of vertices for every size equal to g_DBGrowingBlockVertexNumber
-		// they are spaced by a number of WU equal to gridStepInWU (g_gridStepInWU)
+		// they are spaced by a number of WU equal to gridStepInWU (MapManager::gridStepInWU())
 		calcSquareGridMinMaxToExpand(minAOEX, maxAOEX, minAOEZ, maxAOEZ, minGridPosX, maxGridPosX, minGridPosZ, maxGridPosZ, gridStepInWU);
 
 		int gridSize = (maxGridPosX - minGridPosX + 1) * (maxGridPosZ - minGridPosZ + 1);
@@ -106,11 +129,11 @@ namespace TheWorld_MapManager
 		return rowid;
 	}
 
-	// Return a square grid with a number of vertices for every size multiple of g_DBGrowingBlockVertexNumber, they are spaced by a number of WU equal to g_gridStepInWU
+	// Return a square grid with a number of vertices for every size multiple of g_DBGrowingBlockVertexNumber, they are spaced by a number of WU equal to MapManager::gridStepInWU()
 	// every point of the grid is defined by its X and Z coord expressed in WU in whole numbers 
 	void MapManager::calcSquareGridMinMaxToExpand(float minX, float maxX, float minZ, float maxZ, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU)
 	{
-		gridStepInWU = g_gridStepInWU;
+		gridStepInWU = MapManager::gridStepInWU();
 
 		float GrowingBlockInWU = g_DBGrowingBlockVertexNumber * gridStepInWU;
 		
@@ -179,7 +202,7 @@ namespace TheWorld_MapManager
 		maxGridPosZ = int(maxPosZ / gridStepInWU);
 	}
 	
-	// return a square grid as a vector of GridPoint stepped by gridStepInWU (g_gridStepInWU) which is in size numPointX x numPointZ and placed as a sequence of rows (a row incrementng z)
+	// return a square grid as a vector of GridPoint stepped by gridStepInWU (MapManager::gridStepInWU()) which is in size numPointX x numPointZ and placed as a sequence of rows (a row incrementng z)
 	void MapManager::getSquareGridToExpand(float minX, float maxX, float minZ, float maxZ, vector<GridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU)
 	{
 		int minGridPosX = 0;
@@ -210,7 +233,7 @@ namespace TheWorld_MapManager
 
 	void MapManager::getGrid(float minX, float maxX, float minZ, float maxZ, vector<GridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU)
 	{
-		gridStepInWU = g_gridStepInWU;
+		gridStepInWU = MapManager::gridStepInWU();
 
 		float f = calcPreviousCoordOnTheGrid(minX);
 		int minGridPosX = int(f / gridStepInWU);
@@ -433,20 +456,20 @@ namespace TheWorld_MapManager
 
 	float MapManager::calcPreviousCoordOnTheGrid(float coord)
 	{
-		float f = floorf(coord / g_gridStepInWU) * g_gridStepInWU;
+		float f = floorf(coord / MapManager::gridStepInWU()) * MapManager::gridStepInWU();
 		return f;
 	}
 
 	float MapManager::calcNextCoordOnTheGrid(float coord)
 	{
-		float nextCoord = floorf(coord / g_gridStepInWU) * g_gridStepInWU;
+		float nextCoord = floorf(coord / MapManager::gridStepInWU()) * MapManager::gridStepInWU();
 		if (nextCoord < coord)
-			return nextCoord + g_gridStepInWU;
+			return nextCoord + MapManager::gridStepInWU();
 		else
 			return coord;
 	}
 
-	void MapManager::getMesh(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level)
+	void MapManager::getVertices(float anchorX, float anchorZ, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level)
 	{
 		debugUtils debugUtil;
 		TimerMs clock; // Timer<milliseconds, steady_clock>
@@ -536,7 +559,7 @@ namespace TheWorld_MapManager
 		
 		int numPointX = 0, numPointZ = 0;
 		vector<SQLInterface::GridVertex> mesh;
-		getMesh(anchorX, anchorZ, type, size, mesh, numPointX, numPointZ, gridStepInWU, level);
+		getVertices(anchorX, anchorZ, type, size, mesh, numPointX, numPointZ, gridStepInWU, level);
 
 		if (mesh.size() <= 1)
 			return;
@@ -649,7 +672,7 @@ namespace TheWorld_MapManager
 		float gridStepInWU;
 
 		// we need to calculate the grid so that the map grows of multiples of square patches with a number of vertices for every size equal to g_DBGrowingBlockVertexNumber
-		// so the grid has a number of vertices equal to a multiple of g_DBGrowingBlockVertexNumber, they are spaced by a number of WU equal to gridStepInWU (g_gridStepInWU)
+		// so the grid has a number of vertices equal to a multiple of g_DBGrowingBlockVertexNumber, they are spaced by a number of WU equal to gridStepInWU (MapManager::gridStepInWU())
 		getSquareGridToExpand(minAOE_X_WU, maxAOE_X_WU, minAOE_Z_WU, maxAOE_Z_WU, grid, numPointX, numPointZ, gridStepInWU);
 
 		_GISPointMap GISPointAltiduesMap;
@@ -756,7 +779,7 @@ namespace TheWorld_MapManager
 		if (debugMode()) debugUtil.printVariablePartOfLine(nEntities);
 		SHPClose(handle);
 
-		// We need to know for every point of the point map read from the input file in which square of the grid is placed (the grid is spaced by g_gridStepInWU WUs and the input file express points in meters)
+		// We need to know for every point of the point map read from the input file in which square of the grid is placed (the grid is spaced by MapManager::gridStepInWU() WUs and the input file express points in meters)
 		// TODO
 		/*if (writeReport) 
 		{
@@ -798,7 +821,7 @@ namespace TheWorld_MapManager
 
 		int maxNumGISPointsAffectingGridPoints = 0;
 
-		s = "GrowingBlockVertexNumber: " + to_string(g_DBGrowingBlockVertexNumber) + " - GridStepInWU : " + to_string(g_gridStepInWU);
+		s = "GrowingBlockVertexNumber: " + to_string(g_DBGrowingBlockVertexNumber) + " - GridStepInWU : " + to_string(MapManager::gridStepInWU());
 		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, s.c_str(), &debugUtil1);
 		if (writeReport) outFile << endl << s.c_str() << endl;
 

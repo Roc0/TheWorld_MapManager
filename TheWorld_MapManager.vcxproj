@@ -133,7 +133,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>..\x64;..\PROJ\Bin\lib\Debug;$(SolutionDir)$(Platform)\</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)x64;$(SolutionDir)..\PROJ\Bin\lib\Debug;$(SolutionDir)$(Platform)\</AdditionalLibraryDirectories>
       <AdditionalDependencies>lib_json_d.lib;proj_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -155,7 +155,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>..\x64;..\PROJ\Bin\lib\Release;$(SolutionDir)$(Platform)\</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)x64;$(SolutionDir)..\PROJ\Bin\lib\Release;$(SolutionDir)$(Platform)\</AdditionalLibraryDirectories>
       <AdditionalDependencies>lib_json.lib;proj.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
