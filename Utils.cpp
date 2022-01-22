@@ -1,4 +1,5 @@
 #include "pch.h"
+#include <plog/Initializers/RollingFileInitializer.h>
 
 #include "Utils.h"
 #include "MapManagerException.h"
@@ -35,4 +36,20 @@ namespace TheWorld_MapManager
 
         return s;
 	}
+
+    void utils::init(const char* logPath, plog::Severity sev)
+    {
+        plog::init(sev, logPath, 1000000, 3);
+        PLOG_INFO << endl;
+        PLOG_INFO << "***************";
+        PLOG_INFO << "Log initilized!";
+        PLOG_INFO << "***************";
+    }
+
+    utils::~utils(void)
+    {
+        PLOG_INFO << "*****************";
+        PLOG_INFO << "Log Deinitilized!";
+        PLOG_INFO << "*****************";
+    }
 }

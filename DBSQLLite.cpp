@@ -14,7 +14,7 @@ namespace TheWorld_MapManager
 {
 	DBSQLLiteConn DBSQLLiteOps::s_conn;
 		
-	DBSQLLite::DBSQLLite(DBType _dbt, const char* _dataPath, bool _debugMode) : SQLInterface(_dbt, _dataPath, _debugMode)
+	DBSQLLite::DBSQLLite(DBType _dbt, const char* _dataPath, bool consoelDebugMode) : SQLInterface(_dbt, _dataPath, consoelDebugMode)
 	{
 		Json::Value root;
 		std::ifstream jsonFile(dataPath() + "\\Conf\\DBSQLLite.json");
@@ -75,7 +75,7 @@ namespace TheWorld_MapManager
 	__int64 DBSQLLite::addWDAndVertices(WorldDefiner* pWD, vector<GridVertex>& vectGridVertices)
 	{
 		vector<sqlite3_int64> GridVertexRowId;
-		debugUtils debugUtil;
+		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
 
 		/*
 		* Initialize DB operations
@@ -133,7 +133,7 @@ namespace TheWorld_MapManager
 		int affectedByWD = 0;
 		int notAffectedByWD = 0;
 		int inserted = 0;
-		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Writing vertices to GridVertex Table: ");
+		if (consoleDebugMode()) _consoleDebugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Writing vertices to GridVertex Table: ");
 		if (numVertices > 0)
 		{
 			string sql = "INSERT INTO GridVertex (PosX, PosZ, Radius, Azimuth, Level, InitialAltitude, PosY) VALUES (?, ?, ?, ?, ?, ?, ?);";
@@ -213,19 +213,19 @@ namespace TheWorld_MapManager
 					GridVertexRowId.push_back(VertexRowId);
 				}
 
-				if (debugMode() && fmod(idx, 1024 * 100) == 0)
+				if (consoleDebugMode() && fmod(idx, 1024 * 100) == 0)
 				{
 					string s = to_string(idx + 1);	s += " - Affected ";	s += to_string(affectedByWD);	s += " - Not affected ";	s += to_string(notAffectedByWD);	s += " - Inserted ";	s += to_string(inserted);
-					debugUtil.printVariablePartOfLine(s.c_str());
+					_consoleDebugUtil.printVariablePartOfLine(s.c_str());
 				}
 			}
 
 			dbOps->finalizeStmt();
 		}
-		if (debugMode())
+		if (consoleDebugMode())
 		{
 			string s = to_string(idx);	s += " - Affected ";	s += to_string(affectedByWD);	s += " - Not affected ";	s += to_string(notAffectedByWD);	s += " - Inserted ";	s += to_string(inserted);
-			debugUtil.printVariablePartOfLine(s.c_str());
+			_consoleDebugUtil.printVariablePartOfLine(s.c_str());
 		}
 
 		/*
@@ -234,7 +234,7 @@ namespace TheWorld_MapManager
 		int numAffectedVertices = (int)GridVertexRowId.size();
 		idx = 0;
 		inserted = 0;
-		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Writing affected vertices to GridVertex_WD Table: ");
+		if (consoleDebugMode()) _consoleDebugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Writing affected vertices to GridVertex_WD Table: ");
 		if (numAffectedVertices > 0)
 		{
 			if (WDRowID == -1)
@@ -263,19 +263,19 @@ namespace TheWorld_MapManager
 
 				dbOps->resetStmt();
 
-				if (debugMode() && fmod(idx, 1024 * 100) == 0)
+				if (consoleDebugMode() && fmod(idx, 1024 * 100) == 0)
 				{
 					string s = to_string(idx + 1);	s += " - Inserted ";	s += to_string(inserted);
-					debugUtil.printVariablePartOfLine(s.c_str());
+					_consoleDebugUtil.printVariablePartOfLine(s.c_str());
 				}
 			}
 
 			dbOps->finalizeStmt();
 		}
-		if (debugMode())
+		if (consoleDebugMode())
 		{
 			string s = to_string(idx);	s += " - Inserted ";	s += to_string(inserted);
-			debugUtil.printVariablePartOfLine(s.c_str());
+			_consoleDebugUtil.printVariablePartOfLine(s.c_str());
 		}
 
 		/*
@@ -283,7 +283,7 @@ namespace TheWorld_MapManager
 		*/
 		idx = 0;
 		inserted = 0;
-		if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Writing affected vertices to GridVertex_Mod Table: ");
+		if (consoleDebugMode()) _consoleDebugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Writing affected vertices to GridVertex_Mod Table: ");
 		if (numAffectedVertices > 0)
 		{
 			if (WDRowID == -1)
@@ -310,19 +310,19 @@ namespace TheWorld_MapManager
 
 				dbOps->resetStmt();
 
-				if (debugMode() && fmod(idx, 1024 * 100) == 0)
+				if (consoleDebugMode() && fmod(idx, 1024 * 100) == 0)
 				{
 					string s = to_string(idx + 1);	s += " - Inserted ";	s += to_string(inserted);
-					debugUtil.printVariablePartOfLine(s.c_str());
+					_consoleDebugUtil.printVariablePartOfLine(s.c_str());
 				}
 			}
 
 			dbOps->finalizeStmt();
 		}
-		if (debugMode())
+		if (consoleDebugMode())
 		{
 			string s = to_string(idx);	s += " - Inserted ";	s += to_string(inserted);
-			debugUtil.printVariablePartOfLine(s.c_str());
+			_consoleDebugUtil.printVariablePartOfLine(s.c_str());
 		}
 
 		/*
@@ -339,7 +339,7 @@ namespace TheWorld_MapManager
 
 	bool DBSQLLite::eraseWD(__int64 wd_rowid)
 	{
-		debugUtils debugUtil;
+		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
 
 		/*
 		* Initialize DB operations
@@ -427,7 +427,7 @@ namespace TheWorld_MapManager
 			*/
 			int idx = 0;
 			int inserted = 0;
-			if (debugMode()) debugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Writing affected vertices to GridVertex_Mod Table: ");
+			if (consoleDebugMode()) _consoleDebugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Writing affected vertices to GridVertex_Mod Table: ");
 			if (numVerticesAffectedByWD > 0)
 			{
 				string sql = "INSERT INTO GridVertex_Mod (VertexRowId) VALUES (?);";
@@ -451,19 +451,19 @@ namespace TheWorld_MapManager
 
 					dbOps->resetStmt();
 
-					if (debugMode() && fmod(idx, 1024 * 100) == 0)
+					if (consoleDebugMode() && fmod(idx, 1024 * 100) == 0)
 					{
 						string s = to_string(idx + 1);	s += " - Inserted ";	s += to_string(inserted);
-						debugUtil.printVariablePartOfLine(s.c_str());
+						_consoleDebugUtil.printVariablePartOfLine(s.c_str());
 					}
 				}
 
 				dbOps->finalizeStmt();
 			}
-			if (debugMode())
+			if (consoleDebugMode())
 			{
 				string s = to_string(idx);	s += " - Inserted ";	s += to_string(inserted);
-				debugUtil.printVariablePartOfLine(s.c_str());
+				_consoleDebugUtil.printVariablePartOfLine(s.c_str());
 			}
 		}
 

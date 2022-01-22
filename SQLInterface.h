@@ -22,11 +22,11 @@ namespace TheWorld_MapManager
 	class SQLInterface
 	{
 	public:
-		SQLInterface(DBType dbt, const char* dataPath, bool debugMode = false)
+		SQLInterface(DBType dbt, const char* dataPath, bool consoleDebugMode = false)
 		{
 			m_dbt = dbt;
 			m_dataPath = dataPath;
-			m_debugMode = debugMode;
+			m_consoleDebugMode = consoleDebugMode;
 		}
 		~SQLInterface()
 		{
@@ -34,8 +34,8 @@ namespace TheWorld_MapManager
 		virtual const char* classname() { return "SQLInterface"; }
 
 		std::string dataPath(void) { return m_dataPath; }
-		void debugMode(bool b) { m_debugMode = b; };
-		bool debugMode(void) { return m_debugMode; }
+		void consoleDebugMode(bool b) { m_consoleDebugMode = b; };
+		bool consoleDebugMode(void) { return m_consoleDebugMode; }
 
 		class GridVertex
 		{
@@ -162,6 +162,6 @@ namespace TheWorld_MapManager
 	private:
 		DBType m_dbt;
 		std::string m_dataPath;
-		bool m_debugMode;
+		bool m_consoleDebugMode;
 	};
 }

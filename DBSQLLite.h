@@ -326,7 +326,7 @@ namespace TheWorld_MapManager
 	class DBSQLLite : public SQLInterface
 	{
 	public:
-		_declspec(dllexport) DBSQLLite(DBType dbt, const char* dataPath, bool debugMode = false);
+		_declspec(dllexport) DBSQLLite(DBType dbt, const char* dataPath, bool consoleDebugMode = false);
 		_declspec(dllexport) ~DBSQLLite();
 		virtual const char* classname() { return "DBSQLLite"; }
 
