@@ -15,7 +15,7 @@ namespace TheWorld_MapManager
 	{
 	public:
 		utils(void) {}
-		void init(const char* logPath, plog::Severity);
+		void init(const char* logPath, plog::Severity, plog::IAppender* appender = NULL);
 		~utils(void);
 	};
 

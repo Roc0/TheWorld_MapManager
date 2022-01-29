@@ -37,9 +37,13 @@ namespace TheWorld_MapManager
         return s;
 	}
 
-    void utils::init(const char* logPath, plog::Severity sev)
+    void utils::init(const char* logPath, plog::Severity sev, plog::IAppender* appender)
     {
-        plog::init(sev, logPath, 1000000, 3);
+        if (appender == NULL)
+            plog::init(sev, logPath, 1000000, 3);
+        else
+            plog::init(sev, appender);
+
         PLOG_INFO << endl;
         PLOG_INFO << "***************";
         PLOG_INFO << "Log initilized!";
@@ -49,7 +53,7 @@ namespace TheWorld_MapManager
     utils::~utils(void)
     {
         PLOG_INFO << "*****************";
-        PLOG_INFO << "Log Deinitilized!";
+        PLOG_INFO << "Log Terminated!";
         PLOG_INFO << "*****************";
     }
 }
