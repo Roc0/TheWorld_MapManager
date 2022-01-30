@@ -44,7 +44,6 @@ namespace TheWorld_MapManager
         else
             plog::init(sev, appender);
 
-        PLOG_INFO << endl;
         PLOG_INFO << "***************";
         PLOG_INFO << "Log initilized!";
         PLOG_INFO << "***************";
