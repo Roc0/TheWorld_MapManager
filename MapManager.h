@@ -120,6 +120,10 @@ namespace TheWorld_MapManager
 		virtual const char* classname() { return "MapManager"; }
 
 		void instrument(bool b) { m_instrumented = b; };
+		void setLogMaxSeverity(plog::Severity sev)
+		{
+			plog::get()->setMaxSeverity(sev);
+		}
 		void consoleDebugMode(bool b)
 		{
 			m_consoleDebugMode = b;
