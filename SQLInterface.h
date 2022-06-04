@@ -70,6 +70,8 @@ namespace TheWorld_MapManager
 
 			~GridVertex() {}
 
+			void setAltitude(float altitude) { m_altitude = altitude; };
+
 			void initGridVertex(float posX, float posZ, float initialAltitude, int level = 0)
 			{
 				m_posX = posX;
