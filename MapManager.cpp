@@ -8,12 +8,15 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <filesystem>
 
 #include "MapManager.h"
 #include "DBSQLLite.h"
 
 #include "shapefil.h"
 #include <proj.h>
+
+namespace fs = std::filesystem;
 
 namespace TheWorld_MapManager
 {
@@ -1122,6 +1125,171 @@ namespace TheWorld_MapManager
 		d = floor(decimalDegrees);
 		minutes = (int)d;
 		seconds = (decimalDegrees - d) * 60;
+	}
+
+	std::unique_ptr<MapManager::Quadrant> MapManager::getQuadrant(float& viewerPosX, float& viewerPosZ, int level, int numVerticesPerSize)
+	{
+		float _gridStepInWU = gridStepInWU();
+		QuadrantId quadrantId(viewerPosX, viewerPosZ, level, numVerticesPerSize, _gridStepInWU);
+		std::unique_ptr<MapManager::Quadrant> quadrant = make_unique<Quadrant>(quadrantId, this);
+		quadrant->populateGridVertices(viewerPosX, viewerPosZ);
+
+		return quadrant;
+	}
+
+	void MapManager::Quadrant::populateGridVertices(float& viewerPosX, float& viewerPosZ)
+	{
+		BYTE shortBuffer[256 + 1];
+		size_t size;
+
+		//{
+		//	GridVertex v(0.12F, 0.1212F, 0.1313F, 1);
+		//	v.serialize(shortBuffer, size);
+		//	GridVertex v1(shortBuffer, size);
+		//	assert(v.posX() == v1.posX());
+		//	assert(v.altitude() == v1.altitude());
+		//	assert(v.posZ() == v1.posZ());
+		//	assert(v.lvl() == v1.lvl());
+		//}
+		
+		vectGridVertices.clear();
+
+		size_t serializedVertexSize;
+		GridVertex v;
+		v.serialize(shortBuffer, serializedVertexSize);
+
+		// look for cache in file system
+		char level[4];
+		snprintf(level, 4, "%03d", m_quadrantId.getLevel());
+		string cachePath = m_mapManager->getDataPath() + "\\" + "Cache" + "\\" + "ST-" + to_string(m_quadrantId.getGridStepInWU()) + "_SZ-" + to_string(m_quadrantId.getNumVerticesPerSize()) + "\\L-" + string(level);
+		//cachePath = m_mapManager->getDataPath() + "\\" + "Cache" + "\\" + "ST-" + to_string(m_quadrantId.getGridStepInWU()) + "_SZ-" + to_string(m_quadrantId.getNumVerticesPerSize());
+		if (!fs::exists(cachePath))
+		{
+			fs::create_directories(cachePath);
+		}
+		string cacheFileName = "X-" + to_string(m_quadrantId.getLowerXGridVertex()) + "_Z-" + to_string(m_quadrantId.getLowerZGridVertex());
+		string cacheFileNameFull = cachePath + "\\" + cacheFileName;
+		if (fs::exists(cacheFileNameFull))
+		{
+			FILE* inFile = nullptr;
+			errno_t err = fopen_s(&inFile, cacheFileNameFull.c_str(), "rb");
+			if (err != 0)
+				throw(MapManagerException(__FUNCTION__, string("Open " + cacheFileNameFull + " in errore - Err=" + to_string(err)).c_str())); 
+			
+			if (fread(shortBuffer, 1, 1, inFile) != 1)	// "0"
+				throw(MapManagerException(__FUNCTION__, string("Read error 1!").c_str()));
+				
+			serializeToByteStream<size_t>(vectGridVertices.size(), shortBuffer, size);
+			if (fread(shortBuffer, size, 1, inFile) != 1)
+				throw(MapManagerException(__FUNCTION__, string("Read error 2!").c_str()));
+			size_t vectSize = deserializeFromByteStream<size_t>(shortBuffer, size);
+				
+			size_t streamBufferSize = vectSize * serializedVertexSize;
+			BYTE* streamBuffer = (BYTE*)calloc(1, streamBufferSize);
+			if (streamBuffer == nullptr)
+				throw(MapManagerException(__FUNCTION__, string("Allocation error!").c_str()));
+
+			//size_t num = 0;
+			//size_t sizeRead = 0;
+			//while (!feof(inFile))
+			//{
+			//	size_t i = fread(streamBuffer + sizeRead, serializedVertexSize, 1, inFile);
+			//	sizeRead += serializedVertexSize;
+			//	num++;
+			//}
+			size_t s = fread(streamBuffer, streamBufferSize, 1, inFile);
+			//size_t s = fread(streamBuffer, serializedVertexSize, vectSize, inFile);
+			//if (s != 1)
+			//{
+			//	free(streamBuffer);
+			//	int i = feof(inFile);
+			//	i = ferror(inFile);
+			//	throw(MapManagerException(__FUNCTION__, string("Read error 3! feof " + to_string(feof(inFile)) + " ferror " + to_string(ferror(inFile))).c_str()));
+			//}
+				
+			fclose(inFile);
+
+			BYTE* movingStreamBuffer = streamBuffer;
+			BYTE* endOfBuffer = streamBuffer + streamBufferSize;
+			while (movingStreamBuffer < endOfBuffer)
+			{
+				vectGridVertices.push_back(GridVertex(movingStreamBuffer, size));	// circa 2 sec
+				movingStreamBuffer += size;
+			}
+
+			free(streamBuffer);
+
+			if (vectGridVertices.size() != vectSize)
+				throw(MapManagerException(__FUNCTION__, string("Sequence error 4!").c_str()));
+
+			viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
+			viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
+
+			return;
+		}
+
+		std::vector<SQLInterface::GridVertex> worldVertices;
+		float lowerXGridVertex = m_quadrantId.getLowerXGridVertex();
+		float lowerZGridVertex = m_quadrantId.getLowerZGridVertex();
+		float gridStepinWU = m_quadrantId.getGridStepInWU();
+		m_mapManager->getVertices(lowerXGridVertex, lowerZGridVertex, TheWorld_MapManager::MapManager::anchorType::upperleftcorner, m_quadrantId.getNumVerticesPerSize(), m_quadrantId.getNumVerticesPerSize(), worldVertices, gridStepinWU, m_quadrantId.getLevel());
+
+		for (int z = 0; z < m_quadrantId.getNumVerticesPerSize(); z++)			// m_heightMapImage->get_height()
+			for (int x = 0; x < m_quadrantId.getNumVerticesPerSize(); x++)		// m_heightMapImage->get_width()
+			{
+				SQLInterface::GridVertex& v = worldVertices[z * m_quadrantId.getNumVerticesPerSize() + x];
+				vectGridVertices.push_back(GridVertex(v.posX(), v.altitude(), v.posZ(), m_quadrantId.getLevel()));
+			}
+
+		viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
+		viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
+
+		size_t vectSize = vectGridVertices.size();
+
+		size_t streamBufferSize = vectSize * serializedVertexSize;
+		BYTE* streamBuffer = (BYTE*)calloc(1, streamBufferSize);
+		if (streamBuffer == nullptr)
+			throw(MapManagerException(__FUNCTION__, string("Allocation error!").c_str()));
+
+		size_t sizeToWrite = 0;
+		for (size_t idx = 0; idx < vectSize; idx++)
+		{
+			vectGridVertices[idx].serialize(streamBuffer + sizeToWrite, size);
+			sizeToWrite += size;
+		}
+
+		FILE* outFile = nullptr;
+		errno_t err = fopen_s(&outFile, cacheFileNameFull.c_str(), "wb");
+		if (err != 0)
+		{
+			free(streamBuffer);
+			throw(MapManagerException(__FUNCTION__, string("Open " + cacheFileNameFull + " in errore - Err=" + to_string(err)).c_str()));
+		}
+
+		if (fwrite("0", 1, 1, outFile) != 1)
+		{
+			free(streamBuffer);
+			throw(MapManagerException(__FUNCTION__, string("Write error 1!").c_str()));
+		}
+
+		serializeToByteStream<size_t>(vectSize, shortBuffer, size);
+		if (fwrite(shortBuffer, size, 1, outFile) != 1)
+		{
+			free(streamBuffer);
+			throw(MapManagerException(__FUNCTION__, string("Write error 2!").c_str()));
+		}
+
+		if (fwrite(streamBuffer, sizeToWrite, 1, outFile) != 1)
+		{
+			free(streamBuffer);
+			throw(MapManagerException(__FUNCTION__, string("Write error 3!").c_str()));
+		}
+
+		fclose(outFile);
+
+		free(streamBuffer);
+
+		return;
 	}
 }
 

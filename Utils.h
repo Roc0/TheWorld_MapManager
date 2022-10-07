@@ -127,4 +127,35 @@ namespace TheWorld_MapManager
 
 	std::string getModuleLoadPath(void);
 
+	//void FloatToByteStream(float f, BYTE* stream, size_t& size)
+	//{
+	//	float* pf = &f;
+	//	BYTE* pc = reinterpret_cast<BYTE*>(pf);
+	//	for (size_t i = 0; i < sizeof(float); i++)
+	//	{
+	//		stream[i] = *pc;
+	//		pc++;
+	//	}
+	//}
+	
+	template <typename T>
+	void serializeToByteStream(T in, BYTE* stream, size_t& size)
+	{
+		T* pIn = &in;
+		BYTE* pc = reinterpret_cast<BYTE*>(pIn);
+		for (size_t i = 0; i < sizeof(T); i++)
+		{
+			stream[i] = *pc;
+			pc++;
+		}
+		size = sizeof(T);
+	}
+
+	template <typename T>
+	T deserializeFromByteStream(BYTE* stream, size_t& size)
+	{
+		T* pOut = reinterpret_cast<T*>(stream);
+		size = sizeof(T);
+		return *pOut;
+	}
 }

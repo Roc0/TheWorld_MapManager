@@ -43,6 +43,171 @@ namespace TheWorld_MapManager
 			float z;
 		};
 
+		// Grid / GridVertex are in WUs
+		class GridVertex
+		{
+		public:
+			GridVertex(void) : x(0.0f), y(0.0f), z(0.0f), level(0) {}
+			GridVertex(float _x, float _y, float _z, int _level) { this->x = _x;	this->y = _y;	this->z = _z;	this->level = _level;}
+			//GridVertex(string serializedBuffer)
+			//{
+			//	sscanf_s(serializedBuffer.c_str(), "%f-%f-%f-%d", &x, &y, &z, &level);
+			//}
+			//GridVertex(const char* serializedBuffer)
+			//{
+			//	sscanf_s(serializedBuffer, "%f-%f-%f-%d", &x, &y, &z, &level);
+			//}
+			GridVertex(BYTE* stream, size_t& size)
+			{
+				size_t _size;
+				size = 0;
+				x = deserializeFromByteStream<float>(stream + size, _size);
+				size += _size;
+				y = deserializeFromByteStream<float>(stream + size, _size);
+				size += _size;
+				z = deserializeFromByteStream<float>(stream + size, _size);
+				size += _size;
+				level = deserializeFromByteStream<int>(stream + size, _size);
+				size += _size;
+			}
+
+			// needed to use an istance of gridPoint as a key in a map (to keep the map sorted by z and by x for equal z)
+			// first row, second row, ... etc
+			bool operator<(const GridVertex& p) const
+			{
+				if (z < p.z)
+					return true;
+				if (z > p.z)
+					return false;
+				else
+					return x < p.x;
+			}
+			
+			bool operator==(const GridVertex& p) const
+			{
+				if (x == p.x && y == p.y && z == p.z && level == p.level)
+					return true;
+				else
+					return false;
+			}
+			
+			//string serialize(void)
+			//{
+			//	char buffer[256];
+			//	sprintf_s(buffer, "%f-%f-%f-%d", x, y, z, level);
+			//	return buffer;
+			//}
+			
+			void serialize(BYTE* stream, size_t& size)
+			{
+				size_t sz;
+				serializeToByteStream<float>(x, stream, sz);
+				size = sz;
+				serializeToByteStream<float>(y, stream + size, sz);
+				size += sz;
+				serializeToByteStream<float>(z, stream + size, sz);
+				size += sz;
+				serializeToByteStream<int>(level, stream + size, sz);
+				size += sz;
+			}
+
+			float altitude(void) { return y; }
+			float posX(void) { return x; }
+			float posZ(void) { return z; }
+			int lvl(void) { return level; }
+
+		private:
+			float x;
+			float y;
+			float z;
+			int level;
+		};
+
+		class QuadrantId
+		{
+		public:
+			QuadrantId()
+			{
+				m_lowerXGridVertex = m_lowerZGridVertex = m_gridStepInWU = 0;
+				m_numVerticesPerSize = m_level = 0;
+			}
+
+			QuadrantId(QuadrantId& quadrantId)
+			{
+				m_lowerXGridVertex = quadrantId.getLowerXGridVertex();
+				m_lowerZGridVertex = quadrantId.getLowerZGridVertex();
+				m_numVerticesPerSize = quadrantId.getNumVerticesPerSize();
+				m_level = quadrantId.getLevel();
+				m_gridStepInWU = quadrantId.getGridStepInWU();
+			}
+
+			QuadrantId(float x, float z, int level, int numVerticesPerSize, float gridStepInWU)
+			{
+
+				float gridSizeInWU = numVerticesPerSize * gridStepInWU;
+				m_lowerXGridVertex = floor(x / gridSizeInWU) * gridSizeInWU;
+				m_lowerZGridVertex = floor(z / gridSizeInWU) * gridSizeInWU;
+				m_numVerticesPerSize = numVerticesPerSize;
+				m_level = level;
+				m_gridStepInWU = gridStepInWU;
+			}
+
+			string getId(void)
+			{
+				return "ST" + to_string(m_gridStepInWU) + "_SZ" + to_string(m_numVerticesPerSize) + "_L" + to_string(m_level) + "_X" + to_string(m_lowerXGridVertex) + "_Z" + to_string(m_lowerZGridVertex);
+			}
+
+			float getLowerXGridVertex() { return m_lowerXGridVertex; };
+			float getLowerZGridVertex() { return m_lowerZGridVertex; };
+			int getNumVerticesPerSize() { return m_numVerticesPerSize; };
+			int getLevel() { return m_level; };
+			float getGridStepInWU() { return m_gridStepInWU; };
+
+		private:
+			float m_lowerXGridVertex;
+			float m_lowerZGridVertex;
+			int m_numVerticesPerSize;
+			int m_level;
+			float m_gridStepInWU;
+		};
+			
+		class Quadrant
+		{
+		public:
+			//Quadrant(MapManager* mapManager)
+			//{
+			//	m_mapManager = mapManager;
+			//}
+			
+			Quadrant(QuadrantId& quadrantId, MapManager* mapManager)
+			{
+				m_quadrantId = quadrantId;
+				m_mapManager = mapManager;
+			}
+
+			~Quadrant()
+			{
+				vectGridVertices.clear();
+			}
+
+			void implementId(QuadrantId& quadrantId)
+			{
+				m_quadrantId = quadrantId;
+			}
+
+			void populateGridVertices(float& initialViewerPosX, float& initialViewerPosZ);
+
+			std::vector<GridVertex>& getGridVertices(void)
+			{
+				return vectGridVertices;
+			}
+
+		private:
+			QuadrantId m_quadrantId;
+			std::vector<GridVertex> vectGridVertices;
+			MapManager* m_mapManager;
+		};
+		
 		class GridPatch
 		{
 		public:
@@ -143,6 +308,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void UpdateValues(void);
 		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }
 		_declspec(dllexport) float gridStepInWU(void);
+		_declspec(dllexport) std::unique_ptr<MapManager::Quadrant> getQuadrant(float& viewerPosX, float& viewerPosZ, int level, int numVerticesPerSize);
 
 		enum class anchorType
 		{
@@ -170,6 +336,7 @@ namespace TheWorld_MapManager
 		void DecimalDegreesToDegreesMinutesSeconds(double decimalDegrees, int& degrees, int& minutes, double& seconds);
 		//float getDistance(Vector3f v1, Vector3f v2);
 		static float interpolateAltitude(vector<SQLInterface::GridVertex>& vectGridVertex, FlatGridPoint& pos);
+		std::string getDataPath(void) { return m_dataPath; }
 
 	private:
 		SQLInterface* m_SqlInterface;
