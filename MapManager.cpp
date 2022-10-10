@@ -1127,11 +1127,52 @@ namespace TheWorld_MapManager
 		seconds = (decimalDegrees - d) * 60;
 	}
 
-	std::unique_ptr<MapManager::Quadrant> MapManager::getQuadrant(float& viewerPosX, float& viewerPosZ, int level, int numVerticesPerSize)
+	MapManager::QuadrantId MapManager::QuadrantId::getQuadrantId(enum class DirectionSlot dir)
+	{
+		QuadrantId q = *this;
+
+		switch (dir)
+		{
+			case DirectionSlot::XMinus:
+			{
+				q.m_lowerXGridVertex -= m_sizeInWU;
+			}
+			break;
+			case DirectionSlot::XPlus:
+			{
+				q.m_lowerXGridVertex += m_sizeInWU;
+			}
+			break;
+			case DirectionSlot::ZMinus:
+			{
+				q.m_lowerZGridVertex -= m_sizeInWU;
+			}
+			break;
+			case DirectionSlot::ZPlus:
+			{
+				q.m_lowerZGridVertex += m_sizeInWU;
+			}
+			break;
+		}
+
+		return q;
+	}
+
+	MapManager::Quadrant* MapManager::getQuadrant(float& viewerPosX, float& viewerPosZ, int level, int numVerticesPerSize)
 	{
 		float _gridStepInWU = gridStepInWU();
 		QuadrantId quadrantId(viewerPosX, viewerPosZ, level, numVerticesPerSize, _gridStepInWU);
-		std::unique_ptr<MapManager::Quadrant> quadrant = make_unique<Quadrant>(quadrantId, this);
+		MapManager::Quadrant* quadrant = new Quadrant(quadrantId, this);
+		quadrant->populateGridVertices(viewerPosX, viewerPosZ);
+
+		return quadrant;
+	}
+
+	MapManager::Quadrant* MapManager::getQuadrant(MapManager::QuadrantId q, enum class MapManager::QuadrantId::DirectionSlot dir)
+	{
+		QuadrantId quadrantId = q.getQuadrantId(dir);
+		MapManager::Quadrant* quadrant = new Quadrant(quadrantId, this);
+		float viewerPosX = 0, viewerPosZ = 0;
 		quadrant->populateGridVertices(viewerPosX, viewerPosZ);
 
 		return quadrant;
@@ -1222,8 +1263,11 @@ namespace TheWorld_MapManager
 			if (vectGridVertices.size() != vectSize)
 				throw(MapManagerException(__FUNCTION__, string("Sequence error 4!").c_str()));
 
-			viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
-			viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
+			if (viewerPosX != 0 && viewerPosZ != 0)
+			{
+				viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
+				viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
+			}
 
 			return;
 		}
@@ -1241,8 +1285,11 @@ namespace TheWorld_MapManager
 				vectGridVertices.push_back(GridVertex(v.posX(), v.altitude(), v.posZ(), m_quadrantId.getLevel()));
 			}
 
-		viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
-		viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
+		if (viewerPosX != 0 && viewerPosZ != 0)
+		{
+			viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
+			viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
+		}
 
 		size_t vectSize = vectGridVertices.size();
 

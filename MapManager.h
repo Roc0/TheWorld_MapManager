@@ -126,19 +126,47 @@ namespace TheWorld_MapManager
 		class QuadrantId
 		{
 		public:
+			enum class DirectionSlot
+			{
+				Center = -1,
+
+				//
+				// - o
+				//
+				XMinus = 0,
+
+				//
+				//   o -
+				//
+				XPlus = 1,
+
+				//   -
+				//   o
+				//
+				ZMinus = 2,
+
+				//
+				//   o
+				//   -
+				ZPlus = 3,
+
+			};
+
 			QuadrantId()
 			{
 				m_lowerXGridVertex = m_lowerZGridVertex = m_gridStepInWU = 0;
 				m_numVerticesPerSize = m_level = 0;
+				m_sizeInWU = 0;
 			}
 
-			QuadrantId(QuadrantId& quadrantId)
+			QuadrantId(const QuadrantId& quadrantId)
 			{
-				m_lowerXGridVertex = quadrantId.getLowerXGridVertex();
-				m_lowerZGridVertex = quadrantId.getLowerZGridVertex();
-				m_numVerticesPerSize = quadrantId.getNumVerticesPerSize();
-				m_level = quadrantId.getLevel();
-				m_gridStepInWU = quadrantId.getGridStepInWU();
+				m_lowerXGridVertex = quadrantId.m_lowerXGridVertex;
+				m_lowerZGridVertex = quadrantId.m_lowerZGridVertex;
+				m_numVerticesPerSize = quadrantId.m_numVerticesPerSize;
+				m_level = quadrantId.m_level;
+				m_gridStepInWU = quadrantId.m_gridStepInWU;
+				m_sizeInWU = quadrantId.m_sizeInWU;
 			}
 
 			QuadrantId(float x, float z, int level, int numVerticesPerSize, float gridStepInWU)
@@ -150,6 +178,55 @@ namespace TheWorld_MapManager
 				m_numVerticesPerSize = numVerticesPerSize;
 				m_level = level;
 				m_gridStepInWU = gridStepInWU;
+				m_sizeInWU = m_numVerticesPerSize * m_gridStepInWU;
+			}
+
+			bool operator<(const QuadrantId& quadrantId) const
+			{
+				assert(m_level == quadrantId.m_level);
+				if (m_level < quadrantId.m_level)
+					return true;
+				if (m_level > quadrantId.m_level)
+					return false;
+				// m_level == quadrantId.m_level
+
+				assert(m_sizeInWU == quadrantId.m_sizeInWU);
+				if (m_sizeInWU < quadrantId.m_sizeInWU)
+					return true;
+				if (m_sizeInWU > quadrantId.m_sizeInWU)
+					return false;
+				// m_sizeInWU == quadrantId.m_sizeInWU
+
+				if (m_lowerZGridVertex < quadrantId.m_lowerZGridVertex)
+					return true;
+				if (m_lowerZGridVertex < quadrantId.m_lowerZGridVertex)
+					return false;
+				// m_lowerZGridVertex == quadrantId.m_lowerZGridVertex
+
+				return m_lowerXGridVertex < quadrantId.m_lowerXGridVertex;
+			}
+
+			bool operator==(const QuadrantId& quadrantId) const
+			{
+				if (m_lowerXGridVertex == quadrantId.m_lowerXGridVertex
+					&& m_lowerZGridVertex == quadrantId.m_lowerZGridVertex
+					&& m_numVerticesPerSize == quadrantId.m_numVerticesPerSize
+					&& m_level == quadrantId.m_level
+					&& m_gridStepInWU == quadrantId.m_gridStepInWU)
+					return true;
+				else
+					return false;
+			}
+			
+			QuadrantId operator=(const QuadrantId& quadrantId)
+			{
+				m_lowerXGridVertex = quadrantId.m_lowerXGridVertex;
+				m_lowerZGridVertex = quadrantId.m_lowerZGridVertex;
+				m_numVerticesPerSize = quadrantId.m_numVerticesPerSize;
+				m_level = quadrantId.m_level;
+				m_gridStepInWU = quadrantId.m_gridStepInWU;
+				m_sizeInWU = quadrantId.m_sizeInWU;
+				return *this;
 			}
 
 			string getId(void)
@@ -162,13 +239,19 @@ namespace TheWorld_MapManager
 			int getNumVerticesPerSize() { return m_numVerticesPerSize; };
 			int getLevel() { return m_level; };
 			float getGridStepInWU() { return m_gridStepInWU; };
+			float getSizeInWU() { return m_sizeInWU; };
+			QuadrantId getQuadrantId(enum class DirectionSlot);
 
 		private:
+			// ID
 			float m_lowerXGridVertex;
 			float m_lowerZGridVertex;
 			int m_numVerticesPerSize;
 			int m_level;
 			float m_gridStepInWU;
+			// ID
+
+			float m_sizeInWU;
 		};
 			
 		class Quadrant
@@ -201,6 +284,8 @@ namespace TheWorld_MapManager
 			{
 				return vectGridVertices;
 			}
+
+			QuadrantId getId(void) { return m_quadrantId; }
 
 		private:
 			QuadrantId m_quadrantId;
@@ -308,7 +393,8 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void UpdateValues(void);
 		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }
 		_declspec(dllexport) float gridStepInWU(void);
-		_declspec(dllexport) std::unique_ptr<MapManager::Quadrant> getQuadrant(float& viewerPosX, float& viewerPosZ, int level, int numVerticesPerSize);
+		_declspec(dllexport) MapManager::Quadrant* getQuadrant(float& viewerPosX, float& viewerPosZ, int level, int numVerticesPerSize);
+		_declspec(dllexport) MapManager::Quadrant* getQuadrant(QuadrantId q, enum class QuadrantId::DirectionSlot dir);
 
 		enum class anchorType
 		{
