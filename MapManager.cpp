@@ -1127,7 +1127,7 @@ namespace TheWorld_MapManager
 		seconds = (decimalDegrees - d) * 60;
 	}
 
-	MapManager::QuadrantId MapManager::QuadrantId::getQuadrantId(enum class DirectionSlot dir)
+	MapManager::QuadrantId MapManager::QuadrantId::getQuadrantId(enum class DirectionSlot dir, int numSlot)
 	{
 		QuadrantId q = *this;
 
@@ -1135,27 +1135,37 @@ namespace TheWorld_MapManager
 		{
 			case DirectionSlot::XMinus:
 			{
-				q.m_lowerXGridVertex -= m_sizeInWU;
+				q.m_lowerXGridVertex -= (m_sizeInWU * numSlot);
 			}
 			break;
 			case DirectionSlot::XPlus:
 			{
-				q.m_lowerXGridVertex += m_sizeInWU;
+				q.m_lowerXGridVertex += (m_sizeInWU * numSlot);
 			}
 			break;
 			case DirectionSlot::ZMinus:
 			{
-				q.m_lowerZGridVertex -= m_sizeInWU;
+				q.m_lowerZGridVertex -= (m_sizeInWU * numSlot);
 			}
 			break;
 			case DirectionSlot::ZPlus:
 			{
-				q.m_lowerZGridVertex += m_sizeInWU;
+				q.m_lowerZGridVertex += (m_sizeInWU * numSlot);
 			}
 			break;
 		}
 
 		return q;
+	}
+
+	size_t MapManager::QuadrantId::distanceInPerimeter(MapManager::QuadrantId& q)
+	{
+		size_t distanceOnX = (size_t)ceil( abs(q.getLowerXGridVertex() - getLowerXGridVertex()) / q.m_sizeInWU);
+		size_t distanceOnZ = (size_t)ceil( abs(q.getLowerZGridVertex() - getLowerZGridVertex()) / q.m_sizeInWU);
+		if (distanceOnX > distanceOnZ)
+			return distanceOnX;
+		else
+			return distanceOnZ;
 	}
 
 	MapManager::Quadrant* MapManager::getQuadrant(float& viewerPosX, float& viewerPosZ, int level, int numVerticesPerSize)
@@ -1193,7 +1203,7 @@ namespace TheWorld_MapManager
 		//	assert(v.lvl() == v1.lvl());
 		//}
 		
-		vectGridVertices.clear();
+		m_vectGridVertices.clear();
 
 		size_t serializedVertexSize;
 		GridVertex v;
@@ -1203,7 +1213,6 @@ namespace TheWorld_MapManager
 		char level[4];
 		snprintf(level, 4, "%03d", m_quadrantId.getLevel());
 		string cachePath = m_mapManager->getDataPath() + "\\" + "Cache" + "\\" + "ST-" + to_string(m_quadrantId.getGridStepInWU()) + "_SZ-" + to_string(m_quadrantId.getNumVerticesPerSize()) + "\\L-" + string(level);
-		//cachePath = m_mapManager->getDataPath() + "\\" + "Cache" + "\\" + "ST-" + to_string(m_quadrantId.getGridStepInWU()) + "_SZ-" + to_string(m_quadrantId.getNumVerticesPerSize());
 		if (!fs::exists(cachePath))
 		{
 			fs::create_directories(cachePath);
@@ -1220,7 +1229,7 @@ namespace TheWorld_MapManager
 			if (fread(shortBuffer, 1, 1, inFile) != 1)	// "0"
 				throw(MapManagerException(__FUNCTION__, string("Read error 1!").c_str()));
 				
-			serializeToByteStream<size_t>(vectGridVertices.size(), shortBuffer, size);
+			serializeToByteStream<size_t>(m_vectGridVertices.size(), shortBuffer, size);
 			if (fread(shortBuffer, size, 1, inFile) != 1)
 				throw(MapManagerException(__FUNCTION__, string("Read error 2!").c_str()));
 			size_t vectSize = deserializeFromByteStream<size_t>(shortBuffer, size);
@@ -1254,13 +1263,13 @@ namespace TheWorld_MapManager
 			BYTE* endOfBuffer = streamBuffer + streamBufferSize;
 			while (movingStreamBuffer < endOfBuffer)
 			{
-				vectGridVertices.push_back(GridVertex(movingStreamBuffer, size));	// circa 2 sec
+				m_vectGridVertices.push_back(GridVertex(movingStreamBuffer, size));	// circa 2 sec
 				movingStreamBuffer += size;
 			}
 
 			free(streamBuffer);
 
-			if (vectGridVertices.size() != vectSize)
+			if (m_vectGridVertices.size() != vectSize)
 				throw(MapManagerException(__FUNCTION__, string("Sequence error 4!").c_str()));
 
 			if (viewerPosX != 0 && viewerPosZ != 0)
@@ -1268,6 +1277,8 @@ namespace TheWorld_MapManager
 				viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
 				viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
 			}
+			
+			m_populated = true;
 
 			return;
 		}
@@ -1282,7 +1293,7 @@ namespace TheWorld_MapManager
 			for (int x = 0; x < m_quadrantId.getNumVerticesPerSize(); x++)		// m_heightMapImage->get_width()
 			{
 				SQLInterface::GridVertex& v = worldVertices[z * m_quadrantId.getNumVerticesPerSize() + x];
-				vectGridVertices.push_back(GridVertex(v.posX(), v.altitude(), v.posZ(), m_quadrantId.getLevel()));
+				m_vectGridVertices.push_back(GridVertex(v.posX(), v.altitude(), v.posZ(), m_quadrantId.getLevel()));
 			}
 
 		if (viewerPosX != 0 && viewerPosZ != 0)
@@ -1291,7 +1302,7 @@ namespace TheWorld_MapManager
 			viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
 		}
 
-		size_t vectSize = vectGridVertices.size();
+		size_t vectSize = m_vectGridVertices.size();
 
 		size_t streamBufferSize = vectSize * serializedVertexSize;
 		BYTE* streamBuffer = (BYTE*)calloc(1, streamBufferSize);
@@ -1301,7 +1312,7 @@ namespace TheWorld_MapManager
 		size_t sizeToWrite = 0;
 		for (size_t idx = 0; idx < vectSize; idx++)
 		{
-			vectGridVertices[idx].serialize(streamBuffer + sizeToWrite, size);
+			m_vectGridVertices[idx].serialize(streamBuffer + sizeToWrite, size);
 			sizeToWrite += size;
 		}
 
@@ -1335,6 +1346,8 @@ namespace TheWorld_MapManager
 		fclose(outFile);
 
 		free(streamBuffer);
+
+		m_populated = true;
 
 		return;
 	}
