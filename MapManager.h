@@ -49,7 +49,7 @@ namespace TheWorld_MapManager
 		public:
 			GridVertex(void) : x(0.0f), y(0.0f), z(0.0f), level(0) {}
 			GridVertex(float _x, float _y, float _z, int _level) { this->x = _x;	this->y = _y;	this->z = _z;	this->level = _level;}
-			//GridVertex(string serializedBuffer)
+			//GridVertex(std::string serializedBuffer)
 			//{
 			//	sscanf_s(serializedBuffer.c_str(), "%f-%f-%f-%d", &x, &y, &z, &level);
 			//}
@@ -71,6 +71,10 @@ namespace TheWorld_MapManager
 				size += _size;
 			}
 
+			~GridVertex()
+			{
+			}
+
 			// needed to use an istance of gridPoint as a key in a map (to keep the map sorted by z and by x for equal z)
 			// first row, second row, ... etc
 			bool operator<(const GridVertex& p) const
@@ -90,8 +94,16 @@ namespace TheWorld_MapManager
 				else
 					return false;
 			}
+
+			bool equalsApartFromAltitude(const GridVertex& p) const
+			{
+				if (x == p.x && z == p.z && level == p.level)
+					return true;
+				else
+					return false;
+			}
 			
-			//string serialize(void)
+			//std::string serialize(void)
 			//{
 			//	char buffer[256];
 			//	sprintf_s(buffer, "%f-%f-%f-%d", x, y, z, level);
@@ -111,10 +123,16 @@ namespace TheWorld_MapManager
 				size += sz;
 			}
 
+			std::string toString()
+			{
+				return "Level=" + std::to_string(level) + "-X=" + std::to_string(x) + "-Z=" + std::to_string(z) + "-Altitude=" + std::to_string(y);
+			}
+
 			float altitude(void) { return y; }
 			float posX(void) { return x; }
 			float posZ(void) { return z; }
 			int lvl(void) { return level; }
+			void setAltitude(float a) { y = a; }
 
 		private:
 			float x;
@@ -157,6 +175,7 @@ namespace TheWorld_MapManager
 				m_lowerXGridVertex = m_lowerZGridVertex = m_gridStepInWU = 0;
 				m_numVerticesPerSize = m_level = 0;
 				m_sizeInWU = 0;
+				m_initialized = false;
 			}
 
 			QuadrantId(const QuadrantId& quadrantId)
@@ -167,6 +186,8 @@ namespace TheWorld_MapManager
 				m_level = quadrantId.m_level;
 				m_gridStepInWU = quadrantId.m_gridStepInWU;
 				m_sizeInWU = quadrantId.m_sizeInWU;
+				m_tag = quadrantId.m_tag;
+				m_initialized = true;
 			}
 
 			QuadrantId(float x, float z, int level, int numVerticesPerSize, float gridStepInWU)
@@ -178,7 +199,8 @@ namespace TheWorld_MapManager
 				m_numVerticesPerSize = numVerticesPerSize;
 				m_level = level;
 				m_gridStepInWU = gridStepInWU;
-				m_sizeInWU = m_numVerticesPerSize * m_gridStepInWU;
+				m_sizeInWU = (m_numVerticesPerSize - 1) * m_gridStepInWU;
+				m_initialized = true;
 			}
 
 			bool operator<(const QuadrantId& quadrantId) const
@@ -199,7 +221,7 @@ namespace TheWorld_MapManager
 
 				if (m_lowerZGridVertex < quadrantId.m_lowerZGridVertex)
 					return true;
-				if (m_lowerZGridVertex < quadrantId.m_lowerZGridVertex)
+				if (m_lowerZGridVertex > quadrantId.m_lowerZGridVertex)
 					return false;
 				// m_lowerZGridVertex == quadrantId.m_lowerZGridVertex
 
@@ -226,10 +248,12 @@ namespace TheWorld_MapManager
 				m_level = quadrantId.m_level;
 				m_gridStepInWU = quadrantId.m_gridStepInWU;
 				m_sizeInWU = quadrantId.m_sizeInWU;
+				m_tag = quadrantId.m_tag;
+				m_initialized = true;
 				return *this;
 			}
 
-			string getId(void)
+			std::string getId(void)
 			{
 				return "ST" + to_string(m_gridStepInWU) + "_SZ" + to_string(m_numVerticesPerSize) + "_L" + to_string(m_level) + "_X" + to_string(m_lowerXGridVertex) + "_Z" + to_string(m_lowerZGridVertex);
 			}
@@ -240,7 +264,11 @@ namespace TheWorld_MapManager
 			int getLevel() { return m_level; };
 			float getGridStepInWU() { return m_gridStepInWU; };
 			float getSizeInWU() { return m_sizeInWU; };
-			QuadrantId getQuadrantId(enum class DirectionSlot);
+			_declspec(dllexport) QuadrantId getQuadrantId(enum class DirectionSlot dir, int numSlot = 1);
+			void setTag(std::string tag) { m_tag = tag; }
+			std::string getTag(void) { return m_tag; }
+			_declspec(dllexport) size_t distanceInPerimeter(QuadrantId& q);
+			bool isInitialized(void) { return m_initialized; }
 
 		private:
 			// ID
@@ -251,7 +279,10 @@ namespace TheWorld_MapManager
 			float m_gridStepInWU;
 			// ID
 
+			bool m_initialized;
+
 			float m_sizeInWU;
+			std::string m_tag;
 		};
 			
 		class Quadrant
@@ -266,11 +297,12 @@ namespace TheWorld_MapManager
 			{
 				m_quadrantId = quadrantId;
 				m_mapManager = mapManager;
+				m_populated = false;
 			}
 
 			~Quadrant()
 			{
-				vectGridVertices.clear();
+				m_vectGridVertices.clear();
 			}
 
 			void implementId(QuadrantId& quadrantId)
@@ -278,18 +310,21 @@ namespace TheWorld_MapManager
 				m_quadrantId = quadrantId;
 			}
 
-			void populateGridVertices(float& initialViewerPosX, float& initialViewerPosZ);
+			_declspec(dllexport) void populateGridVertices(float& initialViewerPosX, float& initialViewerPosZ);
 
 			std::vector<GridVertex>& getGridVertices(void)
 			{
-				return vectGridVertices;
+				return m_vectGridVertices;
 			}
 
 			QuadrantId getId(void) { return m_quadrantId; }
 
+			bool isPopulated(void) { return m_populated; }
+
 		private:
 			QuadrantId m_quadrantId;
-			std::vector<GridVertex> vectGridVertices;
+			std::vector<GridVertex> m_vectGridVertices;
+			bool m_populated;
 			MapManager* m_mapManager;
 		};
 		
