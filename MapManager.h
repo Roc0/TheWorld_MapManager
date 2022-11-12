@@ -192,8 +192,7 @@ namespace TheWorld_MapManager
 
 			QuadrantId(float x, float z, int level, int numVerticesPerSize, float gridStepInWU)
 			{
-
-				float gridSizeInWU = numVerticesPerSize * gridStepInWU;
+								float gridSizeInWU = numVerticesPerSize * gridStepInWU;
 				m_lowerXGridVertex = floor(x / gridSizeInWU) * gridSizeInWU;
 				m_lowerZGridVertex = floor(z / gridSizeInWU) * gridSizeInWU;
 				m_numVerticesPerSize = numVerticesPerSize;
