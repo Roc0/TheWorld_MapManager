@@ -43,289 +43,289 @@ namespace TheWorld_MapManager
 			float z;
 		};
 
-		// Grid / GridVertex are in WUs
-		class GridVertex
-		{
-		public:
-			GridVertex(void) : x(0.0f), y(0.0f), z(0.0f), level(0) {}
-			GridVertex(float _x, float _y, float _z, int _level) { this->x = _x;	this->y = _y;	this->z = _z;	this->level = _level;}
-			//GridVertex(std::string serializedBuffer)
-			//{
-			//	sscanf_s(serializedBuffer.c_str(), "%f-%f-%f-%d", &x, &y, &z, &level);
-			//}
-			//GridVertex(const char* serializedBuffer)
-			//{
-			//	sscanf_s(serializedBuffer, "%f-%f-%f-%d", &x, &y, &z, &level);
-			//}
-			GridVertex(BYTE* stream, size_t& size)
-			{
-				size_t _size;
-				size = 0;
-				x = deserializeFromByteStream<float>(stream + size, _size);
-				size += _size;
-				y = deserializeFromByteStream<float>(stream + size, _size);
-				size += _size;
-				z = deserializeFromByteStream<float>(stream + size, _size);
-				size += _size;
-				level = deserializeFromByteStream<int>(stream + size, _size);
-				size += _size;
-			}
+		//// Grid / GridVertex are in WUs
+		//class GridVertex
+		//{
+		//public:
+		//	GridVertex(void) : x(0.0f), y(0.0f), z(0.0f), level(0) {}
+		//	GridVertex(float _x, float _y, float _z, int _level) { this->x = _x;	this->y = _y;	this->z = _z;	this->level = _level;}
+		//	//GridVertex(std::string serializedBuffer)
+		//	//{
+		//	//	sscanf_s(serializedBuffer.c_str(), "%f-%f-%f-%d", &x, &y, &z, &level);
+		//	//}
+		//	//GridVertex(const char* serializedBuffer)
+		//	//{
+		//	//	sscanf_s(serializedBuffer, "%f-%f-%f-%d", &x, &y, &z, &level);
+		//	//}
+		//	GridVertex(BYTE* stream, size_t& size)
+		//	{
+		//		size_t _size;
+		//		size = 0;
+		//		x = deserializeFromByteStream<float>(stream + size, _size);
+		//		size += _size;
+		//		y = deserializeFromByteStream<float>(stream + size, _size);
+		//		size += _size;
+		//		z = deserializeFromByteStream<float>(stream + size, _size);
+		//		size += _size;
+		//		level = deserializeFromByteStream<int>(stream + size, _size);
+		//		size += _size;
+		//	}
 
-			~GridVertex()
-			{
-			}
+		//	~GridVertex()
+		//	{
+		//	}
 
-			// needed to use an istance of gridPoint as a key in a map (to keep the map sorted by z and by x for equal z)
-			// first row, second row, ... etc
-			bool operator<(const GridVertex& p) const
-			{
-				if (z < p.z)
-					return true;
-				if (z > p.z)
-					return false;
-				else
-					return x < p.x;
-			}
-			
-			bool operator==(const GridVertex& p) const
-			{
-				if (x == p.x && y == p.y && z == p.z && level == p.level)
-					return true;
-				else
-					return false;
-			}
+		//	// needed to use an istance of gridPoint as a key in a map (to keep the map sorted by z and by x for equal z)
+		//	// first row, second row, ... etc
+		//	bool operator<(const GridVertex& p) const
+		//	{
+		//		if (z < p.z)
+		//			return true;
+		//		if (z > p.z)
+		//			return false;
+		//		else
+		//			return x < p.x;
+		//	}
+		//	
+		//	bool operator==(const GridVertex& p) const
+		//	{
+		//		if (x == p.x && y == p.y && z == p.z && level == p.level)
+		//			return true;
+		//		else
+		//			return false;
+		//	}
 
-			bool equalsApartFromAltitude(const GridVertex& p) const
-			{
-				if (x == p.x && z == p.z && level == p.level)
-					return true;
-				else
-					return false;
-			}
-			
-			//std::string serialize(void)
-			//{
-			//	char buffer[256];
-			//	sprintf_s(buffer, "%f-%f-%f-%d", x, y, z, level);
-			//	return buffer;
-			//}
-			
-			void serialize(BYTE* stream, size_t& size)
-			{
-				size_t sz;
-				serializeToByteStream<float>(x, stream, sz);
-				size = sz;
-				serializeToByteStream<float>(y, stream + size, sz);
-				size += sz;
-				serializeToByteStream<float>(z, stream + size, sz);
-				size += sz;
-				serializeToByteStream<int>(level, stream + size, sz);
-				size += sz;
-			}
+		//	bool equalsApartFromAltitude(const GridVertex& p) const
+		//	{
+		//		if (x == p.x && z == p.z && level == p.level)
+		//			return true;
+		//		else
+		//			return false;
+		//	}
+		//	
+		//	//std::string serialize(void)
+		//	//{
+		//	//	char buffer[256];
+		//	//	sprintf_s(buffer, "%f-%f-%f-%d", x, y, z, level);
+		//	//	return buffer;
+		//	//}
+		//	
+		//	void serialize(BYTE* stream, size_t& size)
+		//	{
+		//		size_t sz;
+		//		serializeToByteStream<float>(x, stream, sz);
+		//		size = sz;
+		//		serializeToByteStream<float>(y, stream + size, sz);
+		//		size += sz;
+		//		serializeToByteStream<float>(z, stream + size, sz);
+		//		size += sz;
+		//		serializeToByteStream<int>(level, stream + size, sz);
+		//		size += sz;
+		//	}
 
-			std::string toString()
-			{
-				return "Level=" + std::to_string(level) + "-X=" + std::to_string(x) + "-Z=" + std::to_string(z) + "-Altitude=" + std::to_string(y);
-			}
+		//	std::string toString()
+		//	{
+		//		return "Level=" + std::to_string(level) + "-X=" + std::to_string(x) + "-Z=" + std::to_string(z) + "-Altitude=" + std::to_string(y);
+		//	}
 
-			float altitude(void) { return y; }
-			float posX(void) { return x; }
-			float posZ(void) { return z; }
-			int lvl(void) { return level; }
-			void setAltitude(float a) { y = a; }
+		//	float altitude(void) { return y; }
+		//	float posX(void) { return x; }
+		//	float posZ(void) { return z; }
+		//	int lvl(void) { return level; }
+		//	void setAltitude(float a) { y = a; }
 
-		private:
-			float x;
-			float y;
-			float z;
-			int level;
-		};
+		//private:
+		//	float x;
+		//	float y;
+		//	float z;
+		//	int level;
+		//};
 
-		class QuadrantId
-		{
-		public:
-			enum class DirectionSlot
-			{
-				Center = -1,
+		//class QuadrantId
+		//{
+		//public:
+		//	enum class DirectionSlot
+		//	{
+		//		Center = -1,
 
-				//
-				// - o
-				//
-				XMinus = 0,
+		//		//
+		//		// - o
+		//		//
+		//		XMinus = 0,
 
-				//
-				//   o -
-				//
-				XPlus = 1,
+		//		//
+		//		//   o -
+		//		//
+		//		XPlus = 1,
 
-				//   -
-				//   o
-				//
-				ZMinus = 2,
+		//		//   -
+		//		//   o
+		//		//
+		//		ZMinus = 2,
 
-				//
-				//   o
-				//   -
-				ZPlus = 3,
+		//		//
+		//		//   o
+		//		//   -
+		//		ZPlus = 3,
 
-			};
+		//	};
 
-			QuadrantId()
-			{
-				m_lowerXGridVertex = m_lowerZGridVertex = m_gridStepInWU = 0;
-				m_numVerticesPerSize = m_level = 0;
-				m_sizeInWU = 0;
-				m_initialized = false;
-			}
+		//	QuadrantId()
+		//	{
+		//		m_lowerXGridVertex = m_lowerZGridVertex = m_gridStepInWU = 0;
+		//		m_numVerticesPerSize = m_level = 0;
+		//		m_sizeInWU = 0;
+		//		m_initialized = false;
+		//	}
 
-			QuadrantId(const QuadrantId& quadrantId)
-			{
-				m_lowerXGridVertex = quadrantId.m_lowerXGridVertex;
-				m_lowerZGridVertex = quadrantId.m_lowerZGridVertex;
-				m_numVerticesPerSize = quadrantId.m_numVerticesPerSize;
-				m_level = quadrantId.m_level;
-				m_gridStepInWU = quadrantId.m_gridStepInWU;
-				m_sizeInWU = quadrantId.m_sizeInWU;
-				m_tag = quadrantId.m_tag;
-				m_initialized = true;
-			}
+		//	QuadrantId(const QuadrantId& quadrantId)
+		//	{
+		//		m_lowerXGridVertex = quadrantId.m_lowerXGridVertex;
+		//		m_lowerZGridVertex = quadrantId.m_lowerZGridVertex;
+		//		m_numVerticesPerSize = quadrantId.m_numVerticesPerSize;
+		//		m_level = quadrantId.m_level;
+		//		m_gridStepInWU = quadrantId.m_gridStepInWU;
+		//		m_sizeInWU = quadrantId.m_sizeInWU;
+		//		m_tag = quadrantId.m_tag;
+		//		m_initialized = true;
+		//	}
 
-			QuadrantId(float x, float z, int level, int numVerticesPerSize, float gridStepInWU)
-			{
-								float gridSizeInWU = numVerticesPerSize * gridStepInWU;
-				m_lowerXGridVertex = floor(x / gridSizeInWU) * gridSizeInWU;
-				m_lowerZGridVertex = floor(z / gridSizeInWU) * gridSizeInWU;
-				m_numVerticesPerSize = numVerticesPerSize;
-				m_level = level;
-				m_gridStepInWU = gridStepInWU;
-				m_sizeInWU = (m_numVerticesPerSize - 1) * m_gridStepInWU;
-				m_initialized = true;
-			}
+		//	QuadrantId(float x, float z, int level, int numVerticesPerSize, float gridStepInWU)
+		//	{
+		//						float gridSizeInWU = numVerticesPerSize * gridStepInWU;
+		//		m_lowerXGridVertex = floor(x / gridSizeInWU) * gridSizeInWU;
+		//		m_lowerZGridVertex = floor(z / gridSizeInWU) * gridSizeInWU;
+		//		m_numVerticesPerSize = numVerticesPerSize;
+		//		m_level = level;
+		//		m_gridStepInWU = gridStepInWU;
+		//		m_sizeInWU = (m_numVerticesPerSize - 1) * m_gridStepInWU;
+		//		m_initialized = true;
+		//	}
 
-			bool operator<(const QuadrantId& quadrantId) const
-			{
-				assert(m_level == quadrantId.m_level);
-				if (m_level < quadrantId.m_level)
-					return true;
-				if (m_level > quadrantId.m_level)
-					return false;
-				// m_level == quadrantId.m_level
+		//	bool operator<(const QuadrantId& quadrantId) const
+		//	{
+		//		assert(m_level == quadrantId.m_level);
+		//		if (m_level < quadrantId.m_level)
+		//			return true;
+		//		if (m_level > quadrantId.m_level)
+		//			return false;
+		//		// m_level == quadrantId.m_level
 
-				assert(m_sizeInWU == quadrantId.m_sizeInWU);
-				if (m_sizeInWU < quadrantId.m_sizeInWU)
-					return true;
-				if (m_sizeInWU > quadrantId.m_sizeInWU)
-					return false;
-				// m_sizeInWU == quadrantId.m_sizeInWU
+		//		assert(m_sizeInWU == quadrantId.m_sizeInWU);
+		//		if (m_sizeInWU < quadrantId.m_sizeInWU)
+		//			return true;
+		//		if (m_sizeInWU > quadrantId.m_sizeInWU)
+		//			return false;
+		//		// m_sizeInWU == quadrantId.m_sizeInWU
 
-				if (m_lowerZGridVertex < quadrantId.m_lowerZGridVertex)
-					return true;
-				if (m_lowerZGridVertex > quadrantId.m_lowerZGridVertex)
-					return false;
-				// m_lowerZGridVertex == quadrantId.m_lowerZGridVertex
+		//		if (m_lowerZGridVertex < quadrantId.m_lowerZGridVertex)
+		//			return true;
+		//		if (m_lowerZGridVertex > quadrantId.m_lowerZGridVertex)
+		//			return false;
+		//		// m_lowerZGridVertex == quadrantId.m_lowerZGridVertex
 
-				return m_lowerXGridVertex < quadrantId.m_lowerXGridVertex;
-			}
+		//		return m_lowerXGridVertex < quadrantId.m_lowerXGridVertex;
+		//	}
 
-			bool operator==(const QuadrantId& quadrantId) const
-			{
-				if (m_lowerXGridVertex == quadrantId.m_lowerXGridVertex
-					&& m_lowerZGridVertex == quadrantId.m_lowerZGridVertex
-					&& m_numVerticesPerSize == quadrantId.m_numVerticesPerSize
-					&& m_level == quadrantId.m_level
-					&& m_gridStepInWU == quadrantId.m_gridStepInWU)
-					return true;
-				else
-					return false;
-			}
-			
-			QuadrantId operator=(const QuadrantId& quadrantId)
-			{
-				m_lowerXGridVertex = quadrantId.m_lowerXGridVertex;
-				m_lowerZGridVertex = quadrantId.m_lowerZGridVertex;
-				m_numVerticesPerSize = quadrantId.m_numVerticesPerSize;
-				m_level = quadrantId.m_level;
-				m_gridStepInWU = quadrantId.m_gridStepInWU;
-				m_sizeInWU = quadrantId.m_sizeInWU;
-				m_tag = quadrantId.m_tag;
-				m_initialized = true;
-				return *this;
-			}
+		//	bool operator==(const QuadrantId& quadrantId) const
+		//	{
+		//		if (m_lowerXGridVertex == quadrantId.m_lowerXGridVertex
+		//			&& m_lowerZGridVertex == quadrantId.m_lowerZGridVertex
+		//			&& m_numVerticesPerSize == quadrantId.m_numVerticesPerSize
+		//			&& m_level == quadrantId.m_level
+		//			&& m_gridStepInWU == quadrantId.m_gridStepInWU)
+		//			return true;
+		//		else
+		//			return false;
+		//	}
+		//	
+		//	QuadrantId operator=(const QuadrantId& quadrantId)
+		//	{
+		//		m_lowerXGridVertex = quadrantId.m_lowerXGridVertex;
+		//		m_lowerZGridVertex = quadrantId.m_lowerZGridVertex;
+		//		m_numVerticesPerSize = quadrantId.m_numVerticesPerSize;
+		//		m_level = quadrantId.m_level;
+		//		m_gridStepInWU = quadrantId.m_gridStepInWU;
+		//		m_sizeInWU = quadrantId.m_sizeInWU;
+		//		m_tag = quadrantId.m_tag;
+		//		m_initialized = true;
+		//		return *this;
+		//	}
 
-			std::string getId(void)
-			{
-				return "ST" + to_string(m_gridStepInWU) + "_SZ" + to_string(m_numVerticesPerSize) + "_L" + to_string(m_level) + "_X" + to_string(m_lowerXGridVertex) + "_Z" + to_string(m_lowerZGridVertex);
-			}
+		//	std::string getId(void)
+		//	{
+		//		return "ST" + to_string(m_gridStepInWU) + "_SZ" + to_string(m_numVerticesPerSize) + "_L" + to_string(m_level) + "_X" + to_string(m_lowerXGridVertex) + "_Z" + to_string(m_lowerZGridVertex);
+		//	}
 
-			float getLowerXGridVertex() { return m_lowerXGridVertex; };
-			float getLowerZGridVertex() { return m_lowerZGridVertex; };
-			int getNumVerticesPerSize() { return m_numVerticesPerSize; };
-			int getLevel() { return m_level; };
-			float getGridStepInWU() { return m_gridStepInWU; };
-			float getSizeInWU() { return m_sizeInWU; };
-			_declspec(dllexport) QuadrantId getQuadrantId(enum class DirectionSlot dir, int numSlot = 1);
-			void setTag(std::string tag) { m_tag = tag; }
-			std::string getTag(void) { return m_tag; }
-			_declspec(dllexport) size_t distanceInPerimeter(QuadrantId& q);
-			bool isInitialized(void) { return m_initialized; }
+		//	float getLowerXGridVertex() { return m_lowerXGridVertex; };
+		//	float getLowerZGridVertex() { return m_lowerZGridVertex; };
+		//	int getNumVerticesPerSize() { return m_numVerticesPerSize; };
+		//	int getLevel() { return m_level; };
+		//	float getGridStepInWU() { return m_gridStepInWU; };
+		//	float getSizeInWU() { return m_sizeInWU; };
+		//	_declspec(dllexport) QuadrantId getQuadrantId(enum class DirectionSlot dir, int numSlot = 1);
+		//	void setTag(std::string tag) { m_tag = tag; }
+		//	std::string getTag(void) { return m_tag; }
+		//	_declspec(dllexport) size_t distanceInPerimeter(QuadrantId& q);
+		//	bool isInitialized(void) { return m_initialized; }
 
-		private:
-			// ID
-			float m_lowerXGridVertex;
-			float m_lowerZGridVertex;
-			int m_numVerticesPerSize;
-			int m_level;
-			float m_gridStepInWU;
-			// ID
+		//private:
+		//	// ID
+		//	float m_lowerXGridVertex;
+		//	float m_lowerZGridVertex;
+		//	int m_numVerticesPerSize;
+		//	int m_level;
+		//	float m_gridStepInWU;
+		//	// ID
 
-			bool m_initialized;
+		//	bool m_initialized;
 
-			float m_sizeInWU;
-			std::string m_tag;
-		};
-			
-		class Quadrant
-		{
-		public:
-			//Quadrant(MapManager* mapManager)
-			//{
-			//	m_mapManager = mapManager;
-			//}
-			
-			Quadrant(QuadrantId& quadrantId, MapManager* mapManager)
-			{
-				m_quadrantId = quadrantId;
-				m_mapManager = mapManager;
-				m_populated = false;
-			}
+		//	float m_sizeInWU;
+		//	std::string m_tag;
+		//};
+		//	
+		//class Quadrant
+		//{
+		//public:
+		//	//Quadrant(MapManager* mapManager)
+		//	//{
+		//	//	m_mapManager = mapManager;
+		//	//}
+		//	
+		//	Quadrant(QuadrantId& quadrantId /*, MapManager* mapManager*/)
+		//	{
+		//		m_quadrantId = quadrantId;
+		//		//m_mapManager = mapManager;
+		//		m_populated = false;
+		//	}
 
-			~Quadrant()
-			{
-				m_vectGridVertices.clear();
-			}
+		//	~Quadrant()
+		//	{
+		//		m_vectGridVertices.clear();
+		//	}
 
-			void implementId(QuadrantId& quadrantId)
-			{
-				m_quadrantId = quadrantId;
-			}
+		//	void implementId(QuadrantId& quadrantId)
+		//	{
+		//		m_quadrantId = quadrantId;
+		//	}
 
-			_declspec(dllexport) void populateGridVertices(float& initialViewerPosX, float& initialViewerPosZ);
+		//	_declspec(dllexport) void populateGridVertices(float& initialViewerPosX, float& initialViewerPosZ);
 
-			std::vector<GridVertex>& getGridVertices(void)
-			{
-				return m_vectGridVertices;
-			}
+		//	std::vector<GridVertex>& getGridVertices(void)
+		//	{
+		//		return m_vectGridVertices;
+		//	}
 
-			QuadrantId getId(void) { return m_quadrantId; }
+		//	QuadrantId getId(void) { return m_quadrantId; }
 
-			bool isPopulated(void) { return m_populated; }
+		//	bool isPopulated(void) { return m_populated; }
 
-		private:
-			QuadrantId m_quadrantId;
-			std::vector<GridVertex> m_vectGridVertices;
-			bool m_populated;
-			MapManager* m_mapManager;
-		};
+		//private:
+		//	QuadrantId m_quadrantId;
+		//	std::vector<GridVertex> m_vectGridVertices;
+		//	bool m_populated;
+		//	//MapManager* m_mapManager;
+		//};
 		
 		class GridPatch
 		{
@@ -427,8 +427,8 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void UpdateValues(void);
 		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }
 		_declspec(dllexport) float gridStepInWU(void);
-		_declspec(dllexport) MapManager::Quadrant* getQuadrant(float& viewerPosX, float& viewerPosZ, int level, int numVerticesPerSize);
-		_declspec(dllexport) MapManager::Quadrant* getQuadrant(QuadrantId q, enum class QuadrantId::DirectionSlot dir);
+		//_declspec(dllexport) MapManager::Quadrant* getQuadrant(float& viewerPosX, float& viewerPosZ, int level, int numVerticesPerSize);
+		//_declspec(dllexport) MapManager::Quadrant* getQuadrant(QuadrantId q, enum class QuadrantId::DirectionSlot dir);
 
 		enum class anchorType
 		{
@@ -438,6 +438,8 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void getVertices(float anchorXInWUs, float anchorZInWUs, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) void getVertices(float& anchorXInWUs, float& anchorZInWUs, anchorType type, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) void getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level = 0);
+		_declspec(dllexport) inline float calcPreviousCoordOnTheGridInWUs(float coordInWUs);
+		_declspec(dllexport) inline float calcNextCoordOnTheGridInWUs(float coordInWUs);
 
 	private:
 		float computeAltitude(SQLInterface::GridVertex& gridVertex, std::vector<WorldDefiner>& wdMap);
@@ -449,8 +451,6 @@ namespace TheWorld_MapManager
 		void internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int& numFoundInDB, int level = 0);
 		void internalGetVertices(float min_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level);
 		void getEmptyVertexGrid(vector<FlatGridPoint>& grid, vector<SQLInterface::GridVertex>& mesh, int level = 0);
-		inline float calcPreviousCoordOnTheGridInWUs(float coordInWUs);
-		inline float calcNextCoordOnTheGridInWUs(float coordInWUs);
 		float getDistance(float x1, float y1, float x2, float y2);
 		bool TransformProjectedCoordEPSG3857ToGeoCoordEPSG4326(double X, double Y, double& lon, double& lat, int& lonDegrees, int& lonMinutes, double& lonSeconds, int& latDegrees, int& latMinutes, double& latSeconds);
 		void DecimalDegreesToDegreesMinutesSeconds(double decimalDegrees, int& degrees, int& minutes, double& seconds);

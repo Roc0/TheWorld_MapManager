@@ -138,24 +138,24 @@ namespace TheWorld_MapManager
 	//	}
 	//}
 	
-	template <typename T>
-	void serializeToByteStream(T in, BYTE* stream, size_t& size)
-	{
-		T* pIn = &in;
-		BYTE* pc = reinterpret_cast<BYTE*>(pIn);
-		for (size_t i = 0; i < sizeof(T); i++)
-		{
-			stream[i] = *pc;
-			pc++;
-		}
-		size = sizeof(T);
-	}
+	//template <typename T>
+	//void serializeToByteStream(T in, BYTE* stream, size_t& size)
+	//{
+	//	T* pIn = &in;
+	//	BYTE* pc = reinterpret_cast<BYTE*>(pIn);
+	//	for (size_t i = 0; i < sizeof(T); i++)
+	//	{
+	//		stream[i] = *pc;
+	//		pc++;
+	//	}
+	//	size = sizeof(T);
+	//}
 
-	template <typename T>
-	T deserializeFromByteStream(BYTE* stream, size_t& size)
-	{
-		T* pOut = reinterpret_cast<T*>(stream);
-		size = sizeof(T);
-		return *pOut;
-	}
+	//template <typename T>
+	//T deserializeFromByteStream(BYTE* stream, size_t& size)
+	//{
+	//	T* pOut = reinterpret_cast<T*>(stream);
+	//	size = sizeof(T);
+	//	return *pOut;
+	//}
 }

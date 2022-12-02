@@ -8,7 +8,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
-#include <filesystem>
+//#include <filesystem>
 
 #include "MapManager.h"
 #include "DBSQLLite.h"
@@ -16,7 +16,7 @@
 #include "shapefil.h"
 #include <proj.h>
 
-namespace fs = std::filesystem;
+//namespace fs = std::filesystem;
 
 namespace TheWorld_MapManager
 {
@@ -1127,230 +1127,230 @@ namespace TheWorld_MapManager
 		seconds = (decimalDegrees - d) * 60;
 	}
 
-	MapManager::QuadrantId MapManager::QuadrantId::getQuadrantId(enum class DirectionSlot dir, int numSlot)
-	{
-		QuadrantId q = *this;
+	//MapManager::QuadrantId MapManager::QuadrantId::getQuadrantId(enum class DirectionSlot dir, int numSlot)
+	//{
+	//	QuadrantId q = *this;
 
-		switch (dir)
-		{
-			case DirectionSlot::XMinus:
-			{
-				q.m_lowerXGridVertex -= (m_sizeInWU * numSlot);
-			}
-			break;
-			case DirectionSlot::XPlus:
-			{
-				q.m_lowerXGridVertex += (m_sizeInWU * numSlot);
-			}
-			break;
-			case DirectionSlot::ZMinus:
-			{
-				q.m_lowerZGridVertex -= (m_sizeInWU * numSlot);
-			}
-			break;
-			case DirectionSlot::ZPlus:
-			{
-				q.m_lowerZGridVertex += (m_sizeInWU * numSlot);
-			}
-			break;
-		}
+	//	switch (dir)
+	//	{
+	//		case DirectionSlot::XMinus:
+	//		{
+	//			q.m_lowerXGridVertex -= (m_sizeInWU * numSlot);
+	//		}
+	//		break;
+	//		case DirectionSlot::XPlus:
+	//		{
+	//			q.m_lowerXGridVertex += (m_sizeInWU * numSlot);
+	//		}
+	//		break;
+	//		case DirectionSlot::ZMinus:
+	//		{
+	//			q.m_lowerZGridVertex -= (m_sizeInWU * numSlot);
+	//		}
+	//		break;
+	//		case DirectionSlot::ZPlus:
+	//		{
+	//			q.m_lowerZGridVertex += (m_sizeInWU * numSlot);
+	//		}
+	//		break;
+	//	}
 
-		return q;
-	}
+	//	return q;
+	//}
 
-	size_t MapManager::QuadrantId::distanceInPerimeter(MapManager::QuadrantId& q)
-	{
-		size_t distanceOnX = (size_t)ceil( abs(q.getLowerXGridVertex() - getLowerXGridVertex()) / q.m_sizeInWU);
-		size_t distanceOnZ = (size_t)ceil( abs(q.getLowerZGridVertex() - getLowerZGridVertex()) / q.m_sizeInWU);
-		if (distanceOnX > distanceOnZ)
-			return distanceOnX;
-		else
-			return distanceOnZ;
-	}
+	//size_t MapManager::QuadrantId::distanceInPerimeter(MapManager::QuadrantId& q)
+	//{
+	//	size_t distanceOnX = (size_t)ceil( abs(q.getLowerXGridVertex() - getLowerXGridVertex()) / q.m_sizeInWU);
+	//	size_t distanceOnZ = (size_t)ceil( abs(q.getLowerZGridVertex() - getLowerZGridVertex()) / q.m_sizeInWU);
+	//	if (distanceOnX > distanceOnZ)
+	//		return distanceOnX;
+	//	else
+	//		return distanceOnZ;
+	//}
 
-	MapManager::Quadrant* MapManager::getQuadrant(float& viewerPosX, float& viewerPosZ, int level, int numVerticesPerSize)
-	{
-		float _gridStepInWU = gridStepInWU();
-		QuadrantId quadrantId(viewerPosX, viewerPosZ, level, numVerticesPerSize, _gridStepInWU);
-		MapManager::Quadrant* quadrant = new Quadrant(quadrantId, this);
-		quadrant->populateGridVertices(viewerPosX, viewerPosZ);
+	//MapManager::Quadrant* MapManager::getQuadrant(float& viewerPosX, float& viewerPosZ, int level, int numVerticesPerSize)
+	//{
+	//	float _gridStepInWU = gridStepInWU();
+	//	QuadrantId quadrantId(viewerPosX, viewerPosZ, level, numVerticesPerSize, _gridStepInWU);
+	//	MapManager::Quadrant* quadrant = new Quadrant(quadrantId, this);
+	//	quadrant->populateGridVertices(viewerPosX, viewerPosZ);
 
-		return quadrant;
-	}
+	//	return quadrant;
+	//}
 
-	MapManager::Quadrant* MapManager::getQuadrant(MapManager::QuadrantId q, enum class MapManager::QuadrantId::DirectionSlot dir)
-	{
-		QuadrantId quadrantId = q.getQuadrantId(dir);
-		MapManager::Quadrant* quadrant = new Quadrant(quadrantId, this);
-		float viewerPosX = 0, viewerPosZ = 0;
-		quadrant->populateGridVertices(viewerPosX, viewerPosZ);
+	//MapManager::Quadrant* MapManager::getQuadrant(MapManager::QuadrantId q, enum class MapManager::QuadrantId::DirectionSlot dir)
+	//{
+	//	QuadrantId quadrantId = q.getQuadrantId(dir);
+	//	MapManager::Quadrant* quadrant = new Quadrant(quadrantId, this);
+	//	float viewerPosX = 0, viewerPosZ = 0;
+	//	quadrant->populateGridVertices(viewerPosX, viewerPosZ);
 
-		return quadrant;
-	}
+	//	return quadrant;
+	//}
 
-	void MapManager::Quadrant::populateGridVertices(float& viewerPosX, float& viewerPosZ)
-	{
-		BYTE shortBuffer[256 + 1];
-		size_t size;
+	//void MapManager::Quadrant::populateGridVertices(float& viewerPosX, float& viewerPosZ)
+	//{
+	//	BYTE shortBuffer[256 + 1];
+	//	size_t size;
 
-		//{
-		//	GridVertex v(0.12F, 0.1212F, 0.1313F, 1);
-		//	v.serialize(shortBuffer, size);
-		//	GridVertex v1(shortBuffer, size);
-		//	assert(v.posX() == v1.posX());
-		//	assert(v.altitude() == v1.altitude());
-		//	assert(v.posZ() == v1.posZ());
-		//	assert(v.lvl() == v1.lvl());
-		//}
-		
-		m_vectGridVertices.clear();
+	//	//{
+	//	//	GridVertex v(0.12F, 0.1212F, 0.1313F, 1);
+	//	//	v.serialize(shortBuffer, size);
+	//	//	GridVertex v1(shortBuffer, size);
+	//	//	assert(v.posX() == v1.posX());
+	//	//	assert(v.altitude() == v1.altitude());
+	//	//	assert(v.posZ() == v1.posZ());
+	//	//	assert(v.lvl() == v1.lvl());
+	//	//}
+	//	
+	//	m_vectGridVertices.clear();
 
-		size_t serializedVertexSize;
-		GridVertex v;
-		v.serialize(shortBuffer, serializedVertexSize);
+	//	size_t serializedVertexSize;
+	//	GridVertex v;
+	//	v.serialize(shortBuffer, serializedVertexSize);
 
-		// look for cache in file system
-		char level[4];
-		snprintf(level, 4, "%03d", m_quadrantId.getLevel());
-		string cachePath = m_mapManager->getDataPath() + "\\" + "Cache" + "\\" + "ST-" + to_string(m_quadrantId.getGridStepInWU()) + "_SZ-" + to_string(m_quadrantId.getNumVerticesPerSize()) + "\\L-" + string(level);
-		if (!fs::exists(cachePath))
-		{
-			fs::create_directories(cachePath);
-		}
-		string cacheFileName = "X-" + to_string(m_quadrantId.getLowerXGridVertex()) + "_Z-" + to_string(m_quadrantId.getLowerZGridVertex());
-		string cacheFileNameFull = cachePath + "\\" + cacheFileName;
-		if (fs::exists(cacheFileNameFull))
-		{
-			FILE* inFile = nullptr;
-			errno_t err = fopen_s(&inFile, cacheFileNameFull.c_str(), "rb");
-			if (err != 0)
-				throw(MapManagerException(__FUNCTION__, string("Open " + cacheFileNameFull + " in errore - Err=" + to_string(err)).c_str())); 
-			
-			if (fread(shortBuffer, 1, 1, inFile) != 1)	// "0"
-				throw(MapManagerException(__FUNCTION__, string("Read error 1!").c_str()));
-				
-			serializeToByteStream<size_t>(m_vectGridVertices.size(), shortBuffer, size);
-			if (fread(shortBuffer, size, 1, inFile) != 1)
-				throw(MapManagerException(__FUNCTION__, string("Read error 2!").c_str()));
-			size_t vectSize = deserializeFromByteStream<size_t>(shortBuffer, size);
-				
-			size_t streamBufferSize = vectSize * serializedVertexSize;
-			BYTE* streamBuffer = (BYTE*)calloc(1, streamBufferSize);
-			if (streamBuffer == nullptr)
-				throw(MapManagerException(__FUNCTION__, string("Allocation error!").c_str()));
+	//	// look for cache in file system
+	//	char level[4];
+	//	snprintf(level, 4, "%03d", m_quadrantId.getLevel());
+	//	string cachePath = m_mapManager->getDataPath() + "\\" + "Cache" + "\\" + "ST-" + to_string(m_quadrantId.getGridStepInWU()) + "_SZ-" + to_string(m_quadrantId.getNumVerticesPerSize()) + "\\L-" + string(level);
+	//	if (!fs::exists(cachePath))
+	//	{
+	//		fs::create_directories(cachePath);
+	//	}
+	//	string cacheFileName = "X-" + to_string(m_quadrantId.getLowerXGridVertex()) + "_Z-" + to_string(m_quadrantId.getLowerZGridVertex());
+	//	string cacheFileNameFull = cachePath + "\\" + cacheFileName;
+	//	if (fs::exists(cacheFileNameFull))
+	//	{
+	//		FILE* inFile = nullptr;
+	//		errno_t err = fopen_s(&inFile, cacheFileNameFull.c_str(), "rb");
+	//		if (err != 0)
+	//			throw(MapManagerException(__FUNCTION__, string("Open " + cacheFileNameFull + " in errore - Err=" + to_string(err)).c_str())); 
+	//		
+	//		if (fread(shortBuffer, 1, 1, inFile) != 1)	// "0"
+	//			throw(MapManagerException(__FUNCTION__, string("Read error 1!").c_str()));
+	//			
+	//		serializeToByteStream<size_t>(m_vectGridVertices.size(), shortBuffer, size);
+	//		if (fread(shortBuffer, size, 1, inFile) != 1)
+	//			throw(MapManagerException(__FUNCTION__, string("Read error 2!").c_str()));
+	//		size_t vectSize = deserializeFromByteStream<size_t>(shortBuffer, size);
+	//			
+	//		size_t streamBufferSize = vectSize * serializedVertexSize;
+	//		BYTE* streamBuffer = (BYTE*)calloc(1, streamBufferSize);
+	//		if (streamBuffer == nullptr)
+	//			throw(MapManagerException(__FUNCTION__, string("Allocation error!").c_str()));
 
-			//size_t num = 0;
-			//size_t sizeRead = 0;
-			//while (!feof(inFile))
-			//{
-			//	size_t i = fread(streamBuffer + sizeRead, serializedVertexSize, 1, inFile);
-			//	sizeRead += serializedVertexSize;
-			//	num++;
-			//}
-			size_t s = fread(streamBuffer, streamBufferSize, 1, inFile);
-			//size_t s = fread(streamBuffer, serializedVertexSize, vectSize, inFile);
-			//if (s != 1)
-			//{
-			//	free(streamBuffer);
-			//	int i = feof(inFile);
-			//	i = ferror(inFile);
-			//	throw(MapManagerException(__FUNCTION__, string("Read error 3! feof " + to_string(feof(inFile)) + " ferror " + to_string(ferror(inFile))).c_str()));
-			//}
-				
-			fclose(inFile);
+	//		//size_t num = 0;
+	//		//size_t sizeRead = 0;
+	//		//while (!feof(inFile))
+	//		//{
+	//		//	size_t i = fread(streamBuffer + sizeRead, serializedVertexSize, 1, inFile);
+	//		//	sizeRead += serializedVertexSize;
+	//		//	num++;
+	//		//}
+	//		size_t s = fread(streamBuffer, streamBufferSize, 1, inFile);
+	//		//size_t s = fread(streamBuffer, serializedVertexSize, vectSize, inFile);
+	//		//if (s != 1)
+	//		//{
+	//		//	free(streamBuffer);
+	//		//	int i = feof(inFile);
+	//		//	i = ferror(inFile);
+	//		//	throw(MapManagerException(__FUNCTION__, string("Read error 3! feof " + to_string(feof(inFile)) + " ferror " + to_string(ferror(inFile))).c_str()));
+	//		//}
+	//			
+	//		fclose(inFile);
 
-			BYTE* movingStreamBuffer = streamBuffer;
-			BYTE* endOfBuffer = streamBuffer + streamBufferSize;
-			while (movingStreamBuffer < endOfBuffer)
-			{
-				m_vectGridVertices.push_back(GridVertex(movingStreamBuffer, size));	// circa 2 sec
-				movingStreamBuffer += size;
-			}
+	//		BYTE* movingStreamBuffer = streamBuffer;
+	//		BYTE* endOfBuffer = streamBuffer + streamBufferSize;
+	//		while (movingStreamBuffer < endOfBuffer)
+	//		{
+	//			m_vectGridVertices.push_back(GridVertex(movingStreamBuffer, size));	// circa 2 sec
+	//			movingStreamBuffer += size;
+	//		}
 
-			free(streamBuffer);
+	//		free(streamBuffer);
 
-			if (m_vectGridVertices.size() != vectSize)
-				throw(MapManagerException(__FUNCTION__, string("Sequence error 4!").c_str()));
+	//		if (m_vectGridVertices.size() != vectSize)
+	//			throw(MapManagerException(__FUNCTION__, string("Sequence error 4!").c_str()));
 
-			if (viewerPosX != 0 && viewerPosZ != 0)
-			{
-				viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
-				viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
-			}
-			
-			m_populated = true;
+	//		if (viewerPosX != 0 && viewerPosZ != 0)
+	//		{
+	//			viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
+	//			viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
+	//		}
+	//		
+	//		m_populated = true;
 
-			return;
-		}
+	//		return;
+	//	}
 
-		std::vector<SQLInterface::GridVertex> worldVertices;
-		float lowerXGridVertex = m_quadrantId.getLowerXGridVertex();
-		float lowerZGridVertex = m_quadrantId.getLowerZGridVertex();
-		float gridStepinWU = m_quadrantId.getGridStepInWU();
-		m_mapManager->getVertices(lowerXGridVertex, lowerZGridVertex, TheWorld_MapManager::MapManager::anchorType::upperleftcorner, m_quadrantId.getNumVerticesPerSize(), m_quadrantId.getNumVerticesPerSize(), worldVertices, gridStepinWU, m_quadrantId.getLevel());
+	//	std::vector<SQLInterface::GridVertex> worldVertices;
+	//	float lowerXGridVertex = m_quadrantId.getLowerXGridVertex();
+	//	float lowerZGridVertex = m_quadrantId.getLowerZGridVertex();
+	//	float gridStepinWU = m_quadrantId.getGridStepInWU();
+	//	m_mapManager->getVertices(lowerXGridVertex, lowerZGridVertex, TheWorld_MapManager::MapManager::anchorType::upperleftcorner, m_quadrantId.getNumVerticesPerSize(), m_quadrantId.getNumVerticesPerSize(), worldVertices, gridStepinWU, m_quadrantId.getLevel());
 
-		for (int z = 0; z < m_quadrantId.getNumVerticesPerSize(); z++)			// m_heightMapImage->get_height()
-			for (int x = 0; x < m_quadrantId.getNumVerticesPerSize(); x++)		// m_heightMapImage->get_width()
-			{
-				SQLInterface::GridVertex& v = worldVertices[z * m_quadrantId.getNumVerticesPerSize() + x];
-				m_vectGridVertices.push_back(GridVertex(v.posX(), v.altitude(), v.posZ(), m_quadrantId.getLevel()));
-			}
+	//	for (int z = 0; z < m_quadrantId.getNumVerticesPerSize(); z++)			// m_heightMapImage->get_height()
+	//		for (int x = 0; x < m_quadrantId.getNumVerticesPerSize(); x++)		// m_heightMapImage->get_width()
+	//		{
+	//			SQLInterface::GridVertex& v = worldVertices[z * m_quadrantId.getNumVerticesPerSize() + x];
+	//			m_vectGridVertices.push_back(GridVertex(v.posX(), v.altitude(), v.posZ(), m_quadrantId.getLevel()));
+	//		}
 
-		if (viewerPosX != 0 && viewerPosZ != 0)
-		{
-			viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
-			viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
-		}
+	//	if (viewerPosX != 0 && viewerPosZ != 0)
+	//	{
+	//		viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
+	//		viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
+	//	}
 
-		size_t vectSize = m_vectGridVertices.size();
+	//	size_t vectSize = m_vectGridVertices.size();
 
-		size_t streamBufferSize = vectSize * serializedVertexSize;
-		BYTE* streamBuffer = (BYTE*)calloc(1, streamBufferSize);
-		if (streamBuffer == nullptr)
-			throw(MapManagerException(__FUNCTION__, string("Allocation error!").c_str()));
+	//	size_t streamBufferSize = vectSize * serializedVertexSize;
+	//	BYTE* streamBuffer = (BYTE*)calloc(1, streamBufferSize);
+	//	if (streamBuffer == nullptr)
+	//		throw(MapManagerException(__FUNCTION__, string("Allocation error!").c_str()));
 
-		size_t sizeToWrite = 0;
-		for (size_t idx = 0; idx < vectSize; idx++)
-		{
-			m_vectGridVertices[idx].serialize(streamBuffer + sizeToWrite, size);
-			sizeToWrite += size;
-		}
+	//	size_t sizeToWrite = 0;
+	//	for (size_t idx = 0; idx < vectSize; idx++)
+	//	{
+	//		m_vectGridVertices[idx].serialize(streamBuffer + sizeToWrite, size);
+	//		sizeToWrite += size;
+	//	}
 
-		FILE* outFile = nullptr;
-		errno_t err = fopen_s(&outFile, cacheFileNameFull.c_str(), "wb");
-		if (err != 0)
-		{
-			free(streamBuffer);
-			throw(MapManagerException(__FUNCTION__, string("Open " + cacheFileNameFull + " in errore - Err=" + to_string(err)).c_str()));
-		}
+	//	FILE* outFile = nullptr;
+	//	errno_t err = fopen_s(&outFile, cacheFileNameFull.c_str(), "wb");
+	//	if (err != 0)
+	//	{
+	//		free(streamBuffer);
+	//		throw(MapManagerException(__FUNCTION__, string("Open " + cacheFileNameFull + " in errore - Err=" + to_string(err)).c_str()));
+	//	}
 
-		if (fwrite("0", 1, 1, outFile) != 1)
-		{
-			free(streamBuffer);
-			throw(MapManagerException(__FUNCTION__, string("Write error 1!").c_str()));
-		}
+	//	if (fwrite("0", 1, 1, outFile) != 1)
+	//	{
+	//		free(streamBuffer);
+	//		throw(MapManagerException(__FUNCTION__, string("Write error 1!").c_str()));
+	//	}
 
-		serializeToByteStream<size_t>(vectSize, shortBuffer, size);
-		if (fwrite(shortBuffer, size, 1, outFile) != 1)
-		{
-			free(streamBuffer);
-			throw(MapManagerException(__FUNCTION__, string("Write error 2!").c_str()));
-		}
+	//	serializeToByteStream<size_t>(vectSize, shortBuffer, size);
+	//	if (fwrite(shortBuffer, size, 1, outFile) != 1)
+	//	{
+	//		free(streamBuffer);
+	//		throw(MapManagerException(__FUNCTION__, string("Write error 2!").c_str()));
+	//	}
 
-		if (fwrite(streamBuffer, sizeToWrite, 1, outFile) != 1)
-		{
-			free(streamBuffer);
-			throw(MapManagerException(__FUNCTION__, string("Write error 3!").c_str()));
-		}
+	//	if (fwrite(streamBuffer, sizeToWrite, 1, outFile) != 1)
+	//	{
+	//		free(streamBuffer);
+	//		throw(MapManagerException(__FUNCTION__, string("Write error 3!").c_str()));
+	//	}
 
-		fclose(outFile);
+	//	fclose(outFile);
 
-		free(streamBuffer);
+	//	free(streamBuffer);
 
-		m_populated = true;
+	//	m_populated = true;
 
-		return;
-	}
+	//	return;
+	//}
 }
 
 void LoadGISMap_pushPointsAffectingPointMap(TheWorld_MapManager::_GISPointsAffectingGridPoints& map, TheWorld_MapManager::GISPoint& point, int idxPoint)

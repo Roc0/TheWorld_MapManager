@@ -17,10 +17,10 @@ namespace TheWorld_MapManager
 	{
 	public:
 		_declspec(dllexport) WorldDefiner();
-		_declspec(dllexport) WorldDefiner(float posX, float posZ, WDType type, WDFunctionType functionType, float strength, float AOE, int level = 0, void* fp = NULL);
+		_declspec(dllexport) WorldDefiner(float posX, float posZ, WDType type, WDFunctionType functionType, float strength, float AOE, int level = 0, void* fp = nullptr);
 		_declspec(dllexport) ~WorldDefiner();
 
-		_declspec(dllexport) void setInternalValues(float posX, float posZ, int level, WDType type, float radius, float azimuth, float azimuthDegree, float strength, float AOE, WDFunctionType functionType, __int64 rowid, void* fp = NULL);
+		_declspec(dllexport) void setInternalValues(float posX, float posZ, int level, WDType type, float radius, float azimuth, float azimuthDegree, float strength, float AOE, WDFunctionType functionType, __int64 rowid, void* fp = nullptr);
 
 		_declspec(dllexport) float getPosX(void) { return m_posX; };
 		_declspec(dllexport) float getPosZ(void) { return m_posZ; };
