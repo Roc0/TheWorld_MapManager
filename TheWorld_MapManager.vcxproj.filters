@@ -101,5 +101,8 @@
     <ClCompile Include="shptree.c">
       <Filter>Source Files\Shapelib</Filter>
     </ClCompile>
+    <ClCompile Include="..\TheWorld_GDN_Viewer\TheWorld_GDN_Viewer\TheWorld_Utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

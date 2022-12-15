@@ -6,7 +6,67 @@
 
 namespace TheWorld_MapManager
 {
-	std::string getModuleLoadPath(void)
+    size_t limiter::s_concurrentExecutions = 0;
+    std::recursive_mutex limiter::s_mtx;
+    std::queue<limiter*> limiter::s_waiting;
+
+    limiter::limiter(size_t maxConcurrentExecutions)
+    {
+        {
+            std::lock_guard<std::recursive_mutex> lock(s_mtx);
+            if (s_concurrentExecutions < maxConcurrentExecutions)
+            {
+                s_concurrentExecutions++;
+                return;
+            }
+            else
+                s_waiting.push(this);
+        }
+
+        while (true)
+        {
+            s_mtx.lock();
+            while (s_concurrentExecutions >= maxConcurrentExecutions)
+            {
+                s_mtx.unlock();
+                Sleep(1);
+                s_mtx.lock();
+            }
+            // s_concurrentExecutions is less than maxConcurrentExecutions and the mutex is locked
+            if (s_waiting.front() == this)
+            {
+                // it's my turn
+                s_waiting.pop();
+                s_concurrentExecutions++;
+                s_mtx.unlock();
+                break;
+            }
+            s_mtx.unlock();
+            Sleep(1);
+        }
+    }
+
+    limiter::~limiter()
+    {
+        //std::lock_guard<std::recursive_mutex> lock(s_mtx);
+        //if (s_concurrentExecutions > 0)
+            s_concurrentExecutions--;
+    }
+    
+    std::string ToString(GUID* guid)
+    {
+        char guid_string[37]; // 32 hex chars + 4 hyphens + null terminator
+        snprintf(
+            guid_string, sizeof(guid_string),
+            "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+            guid->Data1, guid->Data2, guid->Data3,
+            guid->Data4[0], guid->Data4[1], guid->Data4[2],
+            guid->Data4[3], guid->Data4[4], guid->Data4[5],
+            guid->Data4[6], guid->Data4[7]);
+        return guid_string;
+    }
+
+    std::string getModuleLoadPath(void)
 	{
         char path[MAX_PATH];
         HMODULE hm = NULL;

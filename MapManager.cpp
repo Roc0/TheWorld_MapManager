@@ -1,4 +1,4 @@
-#include "pch.h"
+//#include "pch.h"
 
 #define _USE_MATH_DEFINES // for C++
 
@@ -10,6 +10,8 @@
 #include <algorithm>
 //#include <filesystem>
 
+#include <Rpc.h>
+
 #include "MapManager.h"
 #include "DBSQLLite.h"
 
@@ -20,6 +22,8 @@
 
 namespace TheWorld_MapManager
 {
+	//std::recursive_mutex MapManager::s_mtxInternalData;
+
 	// ************************************************************************************************************************************************
 	// size of the square grid of vertices used to expand the map (for example on new WD), this size is expressed in number of vertices so it is an int
 	// ************************************************************************************************************************************************
@@ -93,7 +97,7 @@ namespace TheWorld_MapManager
 	__int64 MapManager::addWD(WorldDefiner& WD)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode()); // Timer<milliseconds, steady_clock>
+		TimerMs clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		// we have to find all the vertices affected by AOE according to the fact that the map can grow with square map of point of g_DBGrowingBlockVertexNumber vertices
@@ -305,7 +309,7 @@ namespace TheWorld_MapManager
 	bool MapManager::eraseWD(__int64 wdRowid)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode()); // Timer<milliseconds, steady_clock>
+		TimerMs clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		bool bDeleted = m_SqlInterface->eraseWD(wdRowid);
@@ -320,7 +324,7 @@ namespace TheWorld_MapManager
 	bool MapManager::eraseWD(float posX, float posZ, int level, WDType type)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode()); // Timer<milliseconds, steady_clock>
+		TimerMs clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 		bool bDeleted = false;
 
@@ -339,7 +343,7 @@ namespace TheWorld_MapManager
 	bool MapManager::eraseWD(WorldDefiner& WD)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode()); // Timer<milliseconds, steady_clock>
+		TimerMs clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		bool bDeleted = eraseWD(WD.getPosX(), WD.getPosZ(), WD.getLevel(), WD.getType());
@@ -364,7 +368,7 @@ namespace TheWorld_MapManager
 	void MapManager::UpdateValues(void)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode()); // Timer<milliseconds, steady_clock>
+		TimerMs clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		/*
@@ -502,8 +506,11 @@ namespace TheWorld_MapManager
 	void MapManager::getVertices(float anchorXInWUs, float anchorZInWUs, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode()); // Timer<milliseconds, steady_clock>
+		TimerMs clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
+
+		//limiter l(2);
+		//std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 
 		float min_X_OnTheGridInWUs, max_X_OnTheGridInWUs, min_Z_OnTheGridInWUs, max_Z_OnTheGridInWUs;
 
@@ -587,10 +594,81 @@ namespace TheWorld_MapManager
 		}
 	}
 
+	void MapManager::getQuadrantVertices(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshId, std::string& meshBuffer)
+	{
+		limiter l(2);
+
+		vector<TheWorld_Utils::GridVertex> mesh;
+
+		gridStepInWU = MapManager::gridStepInWU();
+
+		std::string cacheDir = m_SqlInterface->dataPath();
+		TheWorld_Utils::MeshCacheBuffer cache(cacheDir, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
+		
+		// client has the buffer as it has sent its mesh id
+		std::string serverMeshId = cache.getMeshIdFromMeshCache();
+
+		if (meshId == serverMeshId && serverMeshId.size() > 0)
+		{
+			// the buffer is present in server cache and it has the same mesh id as the client: we can answer only the header (0 elements)
+
+			std::vector<TheWorld_Utils::GridVertex> vectGridVertices;
+			cache.setBufferForMeshCache(meshId, numVerticesPerSize, vectGridVertices, meshBuffer);
+		}
+		else
+		{
+			if (serverMeshId.size() > 0)
+			{
+				//client has an old version of the mesh or does not have one but the server has the buffer in its cache
+
+				meshId = serverMeshId;
+				size_t vectSizeFromCache;
+				cache.readBufferFromMeshCache(serverMeshId, meshBuffer, vectSizeFromCache);
+			}
+			else
+			{
+				//server cache is invalid so we have to recalculate the mesh with a new mesh id
+
+				GUID newId;
+				RPC_STATUS ret_val = ::UuidCreate(&newId);
+				if (ret_val != RPC_S_OK)
+				{
+					std::string msg = "UuidCreate in error with rc " + std::to_string(ret_val);
+					PLOG_ERROR << msg;
+					throw(MapManagerException(__FUNCTION__, msg.c_str()));
+				}
+				meshId = ToString(&newId);
+
+				std::vector<TheWorld_MapManager::SQLInterface::GridVertex> worldVertices;
+				getVertices(lowerXGridVertex, lowerZGridVertex, anchorType::upperleftcorner, numVerticesPerSize, numVerticesPerSize, worldVertices, gridStepInWU, level);
+
+				size_t vertexArraySize = worldVertices.size();
+				if (vertexArraySize != numVerticesPerSize * numVerticesPerSize)
+					throw(std::exception((std::string(__FUNCTION__) + std::string("vertexArraySize not of the correct size")).c_str()));
+					
+				std::vector<TheWorld_Utils::GridVertex> vectGridVertices;
+				for (int z = 0; z < numVerticesPerSize; z++)
+					for (int x = 0; x < numVerticesPerSize; x++)
+					{
+						TheWorld_MapManager::SQLInterface::GridVertex& v = worldVertices[z * numVerticesPerSize + x];
+						TheWorld_Utils::GridVertex v1(v.posX(), v.altitude(), v.posZ(), level);
+						vectGridVertices.push_back(v1);
+					}
+
+				cache.setBufferForMeshCache(meshId, numVerticesPerSize, vectGridVertices, meshBuffer);
+				cache.writeBufferToMeshCache(meshBuffer);
+			}
+		}
+	}
+		
 	void MapManager::getVertices(float& anchorXInWUs, float& anchorZInWUs, anchorType type, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int level)
 	{
+		//std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
+
+		//limiter l(2);
+
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode()); // Timer<milliseconds, steady_clock>
+		TimerMs clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		float min_X_OnTheGridInWUs, min_Z_OnTheGridInWUs;
@@ -681,7 +759,7 @@ namespace TheWorld_MapManager
 	void MapManager::getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode()); // Timer<milliseconds, steady_clock>
+		TimerMs clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		patches.clear();
@@ -745,7 +823,7 @@ namespace TheWorld_MapManager
 		// W A R N I N G : assuming coordinates in input file are in projected coordinates EPSG 3857 where the unit is metre
 		// *****************************************************************************************************************
 
-		TimerMs clock(true, consoleDebugMode()); // Timer<milliseconds, steady_clock>
+		TimerMs clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
@@ -1126,231 +1204,6 @@ namespace TheWorld_MapManager
 		minutes = (int)d;
 		seconds = (decimalDegrees - d) * 60;
 	}
-
-	//MapManager::QuadrantId MapManager::QuadrantId::getQuadrantId(enum class DirectionSlot dir, int numSlot)
-	//{
-	//	QuadrantId q = *this;
-
-	//	switch (dir)
-	//	{
-	//		case DirectionSlot::XMinus:
-	//		{
-	//			q.m_lowerXGridVertex -= (m_sizeInWU * numSlot);
-	//		}
-	//		break;
-	//		case DirectionSlot::XPlus:
-	//		{
-	//			q.m_lowerXGridVertex += (m_sizeInWU * numSlot);
-	//		}
-	//		break;
-	//		case DirectionSlot::ZMinus:
-	//		{
-	//			q.m_lowerZGridVertex -= (m_sizeInWU * numSlot);
-	//		}
-	//		break;
-	//		case DirectionSlot::ZPlus:
-	//		{
-	//			q.m_lowerZGridVertex += (m_sizeInWU * numSlot);
-	//		}
-	//		break;
-	//	}
-
-	//	return q;
-	//}
-
-	//size_t MapManager::QuadrantId::distanceInPerimeter(MapManager::QuadrantId& q)
-	//{
-	//	size_t distanceOnX = (size_t)ceil( abs(q.getLowerXGridVertex() - getLowerXGridVertex()) / q.m_sizeInWU);
-	//	size_t distanceOnZ = (size_t)ceil( abs(q.getLowerZGridVertex() - getLowerZGridVertex()) / q.m_sizeInWU);
-	//	if (distanceOnX > distanceOnZ)
-	//		return distanceOnX;
-	//	else
-	//		return distanceOnZ;
-	//}
-
-	//MapManager::Quadrant* MapManager::getQuadrant(float& viewerPosX, float& viewerPosZ, int level, int numVerticesPerSize)
-	//{
-	//	float _gridStepInWU = gridStepInWU();
-	//	QuadrantId quadrantId(viewerPosX, viewerPosZ, level, numVerticesPerSize, _gridStepInWU);
-	//	MapManager::Quadrant* quadrant = new Quadrant(quadrantId, this);
-	//	quadrant->populateGridVertices(viewerPosX, viewerPosZ);
-
-	//	return quadrant;
-	//}
-
-	//MapManager::Quadrant* MapManager::getQuadrant(MapManager::QuadrantId q, enum class MapManager::QuadrantId::DirectionSlot dir)
-	//{
-	//	QuadrantId quadrantId = q.getQuadrantId(dir);
-	//	MapManager::Quadrant* quadrant = new Quadrant(quadrantId, this);
-	//	float viewerPosX = 0, viewerPosZ = 0;
-	//	quadrant->populateGridVertices(viewerPosX, viewerPosZ);
-
-	//	return quadrant;
-	//}
-
-	//void MapManager::Quadrant::populateGridVertices(float& viewerPosX, float& viewerPosZ)
-	//{
-	//	BYTE shortBuffer[256 + 1];
-	//	size_t size;
-
-	//	//{
-	//	//	GridVertex v(0.12F, 0.1212F, 0.1313F, 1);
-	//	//	v.serialize(shortBuffer, size);
-	//	//	GridVertex v1(shortBuffer, size);
-	//	//	assert(v.posX() == v1.posX());
-	//	//	assert(v.altitude() == v1.altitude());
-	//	//	assert(v.posZ() == v1.posZ());
-	//	//	assert(v.lvl() == v1.lvl());
-	//	//}
-	//	
-	//	m_vectGridVertices.clear();
-
-	//	size_t serializedVertexSize;
-	//	GridVertex v;
-	//	v.serialize(shortBuffer, serializedVertexSize);
-
-	//	// look for cache in file system
-	//	char level[4];
-	//	snprintf(level, 4, "%03d", m_quadrantId.getLevel());
-	//	string cachePath = m_mapManager->getDataPath() + "\\" + "Cache" + "\\" + "ST-" + to_string(m_quadrantId.getGridStepInWU()) + "_SZ-" + to_string(m_quadrantId.getNumVerticesPerSize()) + "\\L-" + string(level);
-	//	if (!fs::exists(cachePath))
-	//	{
-	//		fs::create_directories(cachePath);
-	//	}
-	//	string cacheFileName = "X-" + to_string(m_quadrantId.getLowerXGridVertex()) + "_Z-" + to_string(m_quadrantId.getLowerZGridVertex());
-	//	string cacheFileNameFull = cachePath + "\\" + cacheFileName;
-	//	if (fs::exists(cacheFileNameFull))
-	//	{
-	//		FILE* inFile = nullptr;
-	//		errno_t err = fopen_s(&inFile, cacheFileNameFull.c_str(), "rb");
-	//		if (err != 0)
-	//			throw(MapManagerException(__FUNCTION__, string("Open " + cacheFileNameFull + " in errore - Err=" + to_string(err)).c_str())); 
-	//		
-	//		if (fread(shortBuffer, 1, 1, inFile) != 1)	// "0"
-	//			throw(MapManagerException(__FUNCTION__, string("Read error 1!").c_str()));
-	//			
-	//		serializeToByteStream<size_t>(m_vectGridVertices.size(), shortBuffer, size);
-	//		if (fread(shortBuffer, size, 1, inFile) != 1)
-	//			throw(MapManagerException(__FUNCTION__, string("Read error 2!").c_str()));
-	//		size_t vectSize = deserializeFromByteStream<size_t>(shortBuffer, size);
-	//			
-	//		size_t streamBufferSize = vectSize * serializedVertexSize;
-	//		BYTE* streamBuffer = (BYTE*)calloc(1, streamBufferSize);
-	//		if (streamBuffer == nullptr)
-	//			throw(MapManagerException(__FUNCTION__, string("Allocation error!").c_str()));
-
-	//		//size_t num = 0;
-	//		//size_t sizeRead = 0;
-	//		//while (!feof(inFile))
-	//		//{
-	//		//	size_t i = fread(streamBuffer + sizeRead, serializedVertexSize, 1, inFile);
-	//		//	sizeRead += serializedVertexSize;
-	//		//	num++;
-	//		//}
-	//		size_t s = fread(streamBuffer, streamBufferSize, 1, inFile);
-	//		//size_t s = fread(streamBuffer, serializedVertexSize, vectSize, inFile);
-	//		//if (s != 1)
-	//		//{
-	//		//	free(streamBuffer);
-	//		//	int i = feof(inFile);
-	//		//	i = ferror(inFile);
-	//		//	throw(MapManagerException(__FUNCTION__, string("Read error 3! feof " + to_string(feof(inFile)) + " ferror " + to_string(ferror(inFile))).c_str()));
-	//		//}
-	//			
-	//		fclose(inFile);
-
-	//		BYTE* movingStreamBuffer = streamBuffer;
-	//		BYTE* endOfBuffer = streamBuffer + streamBufferSize;
-	//		while (movingStreamBuffer < endOfBuffer)
-	//		{
-	//			m_vectGridVertices.push_back(GridVertex(movingStreamBuffer, size));	// circa 2 sec
-	//			movingStreamBuffer += size;
-	//		}
-
-	//		free(streamBuffer);
-
-	//		if (m_vectGridVertices.size() != vectSize)
-	//			throw(MapManagerException(__FUNCTION__, string("Sequence error 4!").c_str()));
-
-	//		if (viewerPosX != 0 && viewerPosZ != 0)
-	//		{
-	//			viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
-	//			viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
-	//		}
-	//		
-	//		m_populated = true;
-
-	//		return;
-	//	}
-
-	//	std::vector<SQLInterface::GridVertex> worldVertices;
-	//	float lowerXGridVertex = m_quadrantId.getLowerXGridVertex();
-	//	float lowerZGridVertex = m_quadrantId.getLowerZGridVertex();
-	//	float gridStepinWU = m_quadrantId.getGridStepInWU();
-	//	m_mapManager->getVertices(lowerXGridVertex, lowerZGridVertex, TheWorld_MapManager::MapManager::anchorType::upperleftcorner, m_quadrantId.getNumVerticesPerSize(), m_quadrantId.getNumVerticesPerSize(), worldVertices, gridStepinWU, m_quadrantId.getLevel());
-
-	//	for (int z = 0; z < m_quadrantId.getNumVerticesPerSize(); z++)			// m_heightMapImage->get_height()
-	//		for (int x = 0; x < m_quadrantId.getNumVerticesPerSize(); x++)		// m_heightMapImage->get_width()
-	//		{
-	//			SQLInterface::GridVertex& v = worldVertices[z * m_quadrantId.getNumVerticesPerSize() + x];
-	//			m_vectGridVertices.push_back(GridVertex(v.posX(), v.altitude(), v.posZ(), m_quadrantId.getLevel()));
-	//		}
-
-	//	if (viewerPosX != 0 && viewerPosZ != 0)
-	//	{
-	//		viewerPosX = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosX);
-	//		viewerPosZ = m_mapManager->calcNextCoordOnTheGridInWUs(viewerPosZ);
-	//	}
-
-	//	size_t vectSize = m_vectGridVertices.size();
-
-	//	size_t streamBufferSize = vectSize * serializedVertexSize;
-	//	BYTE* streamBuffer = (BYTE*)calloc(1, streamBufferSize);
-	//	if (streamBuffer == nullptr)
-	//		throw(MapManagerException(__FUNCTION__, string("Allocation error!").c_str()));
-
-	//	size_t sizeToWrite = 0;
-	//	for (size_t idx = 0; idx < vectSize; idx++)
-	//	{
-	//		m_vectGridVertices[idx].serialize(streamBuffer + sizeToWrite, size);
-	//		sizeToWrite += size;
-	//	}
-
-	//	FILE* outFile = nullptr;
-	//	errno_t err = fopen_s(&outFile, cacheFileNameFull.c_str(), "wb");
-	//	if (err != 0)
-	//	{
-	//		free(streamBuffer);
-	//		throw(MapManagerException(__FUNCTION__, string("Open " + cacheFileNameFull + " in errore - Err=" + to_string(err)).c_str()));
-	//	}
-
-	//	if (fwrite("0", 1, 1, outFile) != 1)
-	//	{
-	//		free(streamBuffer);
-	//		throw(MapManagerException(__FUNCTION__, string("Write error 1!").c_str()));
-	//	}
-
-	//	serializeToByteStream<size_t>(vectSize, shortBuffer, size);
-	//	if (fwrite(shortBuffer, size, 1, outFile) != 1)
-	//	{
-	//		free(streamBuffer);
-	//		throw(MapManagerException(__FUNCTION__, string("Write error 2!").c_str()));
-	//	}
-
-	//	if (fwrite(streamBuffer, sizeToWrite, 1, outFile) != 1)
-	//	{
-	//		free(streamBuffer);
-	//		throw(MapManagerException(__FUNCTION__, string("Write error 3!").c_str()));
-	//	}
-
-	//	fclose(outFile);
-
-	//	free(streamBuffer);
-
-	//	m_populated = true;
-
-	//	return;
-	//}
 }
 
 void LoadGISMap_pushPointsAffectingPointMap(TheWorld_MapManager::_GISPointsAffectingGridPoints& map, TheWorld_MapManager::GISPoint& point, int idxPoint)

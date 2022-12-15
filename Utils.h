@@ -5,12 +5,27 @@
 #include <string>
 #include <iostream>
 #include <chrono>
+#include <mutex>
+#include <queue>
 
 #include "gsl\assert"
 #include <plog/Log.h>
 
 namespace TheWorld_MapManager
 {
+	std::string ToString(GUID* guid);
+
+	class limiter
+	{
+	public:
+		limiter(size_t maxConcurrentExecutions);
+		~limiter(void);
+	private:
+		static size_t s_concurrentExecutions;
+		static std::recursive_mutex s_mtx;
+		static std::queue<limiter*> s_waiting;
+	};
+	
 	class utils
 	{
 	public:
