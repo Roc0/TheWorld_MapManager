@@ -279,8 +279,10 @@ namespace TheWorld_MapManager
 		//float maxZ = minZInWUs + numPointZ - 1;
 
 		grid.clear();
-		grid.reserve(size_t(numPointX) * size_t(numPointZ));
+		//grid.reserve(size_t(numPointX) * size_t(numPointZ));
+		grid.resize(size_t(numPointX) * size_t(numPointZ));
 
+		size_t idx = 0;
 		for (int z = 0; z < numPointZ; z++)
 		{
 			float incZ = minZInWUs + z * gridStepInWU;
@@ -289,7 +291,9 @@ namespace TheWorld_MapManager
 				FlatGridPoint p;
 				p.x = minXInWUs + x * gridStepInWU;
 				p.z = incZ;
-				grid.push_back(p);
+				//grid.push_back(p);
+				grid[idx] = p;
+				idx++;
 			}
 		}
 		assert(grid.size() == size_t(numPointX) * size_t(numPointZ));
@@ -298,11 +302,15 @@ namespace TheWorld_MapManager
 	void MapManager::getEmptyVertexGrid(vector<FlatGridPoint>& grid, vector<SQLInterface::GridVertex>& emptyGridVertex, int level)
 	{
 		emptyGridVertex.clear();
+		emptyGridVertex.resize(grid.size());
 		vector<FlatGridPoint>::iterator it;
+		size_t idx = 0;
 		for (it = grid.begin(); it != grid.end(); it++)
 		{
 			SQLInterface::GridVertex gridVertex(it->x, it->z, level);
-			emptyGridVertex.push_back(gridVertex);
+			//emptyGridVertex.push_back(gridVertex);
+			emptyGridVertex[idx] = gridVertex;
+			idx++;
 		}
 	}
 
@@ -606,9 +614,9 @@ namespace TheWorld_MapManager
 		TheWorld_Utils::MeshCacheBuffer cache(cacheDir, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 		
 		// client has the buffer as it has sent its mesh id
-		std::string serverMeshId = cache.getMeshIdFromMeshCache();
+		std::string serverCacheMeshId = cache.getMeshIdFromMeshCache();
 
-		if (meshId == serverMeshId && serverMeshId.size() > 0)
+		if (meshId == serverCacheMeshId && serverCacheMeshId.size() > 0)
 		{
 			// the buffer is present in server cache and it has the same mesh id as the client: we can answer only the header (0 elements)
 
@@ -617,13 +625,13 @@ namespace TheWorld_MapManager
 		}
 		else
 		{
-			if (serverMeshId.size() > 0)
+			if (serverCacheMeshId.size() > 0)
 			{
 				//client has an old version of the mesh or does not have one but the server has the buffer in its cache
 
-				meshId = serverMeshId;
+				meshId = serverCacheMeshId;
 				size_t vectSizeFromCache;
-				cache.readBufferFromMeshCache(serverMeshId, meshBuffer, vectSizeFromCache);
+				cache.readBufferFromMeshCache(serverCacheMeshId, meshBuffer, vectSizeFromCache);
 			}
 			else
 			{
@@ -647,12 +655,16 @@ namespace TheWorld_MapManager
 					throw(std::exception((std::string(__FUNCTION__) + std::string("vertexArraySize not of the correct size")).c_str()));
 					
 				std::vector<TheWorld_Utils::GridVertex> vectGridVertices;
+				vectGridVertices.resize(vertexArraySize);
+				size_t idx = 0;
 				for (int z = 0; z < numVerticesPerSize; z++)
 					for (int x = 0; x < numVerticesPerSize; x++)
 					{
 						TheWorld_MapManager::SQLInterface::GridVertex& v = worldVertices[z * numVerticesPerSize + x];
 						TheWorld_Utils::GridVertex v1(v.posX(), v.altitude(), v.posZ(), level);
-						vectGridVertices.push_back(v1);
+						//vectGridVertices.push_back(v1);
+						vectGridVertices[idx] = v1;
+						idx++;
 					}
 
 				cache.setBufferForMeshCache(meshId, numVerticesPerSize, vectGridVertices, meshBuffer);
