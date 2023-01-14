@@ -1,3 +1,4 @@
+/*
 drop table Quadrant;
 
 create table Quadrant(
@@ -9,3 +10,4 @@ create table Quadrant(
 	Hash BLOB NOT NULL,
 	PRIMARY KEY(VertexPerSize, Level, PosZ, PosX)
 );
+*/

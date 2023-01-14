@@ -117,15 +117,16 @@ namespace TheWorld_MapManager
 		// they are spaced by a number of WU equal to gridStepInWU (MapManager::gridStepInWU())
 		calcSquareFlatGridMinMaxToExpand(minAOEX, maxAOEX, minAOEZ, maxAOEZ, minGridPosX, maxGridPosX, minGridPosZ, maxGridPosZ, gridStepInWU);
 
-		int gridSize = (maxGridPosX - minGridPosX + 1) * (maxGridPosZ - minGridPosZ + 1);
+		size_t gridSize = (maxGridPosX - minGridPosX + 1) * (maxGridPosZ - minGridPosZ + 1);
 		vector<SQLInterface::GridVertex> v;
+		v.resize(gridSize);
 		
 		if (consoleDebugMode()) _consoleDebugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Computing affected vertices by WorldDefiner: ");
 
-		int numVertices = 0;
-		for (int x = minGridPosX; x <= maxGridPosX; x++)
+		int numVertices = 0, idx = 0;
+		for (int z = minGridPosZ; z <= maxGridPosZ; z++)
 		{
-			for (int z = minGridPosZ; z <= maxGridPosZ; z++)
+			for (int x = minGridPosX; x <= maxGridPosX; x++)
 			{
 				// guard
 				{
@@ -133,8 +134,10 @@ namespace TheWorld_MapManager
 					assert(numVertices <= gridSize);
 				}
 
-				SQLInterface::GridVertex mapv(float(x) * gridStepInWU, float(z) * gridStepInWU, WD.getLevel());
-				v.push_back(mapv);
+				SQLInterface::GridVertex gridVertex(float(x) * gridStepInWU, float(z) * gridStepInWU, WD.getLevel());
+				//v.push_back(gridVertex);
+				v[idx] = gridVertex;
+				idx++;
 
 				if (consoleDebugMode() && fmod(numVertices, 1024 * 1000) == 0) _consoleDebugUtil.printVariablePartOfLine(numVertices);
 			}
@@ -388,13 +391,18 @@ namespace TheWorld_MapManager
 		int updated = 0;
 		int idx = 0;
 		SQLInterface::GridVertex gridVertex;
-		vector<WorldDefiner> vectWD;
+		std::vector<WorldDefiner> vectWD;
+		std::map<WorldDefiner, std::vector<SQLInterface::GridVertex>> mapOfVerticesPerWD;
 		bool bFound = m_SqlInterface->getFirstModfiedVertex(gridVertex, vectWD);
 		while (bFound)
 		{
+			if (gridVertex.posX() == 24 && gridVertex.posZ() == 24)
+				DebugBreak();
+
 			idx++;
 
 			float altitude = computeAltitude(gridVertex, vectWD);
+			gridVertex.setAltitude(altitude);
 			m_SqlInterface->updateAltitudeOfVertex(gridVertex.rowid(), altitude);
 
 			updated++;
@@ -404,8 +412,55 @@ namespace TheWorld_MapManager
 				_consoleDebugUtil.printVariablePartOfLine(s.c_str());
 			}
 
+			// saving vertices ordered by wd
+			for (auto& wd : vectWD)
+				if (wd.getType() == WDType::flattener)
+					mapOfVerticesPerWD[wd].push_back(gridVertex);
+			
+			vectWD.clear();
 			bFound = m_SqlInterface->getNextModfiedVertex(gridVertex, vectWD);
 		}
+
+		std::map<SQLInterface::GridVertex, float> grideVerticesToUpdateForFlattening;
+		for (auto& mapItem : mapOfVerticesPerWD)
+		{
+			if (mapItem.first.getType() == WDType::flattener)
+			{
+				// approximated WD pos on the grid of vertices
+				float wdX = calcPreviousCoordOnTheGridInWUs(mapItem.first.getPosX());
+				float wdZ = calcPreviousCoordOnTheGridInWUs(mapItem.first.getPosZ());
+
+				// current approximated altitude of wd
+				float wdAltitude = 0.0;
+
+				// looking for a vertex coincident with approximated wd pos in the array of vertices
+				SQLInterface::GridVertex v(wdX, wdZ, mapItem.first.getLevel());
+				std::vector<SQLInterface::GridVertex>::iterator it = std::find(mapItem.second.begin(), mapItem.second.end(), v);
+				if (it != mapItem.second.end())
+					wdAltitude = it->altitude();
+				else
+				{
+					m_SqlInterface->getVertex(v);
+					wdAltitude = v.altitude();
+				}
+
+				for (auto& vertex : mapItem.second)
+				{
+					if (vertex.posX() == 24 && vertex.posZ() == 24)
+						DebugBreak();
+
+					float altitude = wdAltitude + computeAltitudeModifier(vertex, mapItem.first, -1, wdAltitude);
+					vertex.setAltitude(altitude);	// actually useless
+					grideVerticesToUpdateForFlattening[vertex] = altitude;
+				}
+			}
+		}
+
+		for (auto& v : grideVerticesToUpdateForFlattening)
+		{
+			m_SqlInterface->updateAltitudeOfVertex(v.first.rowid(), v.second);
+		}
+
 		if (consoleDebugMode())
 		{
 			string s = "Vertices marked for update: ";	s += to_string(idx);	s += " - Vertices Updated: ";	s += to_string(updated);
@@ -413,7 +468,6 @@ namespace TheWorld_MapManager
 		}
 
 		m_SqlInterface->clearVerticesMarkedForUpdate();
-			
 			
 		if (instrumented()) clock.printDuration(__FUNCTION__);
 
@@ -441,7 +495,10 @@ namespace TheWorld_MapManager
 				switch (wdMap[idx].getType())
 				{
 				case WDType::elevator:
-					altitude += computeAltitudeElevator(gridVertex, wdMap[idx], distanceFromWD);
+					altitude += computeAltitudeModifier(gridVertex, wdMap[idx], distanceFromWD);
+					break;
+				case WDType::depressor:
+					altitude -= computeAltitudeModifier(gridVertex, wdMap[idx], distanceFromWD);
 					break;
 				default:
 					break;
@@ -452,29 +509,55 @@ namespace TheWorld_MapManager
 		return altitude;
 	}
 
-	float MapManager::computeAltitudeElevator(SQLInterface::GridVertex& gridVertex, WorldDefiner& wd, float distanceFromWD)
+	float MapManager::computeAltitudeModifier(SQLInterface::GridVertex& gridVertex, const WorldDefiner& wd, float distanceFromWD, float wdAltitude)
 	{
-		float altitude = 0.0;
+		float altitudeModifier = 0.0;
+
+		float AOE = wd.getAOE();
 
 		if (distanceFromWD == -1)
 			distanceFromWD = getDistance(gridVertex.posX(), gridVertex.posZ(), wd.getPosX(), wd.getPosZ());
 		
-		switch (wd.getFunctionType())
+		if (distanceFromWD > AOE)
+			return altitudeModifier;
+		
+		if (wd.getType() == WDType::elevator || wd.getType() == WDType::depressor)
 		{
-		case WDFunctionType::cosin:
-		{
-			float d = distanceFromWD / wd.getAOE();	// from 0 (on WD) to 1 (on border)
-			float argument = d * (float)M_PI_2;		// from 0 (on WD) to M_PI_2 (on border)
-			altitude = cosf(argument);				// from 1 (on WD) to 0 (on border)
-			altitude *= wd.getStrength();			// from wd.getStrength() (on WD) to 0 (on border)
-			//altitude = cosf( (distanceFromWD / wd.getAOE()) * (float)M_PI_2 ) * wd.getStrength();
+			switch (wd.getFunctionType())
+			{
+				case WDFunctionType::MaxEffectOnWD:
+				{
+					float d = distanceFromWD / AOE;			// from 0 (on WD) to 1 (on border of AOE)
+					float argument = d * (float)M_PI_2;		// from 0 (on WD) to M_PI_2 (on border of AOE)
+					altitudeModifier = cosf(argument);		// from 1 (on WD) to 0 (on border of AOE)
+					altitudeModifier *= wd.getStrength();	// from wd.getStrength() (on WD) to 0 (on border of AOE)
+					//altitude = cosf( (distanceFromWD / wd.getAOE()) * (float)M_PI_2 ) * wd.getStrength();
+				}
+				break;
+				case WDFunctionType::MinEffectOnWD:
+				{
+					float d = distanceFromWD / AOE;			// from 0 (on WD) to 1 (on border of AOE)
+					float argument = d * (float)M_PI_2;		// from 0 (on WD) to M_PI_2 (on border of AOE)
+					altitudeModifier = sinf(argument);				// from 0 (on WD) to 1 (on border of AOE)
+					altitudeModifier *= wd.getStrength();			// from wd.getStrength() (on WD) to 0 (on border of AOE)
+					//altitude = cosf( (distanceFromWD / wd.getAOE()) * (float)M_PI_2 ) * wd.getStrength();
+				}
+				break;
+			default:
+				break;
+			}
 		}
-			break;
-		default:
-			break;
+		else if (wd.getType() == WDType::flattener)
+		{
+			float unaffectedAltitude = gridVertex.altitude() - wdAltitude;
+			float coeffForDistance = distanceFromWD / AOE;					// from 0 (on wd) to 1 (on border of AOE)
+			altitudeModifier = unaffectedAltitude * coeffForDistance;	// from 0 (on wd) to unaffectedAltitude (on border of AOE = unaffecting altitude summing to wd altitude)
+			
+			float strengthModifier = 1 - wd.getStrength();					// force 0 modifier from wd altitude when strength is max (=1), leave altitudeModifier unaffected (multiplying by 1) when strength is 0
+			altitudeModifier *= strengthModifier;
 		}
 
-		return altitude;
+		return altitudeModifier;
 	}
 
 	int MapManager::getNumVertexMarkedForUpdate(void)

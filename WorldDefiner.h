@@ -10,42 +10,113 @@ namespace TheWorld_MapManager
 	
 	enum class WDFunctionType
 	{
-		cosin = 0
+		MaxEffectOnWD = 0,
+		MinEffectOnWD = 1
 	};
 
 	class WorldDefiner
 	{
 	public:
 		_declspec(dllexport) WorldDefiner();
-		_declspec(dllexport) WorldDefiner(float posX, float posZ, WDType type, WDFunctionType functionType, float strength, float AOE, int level = 0, void* fp = nullptr);
+		//WorldDefiner(const WorldDefiner& wd)
+		//{
+		//	*this = wd;
+		//}
+
+		_declspec(dllexport) WorldDefiner(float posX, float posZ, enum class WDType type, enum class WDFunctionType functionType, float strength, float AOE, int level = 0, void* fp = nullptr);
 		_declspec(dllexport) ~WorldDefiner();
 
-		_declspec(dllexport) void setInternalValues(float posX, float posZ, int level, WDType type, float radius, float azimuth, float azimuthDegree, float strength, float AOE, WDFunctionType functionType, __int64 rowid, void* fp = nullptr);
+		_declspec(dllexport) void setInternalValues(float posX, float posZ, int level, enum class WDType type, float radius, float azimuth, float azimuthDegree, float strength, float AOE, enum class WDFunctionType functionType, __int64 rowid, void* fp = nullptr);
 
-		_declspec(dllexport) float getPosX(void) { return m_posX; };
-		_declspec(dllexport) float getPosZ(void) { return m_posZ; };
-		_declspec(dllexport) WDType getType(void) { return m_type; };
-		_declspec(dllexport) float getStrength(void) { return m_strength; };
-		_declspec(dllexport) float getAOE(void) { return m_AOE; };
-		_declspec(dllexport) int getLevel(void) { return m_level; };
-		_declspec(dllexport) float getRadius(void) { return m_radius; };
-		_declspec(dllexport) float getAzimuth(void) { return m_azimuth; };
-		_declspec(dllexport) float getAzimuthDegree(void) { return m_azimuthDegree; };
-		_declspec(dllexport) WDFunctionType getFunctionType(void) { return m_functionType; };
+		_declspec(dllexport) float getPosX(void) const
+		{
+			return m_posX;
+		};
+		_declspec(dllexport) float getPosZ(void) const
+		{
+			return m_posZ; 
+		};
+		_declspec(dllexport) enum class WDType getType(void) const
+		{
+			return m_type; 
+		};
+		_declspec(dllexport) float getStrength(void) const
+		{
+			return m_strength; 
+		};
+		_declspec(dllexport) float getAOE(void) const
+		{
+			return m_AOE; 
+		};
+		_declspec(dllexport) int getLevel(void) const
+		{
+			return m_level; 
+		};
+		_declspec(dllexport) float getRadius(void) const
+		{
+			return m_radius; 
+		};
+		_declspec(dllexport) float getAzimuth(void) const
+		{
+			return m_azimuth; 
+		};
+		_declspec(dllexport) float getAzimuthDegree(void) const
+		{
+			return m_azimuthDegree; 
+		};
+		_declspec(dllexport) enum class WDFunctionType getFunctionType(void) const
+		{
+			return m_functionType; 
+		};
 
-		_declspec(dllexport) __int64 getRowid(void) { return m_rowid; };
+		_declspec(dllexport) __int64 getRowid(void) const
+		{
+			return m_rowid; 
+		};
+
+		// needed to use an istance of GridVertex as a key in a map (to keep the map sorted by m_posZ and by m_posX for equal m_posZ)
+		bool operator<(const WorldDefiner& p) const
+		{
+			if (m_level < p.m_level)
+				return true;
+			else if (m_level > p.m_level)
+				return false;
+			else
+			{
+				if (m_posZ < p.m_posZ)
+					return true;
+				else if (m_posZ > p.m_posZ)
+					return false;
+				else
+				{
+					if (m_posX < p.m_posX)
+						return true;
+					else if (m_posX > p.m_posX)
+						return false;
+					else
+						return m_type < p.m_type;
+				}
+			}
+		}
+		
+		//WorldDefiner operator=(const WorldDefiner& wd)
+		//{
+		//	TODO
+		//	return *this;
+		//}
+
 
 	private:
 		float m_posX;
 		float m_posZ;
-		WDType m_type;
+		enum class WDType m_type;
 		float m_strength;
 		float m_AOE;
 		int m_level;
 		float m_radius;
 		float m_azimuth;
 		float m_azimuthDegree;
-		WDFunctionType m_functionType;
+		enum class WDFunctionType m_functionType;
 		__int64 m_rowid;
 	};
 }

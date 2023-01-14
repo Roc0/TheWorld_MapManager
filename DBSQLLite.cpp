@@ -592,6 +592,30 @@ namespace TheWorld_MapManager
 		dbOps.finalizeStmt();
 	}
 
+	void DBSQLLite::getVertex(GridVertex& gridVertex)
+	{
+		DBSQLLiteOps dbOps(dbFilePath());
+		dbOps.init();
+		string sql = "SELECT PosY, Radius, Azimuth, InitialAltitude, VertexRowId FROM GridVertex WHERE PosX = %s AND PosZ = %s AND level = %s;";
+		string sql1 = dbOps.completeSQL(sql.c_str(), to_string(gridVertex.posX()).c_str(), to_string(gridVertex.posZ()).c_str(), to_string(gridVertex.level()).c_str());
+		dbOps.prepareStmt(sql1.c_str());
+		dbOps.acquireLock();
+		int rc = sqlite3_step(dbOps.getStmt());
+		dbOps.releaseLock();
+		if (rc != SQLITE_ROW)
+			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read vertex with posX, posZ, level from GridVertex table!", sqlite3_errmsg(dbOps.getConn()), rc));
+
+		gridVertex.setInternalValues((float)sqlite3_column_double(dbOps.getStmt(), 0),	// PosX
+			(float)sqlite3_column_double(dbOps.getStmt(), 1),	// PosY
+			(float)sqlite3_column_double(dbOps.getStmt(), 2),	// PosZ
+			(float)sqlite3_column_double(dbOps.getStmt(), 3),	// Radius
+			(float)sqlite3_column_double(dbOps.getStmt(), 4),	// Azimuth
+			sqlite3_column_int(dbOps.getStmt(), 5),				// Level
+			(float)sqlite3_column_int(dbOps.getStmt(), 6),		// InitialAltitude
+			(__int64)sqlite3_column_int64(dbOps.getStmt(), 7));	// rowid
+		dbOps.finalizeStmt();
+	}
+
 	void DBSQLLite::getVertices(float minX, float maxX, float minZ, float maxZ, vector<GridVertex>& vectGridVertex, int level)
 	{
 		vectGridVertex.clear();

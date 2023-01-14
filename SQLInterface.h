@@ -70,7 +70,10 @@ namespace TheWorld_MapManager
 
 			~GridVertex() {}
 
-			void setAltitude(float altitude) { m_altitude = altitude; };
+			void setAltitude(float altitude) 
+			{
+				m_altitude = altitude; 
+			};
 
 			void initGridVertex(float posX, float posZ, float initialAltitude, int level = 0)
 			{
@@ -124,14 +127,38 @@ namespace TheWorld_MapManager
 				m_rowid = rowid;
 			}
 
-			float posX(void) { return m_posX; }
-			float altitude(void) { return m_altitude; }
-			float posZ(void) { return m_posZ; }
-			float radius(void) { return m_radius; }
-			float azimuth(void) { return m_azimuth; }
-			int level(void) { return m_level; }
-			float initialAltitude(void) { return m_initialAltitude; }
-			__int64 rowid(void) { return m_rowid; }
+			float posX(void) const
+			{
+				return m_posX; 
+			}
+			float altitude(void) const
+			{
+				return m_altitude; 
+			}
+			float posZ(void) const
+			{
+				return m_posZ; 
+			}
+			float radius(void) const
+			{
+				return m_radius; 
+			}
+			float azimuth(void) const
+			{
+				return m_azimuth; 
+			}
+			int level(void) const
+			{
+				return m_level; 
+			}
+			float initialAltitude(void) const
+			{
+				return m_initialAltitude; 
+			}
+			__int64 rowid(void) const 
+			{
+				return m_rowid; 
+			}
 
 		private:
 			float m_posX;
@@ -153,6 +180,7 @@ namespace TheWorld_MapManager
 		virtual void updateAltitudeOfVertex(__int64 vertexRowid, float altitude) = 0;
 		virtual void clearVerticesMarkedForUpdate(void) = 0;
 		virtual void getVertex(__int64 vertexRowid, GridVertex& gridVertex, int level) = 0;
+		virtual void getVertex(GridVertex& gridVertex) = 0;
 		virtual void getVertices(float minX, float maxX, float minZ, float maxZ, std::vector<GridVertex>& vectGridVertices, int level) = 0;
 		virtual bool getWD(float posX, float posZ, int level, WDType type, WorldDefiner& WD) = 0;
 		virtual bool getWD(__int64 wdRowid, WorldDefiner& WD) = 0;

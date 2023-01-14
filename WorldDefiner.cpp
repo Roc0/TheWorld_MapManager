@@ -22,10 +22,10 @@ namespace TheWorld_MapManager
 		m_rowid = -1;
 	}
 
-	WorldDefiner::WorldDefiner(float posX, float posZ, WDType type, WDFunctionType functionType, float strength, float AOE, int level, void* fp)
+	WorldDefiner::WorldDefiner(float posX, float posZ, enum class WDType type, enum class WDFunctionType functionType, float strength, float AOE, int level, void* fp)
 	{
-		if (strength < 0.0 || strength > 1.0)
-			throw(MapManagerExceptionWrongInput("Strength of a WD must be in range 0.0 / 1.0"));
+		//if (strength < 0.0 || strength > 1.0)
+		//	throw(MapManagerExceptionWrongInput("Strength of a WD must be in range 0.0 / 1.0"));
 		
 		m_posX = posX;
 		m_posZ = posZ;
@@ -54,7 +54,7 @@ namespace TheWorld_MapManager
 		}
 	}
 
-	void WorldDefiner::setInternalValues(float posX, float posZ, int level, WDType type, float radius, float azimuth, float azimuthDegree, float strength, float AOE, WDFunctionType functionType, __int64 rowid, void* fp)
+	void WorldDefiner::setInternalValues(float posX, float posZ, int level, enum class WDType type, float radius, float azimuth, float azimuthDegree, float strength, float AOE, enum class WDFunctionType functionType, __int64 rowid, void* fp)
 	{
 		m_posX = posX;
 		m_posZ = posZ;
