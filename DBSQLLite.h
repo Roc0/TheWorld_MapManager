@@ -1,27 +1,32 @@
 #pragma once
 
-#include <string>
-
 #include "SQLInterface.h"
 #include "sqlite3.h"
 #include "MapManagerException.h"
+
+#include <string>
+#include <memory>
+#include <thread>
 
 namespace TheWorld_MapManager
 {
 	class DBSQLLiteConn
 	{
 	public:
-		DBSQLLiteConn()
+		DBSQLLiteConn(void)
 		{
 			m_pDB = NULL;
 		}
 		
-		~DBSQLLiteConn()
+		~DBSQLLiteConn(void)
 		{
-			if (m_pDB)
+			if (isOpened())
 				close();
 		}
-		virtual const char* classname() { return "DBSQLLiteConn"; }
+		virtual const char* classname(void)
+		{
+			return "DBSQLLiteConn"; 
+		}
 
 		void open(const char* dbFilePath)
 		{
@@ -32,14 +37,16 @@ namespace TheWorld_MapManager
 			if (m_pDB != NULL)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB already opened!"));
 
-			int rc = sqlite3_open_v2(m_dbFilePath.c_str(), &m_pDB, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, NULL);
+			int rc = sqlite3_open_v2(m_dbFilePath.c_str(), &m_pDB, SQLITE_OPEN_READWRITE /*| SQLITE_OPEN_FULLMUTEX*/, NULL);
 			if (rc != SQLITE_OK)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB open failed!", sqlite3_errmsg(m_pDB), rc));
 
-			sqlite3_mutex* m = sqlite3_db_mutex(m_pDB);
+			//sqlite3_mutex* m = sqlite3_db_mutex(m_pDB);	// to debug reason only: in multithread mode cannot be used 
+															// SQLITE is in threading mode Multi-thread executing sqlite3_config(SQLITE_CONFIG_MULTITHREAD) set at intilization time of Map Manager for ConnectionType::MultiConn or if 
+															// not specified SQLITE_OPEN_FULLMUTEX in sqlite3_open_v2
 		}
 
-		void close()
+		void close(void)
 		{
 			if (m_pDB == NULL)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB not opened!"));
@@ -53,11 +60,98 @@ namespace TheWorld_MapManager
 
 		bool isOpened(void) { return (m_pDB != NULL); }
 
-		sqlite3* getConn(void) { return m_pDB; }
+		sqlite3* getConn(void) 
+		{
+			return m_pDB; 
+		}
 
 	private:
 		sqlite3* m_pDB;
 		string m_dbFilePath;
+	};
+
+	class DBThreadContext
+	{
+	public:
+		DBThreadContext(void)
+		{
+		}
+
+		~DBThreadContext(void)
+		{
+			deinit();
+		}
+
+		void deinit(void)
+		{
+			m_mapConnMtx.lock();
+			for (auto& item : m_mapConn)
+			{
+				if (item.second->isOpened())
+					item.second->close();
+			}
+			m_mapConn.clear();
+			m_mapConnMtx.unlock();
+		}
+
+		DBSQLLiteConn* getConn(std::string& dbFilePath)
+		{
+			std::string key = dbFilePath;
+			m_mapConnMtx.lock();
+			if (!m_mapConn.contains(key))
+				m_mapConn[key] = make_unique<DBSQLLiteConn>();
+			DBSQLLiteConn* conn = m_mapConn[key].get();
+			m_mapConnMtx.unlock();
+			return conn;
+		}
+
+	private:
+		map<std::string, std::unique_ptr<DBSQLLiteConn>> m_mapConn;
+		std::recursive_mutex m_mapConnMtx;
+	};
+	
+	class DBThreadContextPool
+	{
+	public:
+		DBThreadContextPool(void)
+		{
+		}
+
+		~DBThreadContextPool(void)
+		{
+			m_mapCtxMtx.lock();
+			for (auto& item : m_mapCtx)
+			{
+			}
+			m_mapCtxMtx.unlock();
+		}
+
+		DBThreadContext* getCurrentCtx(void)
+		{
+			size_t tid = std::hash<std::thread::id>{}(std::this_thread::get_id());
+			m_mapCtxMtx.lock();
+			if (!m_mapCtx.contains(tid))
+				m_mapCtx[tid] = make_unique<DBThreadContext>();
+			DBThreadContext* ctx = m_mapCtx[tid].get();
+			m_mapCtxMtx.unlock();
+			return ctx;
+		}
+
+		void resetForCurrentThread(void)
+		{
+			size_t tid = std::hash<std::thread::id>{}(std::this_thread::get_id());
+			m_mapCtxMtx.lock();
+			if (m_mapCtx.contains(tid))
+			{
+				m_mapCtx[tid]->deinit();
+				m_mapCtx.erase(tid);
+			}
+			m_mapCtxMtx.unlock();
+		}
+
+	private:
+		map<size_t, std::unique_ptr<DBThreadContext>> m_mapCtx;
+		std::recursive_mutex m_mapCtxMtx;
 	};
 
 	class DBSQLLiteOps
@@ -70,6 +164,8 @@ namespace TheWorld_MapManager
 		DBSQLLiteOps(const char* dbFilePath)
 		{
 			m_initialized = false;
+			m_conn = nullptr;
+			m_connType = s_connType;
 			m_lockAcquired = false;
 			m_stmt = NULL;
 			m_transactionOpened = false;
@@ -78,6 +174,8 @@ namespace TheWorld_MapManager
 		DBSQLLiteOps()
 		{
 			m_initialized = false;
+			m_conn = nullptr;
+			m_connType = s_connType;
 			m_lockAcquired = false;
 			m_stmt = NULL;
 			m_transactionOpened = false;
@@ -99,11 +197,35 @@ namespace TheWorld_MapManager
 			if (m_initialized)
 				reset();
 		}
-		virtual const char* classname() { return "DBSQLLiteOps"; }
+		virtual const char* classname() 
+		{
+			return "DBSQLLiteOps";
+		}
 
-		bool isInitialized(void) { return m_initialized; }
+		bool isInitialized(void) 
+		{ 
+			return m_initialized; 
+		}
 
-		void init(const char* _dbFilePath = NULL)
+		enum class ConnectionType
+		{
+			SingleConn = 0,
+			MultiConn = 1
+		};
+
+		static void setConnectionType(enum class ConnectionType type)
+		{
+			if (type == ConnectionType::MultiConn)
+			{
+				int rc = sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
+				if (rc == SQLITE_OK)
+					s_connType = type;
+			}
+			else
+				s_connType = type;
+		}
+		
+		void init(const char* _dbFilePath = nullptr)
 		{
 			if (m_initialized)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps already intialized!"));
@@ -112,14 +234,16 @@ namespace TheWorld_MapManager
 				m_dbFilePath = _dbFilePath;
 			
 			if (m_dbFilePath.empty())
-				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps  cannot initialize instance : file path empty!"));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps cannot initialize instance : file path empty!"));
 
-			if (!s_conn.isOpened())
+			if (m_connType == ConnectionType::SingleConn)
+				m_conn = &s_conn;
+			else
+				m_conn = s_connPool.getCurrentCtx()->getConn(m_dbFilePath);
+			
+			if (!m_conn->isOpened())
 			{
-				if (m_dbFilePath.length() == 0)
-					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB path is NULL!"));
-
-				s_conn.open(m_dbFilePath.c_str());
+				m_conn->open(m_dbFilePath.c_str());
 			}
 
 			m_initialized = true;
@@ -142,11 +266,30 @@ namespace TheWorld_MapManager
 			if (db == NULL)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB not opened!"));
 
-			acquireLock();
-			int rc = sqlite3_exec(db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
-			releaseLock();
-			if (rc != SQLITE_OK)
-				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB Begin Transaction failed!", sqlite3_errmsg(getConn()), rc));
+#define BEGINTTRANS_MAX_TIME_RETRY_ON_DB_BUSY	5000
+#define BEGINTTRANS_SLEEP_TIME_ON_DB_BUSY		1
+
+			TimerMs clock(false, false);
+			clock.tick();
+			while (true)
+			{
+				acquireLock();
+				int rc = sqlite3_exec(db, "BEGIN IMMEDIATE TRANSACTION;", NULL, NULL, NULL);
+				releaseLock();
+				if (rc != SQLITE_OK && rc != SQLITE_BUSY)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB Begin Transaction failed!", sqlite3_errmsg(getConn()), rc));
+				
+				if (rc == SQLITE_OK)
+					break;
+				else
+				{
+					auto msDuration = clock.partialDuration().count();
+					if (msDuration > BEGINTTRANS_MAX_TIME_RETRY_ON_DB_BUSY)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB Begin Transaction failed! SQLITE_BUSY after timeout", sqlite3_errmsg(getConn()), rc));
+					else
+						Sleep(BEGINTTRANS_SLEEP_TIME_ON_DB_BUSY);
+				}
+			}
 
 			m_transactionOpened = true;
 		}
@@ -167,6 +310,7 @@ namespace TheWorld_MapManager
 
 #define COMMIT_MAX_TIME_RETRY_ON_DB_BUSY	1000
 #define COMMIT_SLEEP_TIME_ON_DB_BUSY		10
+
 				prepareStmt("COMMIT TRANSACTION;");
 
 				int numRetry = 0;
@@ -216,13 +360,20 @@ namespace TheWorld_MapManager
 			m_transactionOpened = false;
 		}
 
-		string quote(const string& s) {
+		string quote(const string& s)
+		{
 			return string("'") + s + string("'");
 		}
 
-		sqlite3* getConn(void) { return s_conn.getConn(); }
+		sqlite3* getConn(void)
+		{
+			return m_conn->getConn(); 
+		}
 
-		const char* errMsg() { return sqlite3_errmsg(getConn()); }
+		const char* errMsg()
+		{
+			return sqlite3_errmsg(getConn()); 
+		}
 
 		void prepareStmt(const char* szSql)
 		{
@@ -275,6 +426,9 @@ namespace TheWorld_MapManager
 
 		void acquireLock(void)
 		{
+			if (m_connType == ConnectionType::MultiConn)
+				return;
+
 			if (m_lockAcquired)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to acquire a lock recursively!"));
 			
@@ -287,6 +441,9 @@ namespace TheWorld_MapManager
 		
 		void releaseLock(void)
 		{
+			if (m_connType == ConnectionType::MultiConn)
+				return;
+
 			if (!m_lockAcquired)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to release a lock not acquired!"));
 
@@ -299,8 +456,10 @@ namespace TheWorld_MapManager
 
 		void finalizeDB(void)
 		{
-			if (getConn())
-				s_conn.close();
+			if (getConn() != nullptr)
+				m_conn->close();
+
+			s_connPool.resetForCurrentThread();
 		}
 
 		string completeSQL(const char* sql, ...)
@@ -315,6 +474,11 @@ namespace TheWorld_MapManager
 
 	private:
 		static DBSQLLiteConn s_conn;
+		static DBThreadContextPool s_connPool;
+		static enum class ConnectionType s_connType;
+
+		DBSQLLiteConn* m_conn;
+		enum class ConnectionType m_connType;
 		bool m_initialized;
 		bool m_lockAcquired;
 		sqlite3_stmt* m_stmt;
@@ -326,28 +490,41 @@ namespace TheWorld_MapManager
 	class DBSQLLite : public SQLInterface
 	{
 	public:
-		_declspec(dllexport) DBSQLLite(DBType dbt, const char* dataPath, bool consoleDebugMode = false);
-		_declspec(dllexport) ~DBSQLLite();
-		virtual const char* classname() { return "DBSQLLite"; }
+		DBSQLLite(DBType dbt, const char* dataPath, bool consoleDebugMode = false);
+		~DBSQLLite();
+		
+		static void setConnectionType(enum class DBSQLLiteOps::ConnectionType type)
+		{
+			DBSQLLiteOps::setConnectionType(type);
+		}
+		
+		const char* dbFilePath(void)
+		{
+			return m_dbFilePath.c_str(); 
+		}
 
-		const char* dbFilePath(void) { return m_dbFilePath.c_str(); }
-
-		_declspec(dllexport) std::string readParam(std::string paranName);
-		_declspec(dllexport) void beginTransaction(void);
-		_declspec(dllexport) void endTransaction(bool commit = true);
-		_declspec(dllexport) __int64 addWDAndVertices(WorldDefiner* pWD, std::vector<GridVertex>& vectGridVertices);
-		_declspec(dllexport) bool eraseWD(__int64 wdRowid);
-		_declspec(dllexport) void updateAltitudeOfVertex(__int64 vertexRowid, float altitude);
-		_declspec(dllexport) void clearVerticesMarkedForUpdate(void);
-		_declspec(dllexport) void getVertex(__int64 vertexRowid, GridVertex& gridVertex, int level = 0);
-		_declspec(dllexport) void getVertex(GridVertex& gridVertex);
-		_declspec(dllexport) void getVertices(float minX, float maxX, float minZ, float maxZ, vector<GridVertex>& vectGridVertices, int level = 0);
-		_declspec(dllexport) bool getWD(float posX, float posZ, int level, WDType type, WorldDefiner& WD);
-		_declspec(dllexport) bool getWD(__int64 wdRowid, WorldDefiner& WD);
-		_declspec(dllexport) void getWDRowIdForVertex(__int64 vertexRowid, vector<__int64>& vectWDRowId);
-		_declspec(dllexport) bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
-		_declspec(dllexport) bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
-		_declspec(dllexport) void finalizeDB(void);
+		virtual const char* classname()
+		{
+			return "DBSQLLite"; 
+		}
+		std::string readParam(std::string paranName);
+		void beginTransaction(void);
+		void endTransaction(bool commit = true);
+		__int64 addWDAndVertices(WorldDefiner* pWD, std::vector<GridVertex>& vectGridVertices);
+		bool eraseWD(__int64 wdRowid);
+		void updateAltitudeOfVertex(__int64 vertexRowid, float altitude);
+		void clearVerticesMarkedForUpdate(void);
+		void getVertex(__int64 vertexRowid, GridVertex& gridVertex, int level = 0);
+		void getVertex(GridVertex& gridVertex);
+		void getVertices(float minX, float maxX, float minZ, float maxZ, vector<GridVertex>& vectGridVertices, int level = 0);
+		bool getWD(float posX, float posZ, int level, WDType type, WorldDefiner& WD);
+		bool getWD(__int64 wdRowid, WorldDefiner& WD);
+		void getWDRowIdForVertex(__int64 vertexRowid, vector<__int64>& vectWDRowId);
+		bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
+		bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
+		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ);
+		virtual void setQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, std::string hash);
+		void finalizeDB(void);
 
 	private:
 		float getDistance(float x1, float y1, float x2, float y2)

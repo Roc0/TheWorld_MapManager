@@ -3,7 +3,7 @@ drop table WorldDefiner;
 drop table GridVertex;
 drop table GridVertex_WD;
 drop table GridVertex_Mod;
---drop table Quadrant;
+drop table Quadrant;
 
 create table Params(
 	ParamName REAL NOT NULL,
@@ -56,14 +56,14 @@ create table GridVertex_Mod(
 insert into Params (ParamName, ParamValue) values ("GrowingBlockVertexNumberShift", "8");	-- 8 ==> 256 vertices per growing block
 insert into Params (ParamName, ParamValue) values ("GridStepInWU", "2.0");
 
-/*
 create table Quadrant(
+	GridStep INTEGER NOT NULL,
 	VertexPerSize INTEGER NOT NULL,
 	Level INTEGER NOT NULL,
-	PosX REAL NOT NULL,
-	PosZ REAL NOT NULL,
-	ToLoad INTEGER NOT NULL,
-	Hash BLOB NOT NULL,
-	PRIMARY KEY(VertexPerSize, Level, PosZ, PosX)
+	PosXStart REAL NOT NULL,
+	PosZStart REAL NOT NULL,
+	PosXEnd REAL NOT NULL,
+	PosZEnd REAL NOT NULL,
+	Hash TEXT NOT NULL,
+	PRIMARY KEY(GridStep, VertexPerSize, Level, PosXStart, PosZStart)
 );
-*/

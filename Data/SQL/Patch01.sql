@@ -1,13 +1,13 @@
-/*
 drop table Quadrant;
 
 create table Quadrant(
+	GridStep INTEGER NOT NULL,
 	VertexPerSize INTEGER NOT NULL,
 	Level INTEGER NOT NULL,
-	PosX REAL NOT NULL,
-	PosZ REAL NOT NULL,
-	ToLoad INTEGER NOT NULL,
-	Hash BLOB NOT NULL,
-	PRIMARY KEY(VertexPerSize, Level, PosZ, PosX)
+	PosXStart REAL NOT NULL,
+	PosZStart REAL NOT NULL,
+	PosXEnd REAL NOT NULL,
+	PosZEnd REAL NOT NULL,
+	Hash TEXT NOT NULL,
+	PRIMARY KEY(GridStep, VertexPerSize, Level, PosXStart, PosZStart)
 );
-*/

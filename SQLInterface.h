@@ -187,6 +187,8 @@ namespace TheWorld_MapManager
 		virtual void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& vectWDRowId) = 0;
 		virtual bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
 		virtual bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
+		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ) = 0;
+		virtual void setQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, std::string hash) = 0;
 		virtual void finalizeDB(void) = 0;
 
 	private:

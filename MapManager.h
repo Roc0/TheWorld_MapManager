@@ -116,7 +116,7 @@ namespace TheWorld_MapManager
 			int m_posZ;
 		};
 
-		_declspec(dllexport) MapManager(const char *logPath = NULL, plog::Severity sev = plog::Severity::none, plog::IAppender* appender = NULL, char * configFileName = NULL);
+		_declspec(dllexport) MapManager(const char *logPath = NULL, plog::Severity sev = plog::Severity::none, plog::IAppender* appender = nullptr, char * configFileName = nullptr, bool multiThreadEnvironment = false);
 		_declspec(dllexport) ~MapManager();
 		virtual const char* classname() { return "MapManager"; }
 
@@ -175,6 +175,9 @@ namespace TheWorld_MapManager
 		std::string getDataPath(void) { return m_dataPath; }
 
 	private:
+		static bool staticMapManagerInitializationDone;
+		static std::recursive_mutex s_staticMapManagerInitializationMtx;
+
 		SQLInterface* m_SqlInterface;
 		bool m_instrumented;
 		bool m_consoleDebugMode;

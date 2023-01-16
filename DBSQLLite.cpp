@@ -13,6 +13,8 @@ using namespace std;
 namespace TheWorld_MapManager
 {
 	DBSQLLiteConn DBSQLLiteOps::s_conn;
+	DBThreadContextPool DBSQLLiteOps::s_connPool;
+	enum class DBSQLLiteOps::ConnectionType DBSQLLiteOps::s_connType = DBSQLLiteOps::ConnectionType::SingleConn;
 		
 	DBSQLLite::DBSQLLite(DBType _dbt, const char* _dataPath, bool consoelDebugMode) : SQLInterface(_dbt, _dataPath, consoelDebugMode)
 	{
@@ -828,9 +830,92 @@ namespace TheWorld_MapManager
 		}
 	}
 
+	std::string DBSQLLite::getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ)
+	{
+		std::string h = "";
+
+		DBSQLLiteOps dbOps(dbFilePath());
+		dbOps.init();
+		string sql = "SELECT Hash FROM Quadrant WHERE GridStep = %s AND VertexPerSize = %s AND Level = %s AND PosXStart = %s AND PosZStart = %s;";
+		string sql1 = dbOps.completeSQL(sql.c_str(), to_string(gridStep).c_str(), to_string(vertxePerSize).c_str(), to_string(level).c_str(), to_string(posX).c_str(), to_string(posZ).c_str());
+		dbOps.prepareStmt(sql1.c_str());
+		dbOps.acquireLock();
+		int rc = sqlite3_step(dbOps.getStmt());
+		dbOps.releaseLock();
+		if (rc != SQLITE_ROW && rc != SQLITE_DONE)
+			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read Quadrant Hash!", sqlite3_errmsg(dbOps.getConn()), rc));
+		if (rc == SQLITE_ROW)
+		{
+			h = (char*)sqlite3_column_text(dbOps.getStmt(), 0);
+		}
+		dbOps.finalizeStmt();
+
+		return h;
+	}
+
+	void DBSQLLite::setQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, std::string hash)
+	{
+		DBSQLLiteOps* dbOps = NULL;
+		DBSQLLiteOps temporarydbOps(dbFilePath());
+		bool endTransactionRequired = true;
+		if (m_dbOpsInternalTransaction.isTransactionOpened())
+		{
+			dbOps = &m_dbOpsInternalTransaction;
+			endTransactionRequired = false;
+		}
+		else
+		{
+			temporarydbOps.init();
+			temporarydbOps.beginTransaction();
+			dbOps = &temporarydbOps;
+		}
+
+		float posXEnd = posX + (vertxePerSize - 1) * gridStep;
+		float posZEnd = posZ + (vertxePerSize - 1) * gridStep;
+
+		string sql = "INSERT INTO Quadrant (GridStep, VertexPerSize, Level, PosXStart, PosZStart, PosXEnd, PosZEnd, Hash) VALUES ("
+			+ std::to_string(gridStep)								// GridStep
+			+ "," + std::to_string(vertxePerSize)					// VertexPerSize
+			+ "," + std::to_string(level)							// Level
+			+ "," + std::to_string(posX)							// PosXStart
+			+ "," + std::to_string(posZ)							// PosZStart
+			+ "," + std::to_string(posXEnd)							// PosXEnd
+			+ "," + std::to_string(posZEnd)							// PosZEnd
+			+ ",\"" + hash											// Hash
+			+ "\");";
+		dbOps->acquireLock();
+		int rc = sqlite3_exec(dbOps->getConn(), sql.c_str(), NULL, NULL, NULL);
+		dbOps->releaseLock();
+		if (rc != SQLITE_OK && rc != SQLITE_CONSTRAINT)
+			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite insert quadrant hash failed!", dbOps->errMsg(), rc));
+		if (rc == SQLITE_CONSTRAINT)
+		{
+			// The quadrant was present so we have to update it
+			string sql = "UPDATE Quadrant SET Hash = \"%s\" WHERE GridStep = %s AND VertexPerSize = %s AND Level = %s AND PosXStart = %s AND PosZStart = %s;";
+			string sql1 = dbOps->completeSQL(sql.c_str(), hash, to_string(gridStep).c_str(), to_string(vertxePerSize).c_str(), to_string(level).c_str(), to_string(posX).c_str(), to_string(posZ).c_str());
+			dbOps->acquireLock();
+			dbOps->prepareStmt(sql1.c_str());
+			int rc = sqlite3_step(dbOps->getStmt());
+			dbOps->finalizeStmt();
+			dbOps->releaseLock();
+			if (rc != SQLITE_DONE)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to update vertex altitude in GridVertex table!", sqlite3_errmsg(dbOps->getConn()), rc));
+		}
+
+		/*
+		* Finalize DB operations
+		*/
+		if (endTransactionRequired)
+		{
+			dbOps->endTransaction();
+			dbOps->reset();
+		}
+	}
+		
 	void DBSQLLite::finalizeDB(void)
 	{
 		DBSQLLiteOps dbOps(dbFilePath());
+		dbOps.init();
 		dbOps.finalizeDB();
 	}
 }

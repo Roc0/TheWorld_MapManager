@@ -12,18 +12,25 @@ namespace TheWorld_MapManager
 	public:
 		_declspec(dllexport) MapManagerException(const char* function, const char* message = NULL, const char* message2 = NULL, int rc = 0)
 		{ 
+			string f = "";
+			if (function != nullptr && strlen(function) > 0)
+			{
+				f = function;
+				f += " - ";
+			}
+
 			m_exceptionName = "MapManagerException";
 			if (message == NULL || strlen(message) == 0)
-				m_message = "MapManager Generic Exception - C++ Exception";
+				m_message = f + "MapManager Generic Exception - C++ Exception";
 			else
 			{
 				if (message2 == NULL || strlen(message2) == 0)
 				{
-					m_message = message;
+					m_message = f + message;
 				}
 				else
 				{
-					m_message = message;
+					m_message = f + message;
 					m_message += " - ";
 					m_message += message2;
 					m_message += " - rc=";

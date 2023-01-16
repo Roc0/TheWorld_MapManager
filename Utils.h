@@ -60,6 +60,11 @@ namespace TheWorld_MapManager
 			return std::chrono::duration_cast<TT>(_end - _start);
 		}
 
+		template <class TT = TimeT>
+		TT partialDuration() const {
+			return std::chrono::duration_cast<TT>(ClockT::now() - _start);
+		}
+
 		void printDuration(const char* message)
 		{
 			tock();

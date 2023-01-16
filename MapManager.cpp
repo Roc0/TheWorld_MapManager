@@ -23,6 +23,8 @@
 namespace TheWorld_MapManager
 {
 	//std::recursive_mutex MapManager::s_mtxInternalData;
+	bool MapManager::staticMapManagerInitializationDone = false;
+	std::recursive_mutex MapManager::s_staticMapManagerInitializationMtx;
 
 	// ************************************************************************************************************************************************
 	// size of the square grid of vertices used to expand the map (for example on new WD), this size is expressed in number of vertices so it is an int
@@ -37,8 +39,19 @@ namespace TheWorld_MapManager
 	const string GridStepInWUParamName = "GridStepInWU";
 	float g_gridStepInWU = 0.0f;		// distance in world unit between a vertex of the grid and the next
 
-	MapManager::MapManager(const char* logPath, plog::Severity sev, plog::IAppender* appender, char* configFileName)
+	MapManager::MapManager(const char* logPath, plog::Severity sev, plog::IAppender* appender, char* configFileName, bool multiThreadEnvironment /* every thread is provded with its own DB connection associated to the thread::id*/)
 	{
+		s_staticMapManagerInitializationMtx.lock();
+		if (!staticMapManagerInitializationDone)
+		{
+			if (multiThreadEnvironment)
+				DBSQLLite::setConnectionType(DBSQLLiteOps::ConnectionType::MultiConn);
+			else
+				DBSQLLite::setConnectionType(DBSQLLiteOps::ConnectionType::SingleConn);
+			staticMapManagerInitializationDone = true;
+		}
+		s_staticMapManagerInitializationMtx.unlock();
+
 		string sModulePath = getModuleLoadPath();
 
 		string configFilePath = sModulePath;
@@ -698,6 +711,9 @@ namespace TheWorld_MapManager
 		
 		// client has the buffer as it has sent its mesh id
 		std::string serverCacheMeshId = cache.getMeshIdFromMeshCache();
+		std::string dbHash = m_SqlInterface->getQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
+		if (serverCacheMeshId != dbHash)
+			serverCacheMeshId.clear();
 
 		if (meshId == serverCacheMeshId && serverCacheMeshId.size() > 0)
 		{
@@ -718,17 +734,28 @@ namespace TheWorld_MapManager
 			}
 			else
 			{
-				//server cache is invalid so we have to recalculate the mesh with a new mesh id
-
-				GUID newId;
-				RPC_STATUS ret_val = ::UuidCreate(&newId);
-				if (ret_val != RPC_S_OK)
+				if (dbHash.length() > 0)
 				{
-					std::string msg = "UuidCreate in error with rc " + std::to_string(ret_val);
-					PLOG_ERROR << msg;
-					throw(MapManagerException(__FUNCTION__, msg.c_str()));
+					//server cache is invalid but we use the db hash as mesh id
+
+					meshId = dbHash;
 				}
-				meshId = ToString(&newId);
+				else
+				{
+					//server cache is invalid so we have to recalculate the mesh with a new mesh id and save it to the db
+
+					GUID newId;
+					RPC_STATUS ret_val = ::UuidCreate(&newId);
+					if (ret_val != RPC_S_OK)
+					{
+						std::string msg = "UuidCreate in error with rc " + std::to_string(ret_val);
+						PLOG_ERROR << msg;
+						throw(MapManagerException(__FUNCTION__, msg.c_str()));
+					}
+					meshId = ToString(&newId);
+
+					m_SqlInterface->setQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex, meshId);
+				}
 
 				std::vector<TheWorld_MapManager::SQLInterface::GridVertex> worldVertices;
 				getVertices(lowerXGridVertex, lowerZGridVertex, anchorType::upperleftcorner, numVerticesPerSize, numVerticesPerSize, worldVertices, gridStepInWU, level);
