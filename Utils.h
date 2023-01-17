@@ -30,7 +30,8 @@ namespace TheWorld_MapManager
 	{
 	public:
 		utils(void) {}
-		void init(const char* logPath, plog::Severity, plog::IAppender* appender = NULL);
+		static void staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender = nullptr);
+		static void staticDeinit(void);
 		~utils(void);
 	};
 

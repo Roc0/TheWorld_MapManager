@@ -97,9 +97,9 @@ namespace TheWorld_MapManager
         return s;
 	}
 
-    void utils::init(const char* logPath, plog::Severity sev, plog::IAppender* appender)
+    void utils::staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender)
     {
-        if (appender == NULL)
+        if (appender == nullptr)
             plog::init(sev, logPath, 1000000, 3);
         else
             plog::init(sev, appender);
@@ -109,10 +109,17 @@ namespace TheWorld_MapManager
         PLOG_INFO << "***************";
     }
 
-    utils::~utils(void)
+    void utils::staticDeinit(void)
     {
         PLOG_INFO << "*****************";
         PLOG_INFO << "Log Terminated!";
         PLOG_INFO << "*****************";
+    }
+        
+    utils::~utils(void)
+    {
+        //PLOG_INFO << "*****************";
+        //PLOG_INFO << "Log Terminated!";
+        //PLOG_INFO << "*****************";
     }
 }

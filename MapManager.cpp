@@ -22,6 +22,23 @@
 
 namespace TheWorld_MapManager
 {
+	size_t MapManager::s_num1 = 0;
+	size_t MapManager::s_elapsed1 = 0;
+	size_t MapManager::s_num2 = 0;
+	size_t MapManager::s_elapsed2 = 0;
+	size_t MapManager::s_num3 = 0;
+	size_t MapManager::s_elapsed3 = 0;
+	size_t MapManager::s_num4 = 0;
+	size_t MapManager::s_elapsed4 = 0;
+	size_t MapManager::s_num5 = 0;
+	size_t MapManager::s_elapsed5 = 0;
+	size_t MapManager::s_num6 = 0;
+	size_t MapManager::s_elapsed6 = 0;
+	size_t MapManager::s_num7 = 0;
+	size_t MapManager::s_elapsed7 = 0;
+	size_t MapManager::s_num8 = 0;
+	size_t MapManager::s_elapsed8 = 0;
+
 	//std::recursive_mutex MapManager::s_mtxInternalData;
 	bool MapManager::staticMapManagerInitializationDone = false;
 	std::recursive_mutex MapManager::s_staticMapManagerInitializationMtx;
@@ -55,24 +72,24 @@ namespace TheWorld_MapManager
 		string sModulePath = getModuleLoadPath();
 
 		string configFilePath = sModulePath;
-		if (configFileName == NULL)
+		if (configFileName == nullptr)
 			configFilePath += "\\TheWorld_MapManager.json";
 		else
 			configFilePath += string ("\\") + configFileName;
 
-		if (appender == NULL)
-		{
-			string _logPath;
-			if (logPath == NULL)
-				_logPath = sModulePath += "\\TheWorld_MapManager_Log.txt";
-			else
-				_logPath = logPath;
-			m_utils.init(_logPath.c_str(), sev);
-		}
-		else
-		{
-			m_utils.init(NULL, sev, appender);
-		}
+		//if (appender == nullptr)
+		//{
+		//	string _logPath;
+		//	if (logPath == nullptr)
+		//		_logPath = sModulePath += "\\TheWorld_MapManager_Log.txt";
+		//	else
+		//		_logPath = logPath;
+		//	m_utils.staticInit(_logPath.c_str(), sev);
+		//}
+		//else
+		//{
+		//	m_utils.staticInit(nullptr, sev, appender);
+		//}
 		
 		Json::Value root;
 		std::ifstream jsonFile(configFilePath);
@@ -98,6 +115,35 @@ namespace TheWorld_MapManager
 	{
 		if (m_SqlInterface)
 			m_SqlInterface->finalizeDB();
+	}
+
+	void MapManager::staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender)
+	{
+		string sModulePath = getModuleLoadPath();
+
+		if (appender == nullptr)
+		{
+			string _logPath;
+			if (logPath == nullptr)
+				_logPath = sModulePath += "\\TheWorld_MapManager_Log.txt";
+			else
+				_logPath = logPath;
+			utils::staticInit(_logPath.c_str(), sev);
+		}
+		else
+		{
+			utils::staticInit(nullptr, sev, appender);
+		}
+	}
+	
+	void MapManager::staticDeinit(void)
+	{
+		utils::staticDeinit();
+	}
+	
+	void MapManager::setLogMaxSeverity(plog::Severity sev)
+	{
+		plog::get()->setMaxSeverity(sev);
 	}
 
 	float MapManager::gridStepInWU(void)
@@ -702,6 +748,14 @@ namespace TheWorld_MapManager
 	{
 		limiter l(2);
 
+		TimerMs clock(false, false);
+
+		//plog::Severity sev = plog::get()->getMaxSeverity();
+		//PLOG_DEBUG << "PLOG_DEBUG MapManager::getQuadrantVertices";	// RELEASEDEBUG
+		//PLOG_INFO << "PLOG_INFO MapManager::getQuadrantVertices - sev:" << sev;	// RELEASEDEBUG
+
+		MapManager::s_num1++;
+		clock.tick();
 		vector<TheWorld_Utils::GridVertex> mesh;
 
 		gridStepInWU = MapManager::gridStepInWU();
@@ -714,13 +768,19 @@ namespace TheWorld_MapManager
 		std::string dbHash = m_SqlInterface->getQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 		if (serverCacheMeshId != dbHash)
 			serverCacheMeshId.clear();
+		clock.tock();
+		MapManager::s_elapsed1 += clock.duration().count();
 
 		if (meshId == serverCacheMeshId && serverCacheMeshId.size() > 0)
 		{
 			// the buffer is present in server cache and it has the same mesh id as the client: we can answer only the header (0 elements)
 
+			MapManager::s_num2++;
+			clock.tick();
 			std::vector<TheWorld_Utils::GridVertex> vectGridVertices;
 			cache.setBufferForMeshCache(meshId, numVerticesPerSize, vectGridVertices, meshBuffer);
+			clock.tock();
+			MapManager::s_elapsed2 += clock.duration().count();
 		}
 		else
 		{
@@ -728,9 +788,13 @@ namespace TheWorld_MapManager
 			{
 				//client has an old version of the mesh or does not have one but the server has the buffer in its cache
 
+				MapManager::s_num3++;
+				clock.tick();
 				meshId = serverCacheMeshId;
 				size_t vectSizeFromCache;
 				cache.readBufferFromMeshCache(serverCacheMeshId, meshBuffer, vectSizeFromCache);
+				clock.tock();
+				MapManager::s_elapsed3 += clock.duration().count();
 			}
 			else
 			{
@@ -744,6 +808,8 @@ namespace TheWorld_MapManager
 				{
 					//server cache is invalid so we have to recalculate the mesh with a new mesh id and save it to the db
 
+					MapManager::s_num4++;
+					clock.tick();
 					GUID newId;
 					RPC_STATUS ret_val = ::UuidCreate(&newId);
 					if (ret_val != RPC_S_OK)
@@ -755,11 +821,19 @@ namespace TheWorld_MapManager
 					meshId = ToString(&newId);
 
 					m_SqlInterface->setQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex, meshId);
+					clock.tock();
+					MapManager::s_elapsed4 += clock.duration().count();
 				}
 
+				MapManager::s_num5++;
+				clock.tick();
 				std::vector<TheWorld_MapManager::SQLInterface::GridVertex> worldVertices;
 				getVertices(lowerXGridVertex, lowerZGridVertex, anchorType::upperleftcorner, numVerticesPerSize, numVerticesPerSize, worldVertices, gridStepInWU, level);
+				clock.tock();
+				MapManager::s_elapsed5 += clock.duration().count();
 
+				MapManager::s_num6++;
+				clock.tick();
 				size_t vertexArraySize = worldVertices.size();
 				if (vertexArraySize != numVerticesPerSize * numVerticesPerSize)
 					throw(std::exception((std::string(__FUNCTION__) + std::string("vertexArraySize not of the correct size")).c_str()));
@@ -776,10 +850,39 @@ namespace TheWorld_MapManager
 						vectGridVertices[idx] = v1;
 						idx++;
 					}
+				clock.tock();
+				MapManager::s_elapsed6 += clock.duration().count();
 
+				MapManager::s_num7++;
+				clock.tick();
 				cache.setBufferForMeshCache(meshId, numVerticesPerSize, vectGridVertices, meshBuffer);
+				clock.tock();
+				MapManager::s_elapsed7 += clock.duration().count();
+				MapManager::s_num8++;
+				clock.tick();
 				cache.writeBufferToMeshCache(meshBuffer);
+				clock.tock();
+				MapManager::s_elapsed8 += clock.duration().count();
 			}
+		}
+
+		{
+			size_t el1 = s_num1 != 0 ? s_elapsed1 / s_num1 : 0;
+			size_t el2 = s_num2 != 0 ? s_elapsed2 / s_num2 : 0;
+			size_t el3 = s_num3 != 0 ? s_elapsed3 / s_num3 : 0;
+			size_t el4 = s_num4 != 0 ? s_elapsed4 / s_num4 : 0;
+			size_t el5 = s_num5 != 0 ? s_elapsed5 / s_num5 : 0;
+			size_t el6 = s_num6 != 0 ? s_elapsed6 / s_num6 : 0;
+			size_t el7 = s_num7 != 0 ? s_elapsed7 / s_num7 : 0;
+			size_t el8 = s_num8 != 0 ? s_elapsed8 / s_num8 : 0;
+			PLOG_DEBUG << "s_num1:" << s_num1 << " s_elapsed1:" << s_elapsed1 << ":" << el1;
+			PLOG_DEBUG << "s_num2:" << s_num2 << " s_elapsed2:" << s_elapsed2 << ":" << el2;
+			PLOG_DEBUG << "s_num3:" << s_num3 << " s_elapsed3:" << s_elapsed3 << ":" << el3;
+			PLOG_DEBUG << "s_num4:" << s_num4 << " s_elapsed4:" << s_elapsed4 << ":" << el4;
+			PLOG_DEBUG << "s_num5:" << s_num5 << " s_elapsed5:" << s_elapsed5 << ":" << el5;
+			PLOG_DEBUG << "s_num6:" << s_num6 << " s_elapsed6:" << s_elapsed6 << ":" << el6;
+			PLOG_DEBUG << "s_num7:" << s_num7 << " s_elapsed7:" << s_elapsed7 << ":" << el7;
+			PLOG_DEBUG << "s_num8:" << s_num8 << " s_elapsed8:" << s_elapsed8 << ":" << el8;
 		}
 	}
 		

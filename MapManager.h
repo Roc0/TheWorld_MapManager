@@ -118,13 +118,12 @@ namespace TheWorld_MapManager
 
 		_declspec(dllexport) MapManager(const char *logPath = NULL, plog::Severity sev = plog::Severity::none, plog::IAppender* appender = nullptr, char * configFileName = nullptr, bool multiThreadEnvironment = false);
 		_declspec(dllexport) ~MapManager();
+		_declspec(dllexport) static void staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender = nullptr);
+		_declspec(dllexport) static void staticDeinit(void);
 		virtual const char* classname() { return "MapManager"; }
 
 		void instrument(bool b) { m_instrumented = b; };
-		void setLogMaxSeverity(plog::Severity sev)
-		{
-			plog::get()->setMaxSeverity(sev);
-		}
+		_declspec(dllexport) static void setLogMaxSeverity(plog::Severity sev);
 		void consoleDebugMode(bool b)
 		{
 			m_consoleDebugMode = b;
@@ -184,6 +183,24 @@ namespace TheWorld_MapManager
 		std::string m_dataPath;
 		utils m_utils;
 		//static std::recursive_mutex s_mtxInternalData;
+		
+		// DEBUG
+		static size_t s_num1;
+		static size_t s_elapsed1;
+		static size_t s_num2;
+		static size_t s_elapsed2;
+		static size_t s_num3;
+		static size_t s_elapsed3;
+		static size_t s_num4;
+		static size_t s_elapsed4;
+		static size_t s_num5;
+		static size_t s_elapsed5;
+		static size_t s_num6;
+		static size_t s_elapsed6;
+		static size_t s_num7;
+		static size_t s_elapsed7;
+		static size_t s_num8;
+		static size_t s_elapsed8;
 	};
 }
 
