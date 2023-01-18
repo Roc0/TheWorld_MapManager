@@ -14,6 +14,7 @@
 
 #include "MapManager.h"
 #include "DBSQLLite.h"
+#include "Profiler.h"
 
 #include "shapefil.h"
 #include <proj.h>
@@ -22,26 +23,10 @@
 
 namespace TheWorld_MapManager
 {
-	size_t MapManager::s_num1 = 0;
-	size_t MapManager::s_elapsed1 = 0;
-	size_t MapManager::s_num2 = 0;
-	size_t MapManager::s_elapsed2 = 0;
-	size_t MapManager::s_num3 = 0;
-	size_t MapManager::s_elapsed3 = 0;
-	size_t MapManager::s_num4 = 0;
-	size_t MapManager::s_elapsed4 = 0;
-	size_t MapManager::s_num5 = 0;
-	size_t MapManager::s_elapsed5 = 0;
-	size_t MapManager::s_num6 = 0;
-	size_t MapManager::s_elapsed6 = 0;
-	size_t MapManager::s_num7 = 0;
-	size_t MapManager::s_elapsed7 = 0;
-	size_t MapManager::s_num8 = 0;
-	size_t MapManager::s_elapsed8 = 0;
-
 	//std::recursive_mutex MapManager::s_mtxInternalData;
 	bool MapManager::staticMapManagerInitializationDone = false;
 	std::recursive_mutex MapManager::s_staticMapManagerInitializationMtx;
+	//enum class DBType MapManager::s_dbType = DBType::SQLLite;
 
 	// ************************************************************************************************************************************************
 	// size of the square grid of vertices used to expand the map (for example on new WD), this size is expressed in number of vertices so it is an int
@@ -56,15 +41,12 @@ namespace TheWorld_MapManager
 	const string GridStepInWUParamName = "GridStepInWU";
 	float g_gridStepInWU = 0.0f;		// distance in world unit between a vertex of the grid and the next
 
-	MapManager::MapManager(const char* logPath, plog::Severity sev, plog::IAppender* appender, char* configFileName, bool multiThreadEnvironment /* every thread is provded with its own DB connection associated to the thread::id*/)
+	MapManager::MapManager(/*const char* logPath, plog::Severity sev, plog::IAppender* appender,*/ char* configFileName, bool multiThreadEnvironment /* every thread is provided with its own DB connection associated to the thread::id*/)
 	{
 		s_staticMapManagerInitializationMtx.lock();
 		if (!staticMapManagerInitializationDone)
 		{
-			if (multiThreadEnvironment)
-				DBSQLLite::setConnectionType(DBSQLLiteOps::ConnectionType::MultiConn);
-			else
-				DBSQLLite::setConnectionType(DBSQLLiteOps::ConnectionType::SingleConn);
+			// actually empty
 			staticMapManagerInitializationDone = true;
 		}
 		s_staticMapManagerInitializationMtx.unlock();
@@ -117,8 +99,13 @@ namespace TheWorld_MapManager
 			m_SqlInterface->finalizeDB();
 	}
 
-	void MapManager::staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender)
+	void MapManager::staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender, bool multiThreadEnvironment /* every thread is provided with its own DB connection associated to the thread::id*/)
 	{
+		if (multiThreadEnvironment)
+			DBSQLLite::setConnectionType(DBSQLLiteOps::ConnectionType::MultiConn);
+		else
+			DBSQLLite::setConnectionType(DBSQLLiteOps::ConnectionType::SingleConn);
+
 		string sModulePath = getModuleLoadPath();
 
 		if (appender == nullptr)
@@ -748,39 +735,31 @@ namespace TheWorld_MapManager
 	{
 		limiter l(2);
 
-		TimerMs clock(false, false);
-
 		//plog::Severity sev = plog::get()->getMaxSeverity();
 		//PLOG_DEBUG << "PLOG_DEBUG MapManager::getQuadrantVertices";	// RELEASEDEBUG
 		//PLOG_INFO << "PLOG_INFO MapManager::getQuadrantVertices - sev:" << sev;	// RELEASEDEBUG
 
-		MapManager::s_num1++;
-		clock.tick();
-		vector<TheWorld_Utils::GridVertex> mesh;
-
+		TheWorld_Utils::Profiler::startElapsed(__FUNCTION__, "1 Get MeshId from cache");
+		vector<TheWorld_Viewer_Utils::GridVertex> mesh;
 		gridStepInWU = MapManager::gridStepInWU();
-
 		std::string cacheDir = m_SqlInterface->dataPath();
-		TheWorld_Utils::MeshCacheBuffer cache(cacheDir, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
+		TheWorld_Viewer_Utils::MeshCacheBuffer cache(cacheDir, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 		
 		// client has the buffer as it has sent its mesh id
 		std::string serverCacheMeshId = cache.getMeshIdFromMeshCache();
 		std::string dbHash = m_SqlInterface->getQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 		if (serverCacheMeshId != dbHash)
 			serverCacheMeshId.clear();
-		clock.tock();
-		MapManager::s_elapsed1 += clock.duration().count();
+		TheWorld_Utils::Profiler::addElapsed(__FUNCTION__, "1 Get MeshId from cache");
 
 		if (meshId == serverCacheMeshId && serverCacheMeshId.size() > 0)
 		{
 			// the buffer is present in server cache and it has the same mesh id as the client: we can answer only the header (0 elements)
 
-			MapManager::s_num2++;
-			clock.tick();
-			std::vector<TheWorld_Utils::GridVertex> vectGridVertices;
+			TheWorld_Utils::Profiler::startElapsed(__FUNCTION__, "2 Set header in buffer (use client cache)");
+			std::vector<TheWorld_Viewer_Utils::GridVertex> vectGridVertices;
 			cache.setBufferForMeshCache(meshId, numVerticesPerSize, vectGridVertices, meshBuffer);
-			clock.tock();
-			MapManager::s_elapsed2 += clock.duration().count();
+			TheWorld_Utils::Profiler::addElapsed(__FUNCTION__, "2 Set header in buffer (use client cache)");
 		}
 		else
 		{
@@ -788,13 +767,11 @@ namespace TheWorld_MapManager
 			{
 				//client has an old version of the mesh or does not have one but the server has the buffer in its cache
 
-				MapManager::s_num3++;
-				clock.tick();
+				TheWorld_Utils::Profiler::startElapsed(__FUNCTION__, "3 Set buffer from server cache");
 				meshId = serverCacheMeshId;
 				size_t vectSizeFromCache;
 				cache.readBufferFromMeshCache(serverCacheMeshId, meshBuffer, vectSizeFromCache);
-				clock.tock();
-				MapManager::s_elapsed3 += clock.duration().count();
+				TheWorld_Utils::Profiler::addElapsed(__FUNCTION__, "3 Set buffer from server cache");
 			}
 			else
 			{
@@ -808,8 +785,7 @@ namespace TheWorld_MapManager
 				{
 					//server cache is invalid so we have to recalculate the mesh with a new mesh id and save it to the db
 
-					MapManager::s_num4++;
-					clock.tick();
+					TheWorld_Utils::Profiler::startElapsed(__FUNCTION__, "4 Create new MeshId");
 					GUID newId;
 					RPC_STATUS ret_val = ::UuidCreate(&newId);
 					if (ret_val != RPC_S_OK)
@@ -821,68 +797,41 @@ namespace TheWorld_MapManager
 					meshId = ToString(&newId);
 
 					m_SqlInterface->setQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex, meshId);
-					clock.tock();
-					MapManager::s_elapsed4 += clock.duration().count();
+					TheWorld_Utils::Profiler::addElapsed(__FUNCTION__, "4 Create new MeshId");
 				}
 
-				MapManager::s_num5++;
-				clock.tick();
+				TheWorld_Utils::Profiler::startElapsed(__FUNCTION__, "5 getVertices from DB");
 				std::vector<TheWorld_MapManager::SQLInterface::GridVertex> worldVertices;
 				getVertices(lowerXGridVertex, lowerZGridVertex, anchorType::upperleftcorner, numVerticesPerSize, numVerticesPerSize, worldVertices, gridStepInWU, level);
-				clock.tock();
-				MapManager::s_elapsed5 += clock.duration().count();
+				TheWorld_Utils::Profiler::addElapsed(__FUNCTION__, "5 getVertices from DB");
 
-				MapManager::s_num6++;
-				clock.tick();
+				TheWorld_Utils::Profiler::startElapsed(__FUNCTION__, "6 Conv. DB GridVertex to buffer GridVertex");
 				size_t vertexArraySize = worldVertices.size();
 				if (vertexArraySize != numVerticesPerSize * numVerticesPerSize)
 					throw(std::exception((std::string(__FUNCTION__) + std::string("vertexArraySize not of the correct size")).c_str()));
 					
-				std::vector<TheWorld_Utils::GridVertex> vectGridVertices;
+				std::vector<TheWorld_Viewer_Utils::GridVertex> vectGridVertices;
 				vectGridVertices.resize(vertexArraySize);
 				size_t idx = 0;
 				for (int z = 0; z < numVerticesPerSize; z++)
 					for (int x = 0; x < numVerticesPerSize; x++)
 					{
 						TheWorld_MapManager::SQLInterface::GridVertex& v = worldVertices[z * numVerticesPerSize + x];
-						TheWorld_Utils::GridVertex v1(v.posX(), v.altitude(), v.posZ(), level);
+						TheWorld_Viewer_Utils::GridVertex v1(v.posX(), v.altitude(), v.posZ(), level);
 						//vectGridVertices.push_back(v1);
 						vectGridVertices[idx] = v1;
 						idx++;
 					}
-				clock.tock();
-				MapManager::s_elapsed6 += clock.duration().count();
+				TheWorld_Utils::Profiler::addElapsed(__FUNCTION__, "6 Conv. DB GridVertex to buffer GridVertex");
 
-				MapManager::s_num7++;
-				clock.tick();
+				TheWorld_Utils::Profiler::startElapsed(__FUNCTION__, "7 Reverse array to buffer");
 				cache.setBufferForMeshCache(meshId, numVerticesPerSize, vectGridVertices, meshBuffer);
-				clock.tock();
-				MapManager::s_elapsed7 += clock.duration().count();
-				MapManager::s_num8++;
-				clock.tick();
-				cache.writeBufferToMeshCache(meshBuffer);
-				clock.tock();
-				MapManager::s_elapsed8 += clock.duration().count();
-			}
-		}
+				TheWorld_Utils::Profiler::addElapsed(__FUNCTION__, "7 Reverse array to buffer");
 
-		{
-			size_t el1 = s_num1 != 0 ? s_elapsed1 / s_num1 : 0;
-			size_t el2 = s_num2 != 0 ? s_elapsed2 / s_num2 : 0;
-			size_t el3 = s_num3 != 0 ? s_elapsed3 / s_num3 : 0;
-			size_t el4 = s_num4 != 0 ? s_elapsed4 / s_num4 : 0;
-			size_t el5 = s_num5 != 0 ? s_elapsed5 / s_num5 : 0;
-			size_t el6 = s_num6 != 0 ? s_elapsed6 / s_num6 : 0;
-			size_t el7 = s_num7 != 0 ? s_elapsed7 / s_num7 : 0;
-			size_t el8 = s_num8 != 0 ? s_elapsed8 / s_num8 : 0;
-			PLOG_DEBUG << "s_num1:" << s_num1 << " s_elapsed1:" << s_elapsed1 << ":" << el1;
-			PLOG_DEBUG << "s_num2:" << s_num2 << " s_elapsed2:" << s_elapsed2 << ":" << el2;
-			PLOG_DEBUG << "s_num3:" << s_num3 << " s_elapsed3:" << s_elapsed3 << ":" << el3;
-			PLOG_DEBUG << "s_num4:" << s_num4 << " s_elapsed4:" << s_elapsed4 << ":" << el4;
-			PLOG_DEBUG << "s_num5:" << s_num5 << " s_elapsed5:" << s_elapsed5 << ":" << el5;
-			PLOG_DEBUG << "s_num6:" << s_num6 << " s_elapsed6:" << s_elapsed6 << ":" << el6;
-			PLOG_DEBUG << "s_num7:" << s_num7 << " s_elapsed7:" << s_elapsed7 << ":" << el7;
-			PLOG_DEBUG << "s_num8:" << s_num8 << " s_elapsed8:" << s_elapsed8 << ":" << el8;
+				TheWorld_Utils::Profiler::startElapsed(__FUNCTION__, "8 Write buffer to cache");
+				cache.writeBufferToMeshCache(meshBuffer);
+				TheWorld_Utils::Profiler::addElapsed(__FUNCTION__, "8 Write buffer to cache");
+			}
 		}
 	}
 		

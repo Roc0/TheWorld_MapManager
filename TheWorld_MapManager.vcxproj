@@ -127,7 +127,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(MSBuildProjectDirectory)\..\TheWorld_GDN_Viewer\godot-cpp\include\gen;$(MSBuildProjectDirectory)\..\TheWorld_GDN_Viewer\godot-cpp\include\core;$(MSBuildProjectDirectory)\..\TheWorld_GDN_Viewer\godot-cpp\include;$(MSBuildProjectDirectory)\..\TheWorld_GDN_Viewer\godot-cpp\godot-headers;..\eigen-3.3.9;..\GSL\Include;..\jsoncpp\include;..\PROJ\src;.\plog\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(MSBuildProjectDirectory)\..\TheWorld_GDN_Viewer\godot-cpp\include\gen;$(MSBuildProjectDirectory)\..\TheWorld_GDN_Viewer\godot-cpp\include\core;$(MSBuildProjectDirectory)\..\TheWorld_GDN_Viewer\godot-cpp\include;$(MSBuildProjectDirectory)\..\TheWorld_GDN_Viewer\godot-cpp\godot-headers;..\eigen-3.3.9;..\GSL\Include;..\jsoncpp\include;..\PROJ\src;.\plog\include;..\TheWorld_Utils</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
@@ -136,7 +136,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>$(SolutionDir)x64;$(SolutionDir)..\PROJ\Bin\lib\Debug;$(SolutionDir)$(Platform)\;$(MSBuildProjectDirectory)\..\TheWorld_GDN_Viewer\godot-cpp\bin</AdditionalLibraryDirectories>
-      <AdditionalDependencies>lib_json_d.lib;proj_d.lib;Rpcrt4.lib;libgodot-cpp.windows.debug.64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>lib_json_d.lib;proj_d.lib;Rpcrt4.lib;libgodot-cpp.windows.debug.64.lib;TheWorld_Utils_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -149,7 +149,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\eigen-3.3.9;..\GSL\Include;..\jsoncpp\include;..\PROJ\src;.\plog\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\eigen-3.3.9;..\GSL\Include;..\jsoncpp\include;..\PROJ\src;.\plog\include;..\TheWorld_Utils</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
@@ -160,7 +160,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>$(SolutionDir)x64;$(SolutionDir)..\PROJ\Bin\lib\Release;$(SolutionDir)$(Platform)\</AdditionalLibraryDirectories>
-      <AdditionalDependencies>lib_json.lib;proj.lib;Rpcrt4.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>lib_json.lib;proj.lib;Rpcrt4.lib;TheWorld_Utils.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -172,11 +172,11 @@
     <ClInclude Include="shapefil.h" />
     <ClInclude Include="SQLInterface.h" />
     <ClInclude Include="sqlite3.h" />
-    <ClInclude Include="Utils.h" />
+    <ClInclude Include="MapManager_Utils.h" />
     <ClInclude Include="WorldDefiner.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\TheWorld_GDN_Viewer\TheWorld_GDN_Viewer\TheWorld_Utils.cpp">
+    <ClCompile Include="..\TheWorld_GDN_Viewer\TheWorld_GDN_Viewer\Viewer_Utils.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -227,7 +227,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Utils.cpp" />
+    <ClCompile Include="MapManager_Utils.cpp" />
     <ClCompile Include="SQLInterface.cpp" />
     <ClCompile Include="WorldDefiner.cpp" />
   </ItemGroup>

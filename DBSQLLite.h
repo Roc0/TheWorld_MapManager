@@ -427,30 +427,38 @@ namespace TheWorld_MapManager
 
 		void acquireLock(void)
 		{
-			if (m_connType == ConnectionType::MultiConn)
-				return;
-
 			if (m_lockAcquired)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to acquire a lock recursively!"));
-			
-			sqlite3* db = getConn();
-			if (db)
-				sqlite3_mutex_enter(sqlite3_db_mutex(db));
+
+			if (m_connType == ConnectionType::MultiConn)
+			{
+				s_DBAccessMtx.lock();
+			}
+			else
+			{
+				sqlite3* db = getConn();
+				if (db)
+					sqlite3_mutex_enter(sqlite3_db_mutex(db));
+			}
 
 			m_lockAcquired = true;
 		}
 		
 		void releaseLock(void)
 		{
-			if (m_connType == ConnectionType::MultiConn)
-				return;
-
 			if (!m_lockAcquired)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to release a lock not acquired!"));
 
-			sqlite3* db = getConn();
-			if (db)
-				sqlite3_mutex_leave(sqlite3_db_mutex(db));
+			if (m_connType == ConnectionType::MultiConn)
+			{
+				s_DBAccessMtx.unlock();
+			}
+			else
+			{
+				sqlite3* db = getConn();
+				if (db)
+					sqlite3_mutex_leave(sqlite3_db_mutex(db));
+			}
 
 			m_lockAcquired = false;
 		}
@@ -477,6 +485,7 @@ namespace TheWorld_MapManager
 		static DBSQLLiteConn s_conn;
 		static DBThreadContextPool s_connPool;
 		static enum class ConnectionType s_connType;
+		static std::recursive_mutex s_DBAccessMtx;
 
 		DBSQLLiteConn* m_conn;
 		enum class ConnectionType m_connType;

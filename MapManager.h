@@ -5,9 +5,9 @@
 #include "WorldDefiner.h"
 #include "SQLInterface.h"
 #include "MapManagerException.h"
-#include "Utils.h"
+#include "MapManager_Utils.h"
 #include <plog/Log.h>
-#include <..\TheWorld_GDN_Viewer\TheWorld_GDN_Viewer\TheWorld_Utils.h>
+#include <..\TheWorld_GDN_Viewer\TheWorld_GDN_Viewer\Viewer_Utils.h>
 
 //#include "Eigen\Dense"
 //using namespace Eigen;
@@ -116,9 +116,9 @@ namespace TheWorld_MapManager
 			int m_posZ;
 		};
 
-		_declspec(dllexport) MapManager(const char *logPath = NULL, plog::Severity sev = plog::Severity::none, plog::IAppender* appender = nullptr, char * configFileName = nullptr, bool multiThreadEnvironment = false);
+		_declspec(dllexport) MapManager(/*const char* logPath = NULL, plog::Severity sev = plog::Severity::none, plog::IAppender* appender = nullptr,*/ char* configFileName = nullptr, bool multiThreadEnvironment = false);
 		_declspec(dllexport) ~MapManager();
-		_declspec(dllexport) static void staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender = nullptr);
+		_declspec(dllexport) static void staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender = nullptr, bool multiThreadEnvironment = true/* every thread is provided with its own DB connection associated to the thread::id*/);
 		_declspec(dllexport) static void staticDeinit(void);
 		virtual const char* classname() { return "MapManager"; }
 
@@ -176,6 +176,7 @@ namespace TheWorld_MapManager
 	private:
 		static bool staticMapManagerInitializationDone;
 		static std::recursive_mutex s_staticMapManagerInitializationMtx;
+		//static enum class DBType s_dbType;
 
 		SQLInterface* m_SqlInterface;
 		bool m_instrumented;
@@ -183,24 +184,6 @@ namespace TheWorld_MapManager
 		std::string m_dataPath;
 		utils m_utils;
 		//static std::recursive_mutex s_mtxInternalData;
-		
-		// DEBUG
-		static size_t s_num1;
-		static size_t s_elapsed1;
-		static size_t s_num2;
-		static size_t s_elapsed2;
-		static size_t s_num3;
-		static size_t s_elapsed3;
-		static size_t s_num4;
-		static size_t s_elapsed4;
-		static size_t s_num5;
-		static size_t s_elapsed5;
-		static size_t s_num6;
-		static size_t s_elapsed6;
-		static size_t s_num7;
-		static size_t s_elapsed7;
-		static size_t s_num8;
-		static size_t s_elapsed8;
 	};
 }
 

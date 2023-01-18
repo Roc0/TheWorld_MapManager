@@ -48,7 +48,7 @@
     <ClInclude Include="MapManagerException.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Utils.h">
+    <ClInclude Include="MapManager_Utils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="shapefil.h">
@@ -80,7 +80,7 @@
     <ClCompile Include="MapManagerException.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Utils.cpp">
+    <ClCompile Include="MapManager_Utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="shpopen.c">
@@ -101,7 +101,7 @@
     <ClCompile Include="shptree.c">
       <Filter>Source Files\Shapelib</Filter>
     </ClCompile>
-    <ClCompile Include="..\TheWorld_GDN_Viewer\TheWorld_GDN_Viewer\TheWorld_Utils.cpp">
+    <ClCompile Include="..\TheWorld_GDN_Viewer\TheWorld_GDN_Viewer\Viewer_Utils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

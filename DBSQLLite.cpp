@@ -5,7 +5,7 @@
 #include <fstream>
 #include <string>
 
-#include "Utils.h"
+#include "MapManager_Utils.h"
 #include "DBSQLLite.h"
 
 using namespace std;
@@ -15,6 +15,7 @@ namespace TheWorld_MapManager
 	DBSQLLiteConn DBSQLLiteOps::s_conn;
 	DBThreadContextPool DBSQLLiteOps::s_connPool;
 	enum class DBSQLLiteOps::ConnectionType DBSQLLiteOps::s_connType = DBSQLLiteOps::ConnectionType::SingleConn;
+	std::recursive_mutex DBSQLLiteOps::s_DBAccessMtx;
 		
 	DBSQLLite::DBSQLLite(DBType _dbt, const char* _dataPath, bool consoelDebugMode) : SQLInterface(_dbt, _dataPath, consoelDebugMode)
 	{
