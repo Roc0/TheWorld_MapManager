@@ -40,7 +40,7 @@ namespace TheWorld_MapManager
 			int rc = sqlite3_open_v2(m_dbFilePath.c_str(), &m_pDB, SQLITE_OPEN_READWRITE /*| SQLITE_OPEN_FULLMUTEX*/, NULL);
 			if (rc != SQLITE_OK)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB open failed!", sqlite3_errmsg(m_pDB), rc));
-			PLOG_DEBUG << "DB Opened " << m_dbFilePath;
+			//PLOG_DEBUG << "DB Opened " << m_dbFilePath;
 
 			//sqlite3_mutex* m = sqlite3_db_mutex(m_pDB);	// to debug reason only: in multithread mode cannot be used 
 															// SQLITE is in threading mode Multi-thread executing sqlite3_config(SQLITE_CONFIG_MULTITHREAD) set at intilization time of Map Manager for ConnectionType::MultiConn or if 
