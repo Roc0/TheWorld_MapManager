@@ -115,22 +115,23 @@ namespace TheWorld_MapManager
 				_logPath = sModulePath += "\\TheWorld_MapManager_Log.txt";
 			else
 				_logPath = logPath;
-			utils::staticInit(_logPath.c_str(), sev);
+			MapManagerUtils::staticInit(_logPath.c_str(), sev);
 		}
 		else
 		{
-			utils::staticInit(nullptr, sev, appender);
+			MapManagerUtils::staticInit(nullptr, sev, appender);
 		}
 	}
 	
 	void MapManager::staticDeinit(void)
 	{
-		utils::staticDeinit();
+		MapManagerUtils::staticDeinit();
 	}
 	
 	void MapManager::setLogMaxSeverity(plog::Severity sev)
 	{
 		plog::get()->setMaxSeverity(sev);
+		PLOG(plog::get()->getMaxSeverity()) << "Log severity changed to: " << std::to_string(sev);
 	}
 
 	float MapManager::gridStepInWU(void)
@@ -820,6 +821,7 @@ namespace TheWorld_MapManager
 					for (int z = 0; z < numVerticesPerSize; z++)
 						for (int x = 0; x < numVerticesPerSize; x++)
 						{
+							Sleep(0);
 							TheWorld_MapManager::SQLInterface::GridVertex& v = worldVertices[z * numVerticesPerSize + x];
 							TheWorld_Viewer_Utils::GridVertex v1(v.posX(), v.altitude(), v.posZ(), level);
 							//vectGridVertices.push_back(v1);
@@ -899,6 +901,7 @@ namespace TheWorld_MapManager
 		vector<SQLInterface::GridVertex>::iterator itMesh = mesh.begin();
 		for (;;)
 		{
+			Sleep(0);
 			if (itMesh == mesh.end())
 				break;
 

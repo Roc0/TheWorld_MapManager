@@ -182,7 +182,7 @@ namespace TheWorld_MapManager
 		bool m_instrumented;
 		bool m_consoleDebugMode;
 		std::string m_dataPath;
-		utils m_utils;
+		MapManagerUtils m_utils;
 		//static std::recursive_mutex s_mtxInternalData;
 	};
 }

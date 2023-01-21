@@ -636,6 +636,7 @@ namespace TheWorld_MapManager
 
 		while (rc == SQLITE_ROW)
 		{
+			Sleep(0);
 			GridVertex gridVertex;
 			gridVertex.setInternalValues((float)sqlite3_column_double(dbOps.getStmt(), 0),	// PosX
 				(float)sqlite3_column_double(dbOps.getStmt(), 1),							// PosY

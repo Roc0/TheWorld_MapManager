@@ -26,13 +26,13 @@ namespace TheWorld_MapManager
 		static std::queue<limiter*> s_waiting;
 	};
 	
-	class utils
+	class MapManagerUtils
 	{
 	public:
-		utils(void) {}
+		MapManagerUtils(void) {}
 		static void staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender = nullptr);
 		static void staticDeinit(void);
-		~utils(void);
+		~MapManagerUtils(void);
 	};
 
 	template <class TimeT = std::chrono::milliseconds, class ClockT = std::chrono::steady_clock> class Timer

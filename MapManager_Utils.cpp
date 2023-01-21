@@ -97,26 +97,26 @@ namespace TheWorld_MapManager
         return s;
 	}
 
-    void utils::staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender)
+    void MapManagerUtils::staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender)
     {
         if (appender == nullptr)
             plog::init(sev, logPath, 1000000, 3);
         else
             plog::init(sev, appender);
 
-        PLOG_INFO << "***************";
-        PLOG_INFO << "Log initilized!";
-        PLOG_INFO << "***************";
+        PLOG(plog::get()->getMaxSeverity()) << "***************";
+        PLOG(plog::get()->getMaxSeverity()) << "Log initilized!";
+        PLOG(plog::get()->getMaxSeverity()) << "***************";
     }
 
-    void utils::staticDeinit(void)
+    void MapManagerUtils::staticDeinit(void)
     {
-        PLOG_INFO << "*****************";
-        PLOG_INFO << "Log Terminated!";
-        PLOG_INFO << "*****************";
+        PLOG(plog::get()->getMaxSeverity()) << "*****************";
+        PLOG(plog::get()->getMaxSeverity()) << "Log Terminated!";
+        PLOG(plog::get()->getMaxSeverity()) << "*****************";
     }
         
-    utils::~utils(void)
+    MapManagerUtils::~MapManagerUtils(void)
     {
         //PLOG_INFO << "*****************";
         //PLOG_INFO << "Log Terminated!";
