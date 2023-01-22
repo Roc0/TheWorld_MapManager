@@ -31,11 +31,23 @@ namespace TheWorld_MapManager
 		~SQLInterface()
 		{
 		}
-		virtual const char* classname() { return "SQLInterface"; }
+		virtual const char* classname()
+		{
+			return "SQLInterface"; 
+		}
 
-		std::string dataPath(void) { return m_dataPath; }
-		void consoleDebugMode(bool b) { m_consoleDebugMode = b; };
-		bool consoleDebugMode(void) { return m_consoleDebugMode; }
+		std::string dataPath(void) 
+		{
+			return m_dataPath; 
+		}
+		void consoleDebugMode(bool b) 
+		{
+			m_consoleDebugMode = b; 
+		};
+		bool consoleDebugMode(void)
+		{
+			return m_consoleDebugMode; 
+		}
 
 		class GridVertex
 		{

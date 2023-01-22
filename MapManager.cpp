@@ -821,7 +821,7 @@ namespace TheWorld_MapManager
 					for (int z = 0; z < numVerticesPerSize; z++)
 						for (int x = 0; x < numVerticesPerSize; x++)
 						{
-							Sleep(0);
+							//Sleep(0);
 							TheWorld_MapManager::SQLInterface::GridVertex& v = worldVertices[z * numVerticesPerSize + x];
 							TheWorld_Viewer_Utils::GridVertex v1(v.posX(), v.altitude(), v.posZ(), level);
 							//vectGridVertices.push_back(v1);
@@ -901,7 +901,7 @@ namespace TheWorld_MapManager
 		vector<SQLInterface::GridVertex>::iterator itMesh = mesh.begin();
 		for (;;)
 		{
-			Sleep(0);
+			//Sleep(0);
 			if (itMesh == mesh.end())
 				break;
 
@@ -1339,7 +1339,8 @@ namespace TheWorld_MapManager
 			"EPSG:4326",
 			NULL);
 
-		if (0 == P) {
+		if (0 == P)
+		{
 			return false;
 		}
 
@@ -1347,7 +1348,8 @@ namespace TheWorld_MapManager
 		/* will be longitude, latitude, whereas EPSG:4326 mandates latitude, */
 		/* longitude */
 		P_for_GIS = proj_normalize_for_visualization(C, P);
-		if (0 == P_for_GIS) {
+		if (0 == P_for_GIS)
+		{
 			fprintf(stderr, "Oops\n");
 			return 1;
 		}

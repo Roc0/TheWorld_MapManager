@@ -47,12 +47,16 @@ namespace TheWorld_MapManager
 			m_consoleOutputEnabled = consoleOutputEnabled;
 		}
 		
-		void tick() {
+		void tick() 
+		{
 			_end = timep_t{};
 			_start = ClockT::now();
 		}
 
-		void tock() { _end = ClockT::now(); }
+		void tock() 
+		{
+			_end = ClockT::now(); 
+		}
 
 		template <class TT = TimeT>
 		TT duration() const {
@@ -137,7 +141,10 @@ namespace TheWorld_MapManager
 			std::cout << "\n";
 		}
 
-		COORD getStartPosition(void) { return m_startCursorPosition; }
+		COORD getStartPosition(void)
+		{
+			return m_startCursorPosition;
+		}
 
 	private:
 		void* m_console;

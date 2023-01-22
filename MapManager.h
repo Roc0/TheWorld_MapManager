@@ -28,7 +28,10 @@ namespace TheWorld_MapManager
 		{
 		public:
 			FlatGridPoint(void) : x(0.0f), z(0.0f) {}
-			FlatGridPoint(float _x, float _z) { this->x = _x;	this->z = _z; }
+			FlatGridPoint(float _x, float _z)
+			{
+				this->x = _x;	this->z = _z; 
+			}
 			// needed to use an istance of gridPoint as a key in a map (to keep the map sorted by z and by x for equal z)
 			// first row, second row, ... etc
 			bool operator<(const FlatGridPoint& p) const
@@ -84,7 +87,10 @@ namespace TheWorld_MapManager
 				else
 					return false;
 			}
-			float getAltitude(void) { return m_altitude; };
+			float getAltitude(void)
+			{
+				return m_altitude; 
+			};
 			enum class vertexPos
 			{
 				upper_left = 0,		// P1	idx 0
@@ -120,9 +126,15 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) ~MapManager();
 		_declspec(dllexport) static void staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender = nullptr, bool multiThreadEnvironment = true/* every thread is provided with its own DB connection associated to the thread::id*/);
 		_declspec(dllexport) static void staticDeinit(void);
-		virtual const char* classname() { return "MapManager"; }
+		virtual const char* classname() 
+		{
+			return "MapManager"; 
+		}
 
-		void instrument(bool b) { m_instrumented = b; };
+		void instrument(bool b)
+		{
+			m_instrumented = b; 
+		};
 		_declspec(dllexport) static void setLogMaxSeverity(plog::Severity sev);
 		void consoleDebugMode(bool b)
 		{
@@ -130,8 +142,14 @@ namespace TheWorld_MapManager
 			if (m_SqlInterface)
 				m_SqlInterface->consoleDebugMode(b);
 		};
-		bool consoleDebugMode(void) { return m_consoleDebugMode; }
-		bool instrumented(void) { return m_instrumented; };
+		bool consoleDebugMode(void)
+		{
+			return m_consoleDebugMode; 
+		}
+		bool instrumented(void) 
+		{
+			return m_instrumented; 
+		};
 
 		_declspec(dllexport) __int64 addWD(WorldDefiner& WD);
 		_declspec(dllexport) bool eraseWD(WorldDefiner& WD);
@@ -141,7 +159,10 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void LoadGISMap(const char* fileInput, bool writeReport, float metersInWU = 1.0, int level = 0);
 		_declspec(dllexport) void DumpDB(void);
 		_declspec(dllexport) void UpdateValues(void);
-		_declspec(dllexport) void finalizeDB(void) { if (m_SqlInterface) m_SqlInterface->finalizeDB(); }
+		_declspec(dllexport) void finalizeDB(void)
+		{
+			if (m_SqlInterface) m_SqlInterface->finalizeDB(); 
+		}
 		_declspec(dllexport) float gridStepInWU(void);
 
 		enum class anchorType
@@ -171,7 +192,10 @@ namespace TheWorld_MapManager
 		void DecimalDegreesToDegreesMinutesSeconds(double decimalDegrees, int& degrees, int& minutes, double& seconds);
 		//float getDistance(Vector3f v1, Vector3f v2);
 		static float interpolateAltitude(vector<SQLInterface::GridVertex>& vectGridVertex, FlatGridPoint& pos);
-		std::string getDataPath(void) { return m_dataPath; }
+		std::string getDataPath(void) 
+		{
+			return m_dataPath; 
+		}
 
 	private:
 		static bool staticMapManagerInitializationDone;

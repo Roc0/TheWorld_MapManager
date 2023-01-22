@@ -59,7 +59,10 @@ namespace TheWorld_MapManager
 			m_pDB = NULL;
 		}
 
-		bool isOpened(void) { return (m_pDB != NULL); }
+		bool isOpened(void)
+		{
+			return (m_pDB != NULL); 
+		}
 
 		sqlite3* getConn(void) 
 		{
@@ -415,8 +418,14 @@ namespace TheWorld_MapManager
 			m_preparedStmtSQL.clear();
 		}
 
-		sqlite3_stmt* getStmt() { return m_stmt; }
-		bool isTransactionOpened() { return m_transactionOpened; }
+		sqlite3_stmt* getStmt()
+		{
+			return m_stmt; 
+		}
+		bool isTransactionOpened() 
+		{
+			return m_transactionOpened; 
+		}
 
 		void resetStmt(void)
 		{

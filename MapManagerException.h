@@ -59,24 +59,36 @@ namespace TheWorld_MapManager
 	class MapManagerExceptionWrongInput : public MapManagerException
 	{
 	public:
-		_declspec(dllexport) MapManagerExceptionWrongInput(const char* function, const char* message = NULL) : MapManagerException(function, message) { m_exceptionName = "MapManagerExceptionWrongInput"; };
+		_declspec(dllexport) MapManagerExceptionWrongInput(const char* function, const char* message = NULL) : MapManagerException(function, message)
+		{
+			m_exceptionName = "MapManagerExceptionWrongInput"; 
+		};
 	};
 
 	class MapManagerExceptionUnexpectedError : public MapManagerException
 	{
 	public:
-		_declspec(dllexport) MapManagerExceptionUnexpectedError(const char* function, const char* message = NULL) : MapManagerException(function, message) { m_exceptionName = "MapManagerExceptionUnexpectedError"; };
+		_declspec(dllexport) MapManagerExceptionUnexpectedError(const char* function, const char* message = NULL) : MapManagerException(function, message) 
+		{
+			m_exceptionName = "MapManagerExceptionUnexpectedError"; 
+		};
 	};
 
 	class MapManagerExceptionDuplicate : public MapManagerException
 	{
 	public:
-		_declspec(dllexport) MapManagerExceptionDuplicate(const char* function, const char* message = NULL) : MapManagerException(function, message) { m_exceptionName = "MapManagerExceptionDuplicate"; };
+		_declspec(dllexport) MapManagerExceptionDuplicate(const char* function, const char* message = NULL) : MapManagerException(function, message)
+		{
+			m_exceptionName = "MapManagerExceptionDuplicate"; 
+		};
 	};
 
 	class MapManagerExceptionDBException : public MapManagerException
 	{
 	public:
-		_declspec(dllexport) MapManagerExceptionDBException(const char* function, const char* message = NULL, const char* message2 = NULL, int rc = 0) : MapManagerException(function, message, message2, rc) { m_exceptionName = "MapManagerExceptionDBException"; };
+		_declspec(dllexport) MapManagerExceptionDBException(const char* function, const char* message = NULL, const char* message2 = NULL, int rc = 0) : MapManagerException(function, message, message2, rc)
+		{
+			m_exceptionName = "MapManagerExceptionDBException"; 
+		};
 	};
 }
