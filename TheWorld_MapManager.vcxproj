@@ -136,7 +136,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>$(SolutionDir)x64;$(SolutionDir)..\PROJ\Bin\lib\Debug;$(SolutionDir)$(Platform)\;$(MSBuildProjectDirectory)\..\TheWorld_GDN_Viewer\godot-cpp\bin</AdditionalLibraryDirectories>
-      <AdditionalDependencies>lib_json_d.lib;proj_d.lib;Rpcrt4.lib;libgodot-cpp.windows.debug.64.lib;TheWorld_Utils_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>lib_json_d.lib;proj_d.lib;Rpcrt4.lib;TheWorld_Utils_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

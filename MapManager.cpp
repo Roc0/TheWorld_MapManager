@@ -734,7 +734,7 @@ namespace TheWorld_MapManager
 
 	void MapManager::getQuadrantVertices(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshId, std::string& meshBuffer)
 	{
-		TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeply 1b ") + __FUNCTION__, "getQuadrantVertices");
+		TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b ") + __FUNCTION__, "getQuadrantVertices");
 		//limiter l(2);
 
 		//plog::Severity sev = plog::get()->getMaxSeverity();
@@ -743,13 +743,13 @@ namespace TheWorld_MapManager
 
 		std::string serverCacheMeshId;
 		std::string dbHash;
-		TheWorld_Viewer_Utils::MeshCacheBuffer cache;
+		TheWorld_Utils::MeshCacheBuffer cache;
 		{
-			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeply 1b.1 ") + __FUNCTION__, "Get MeshId from cache");
-			vector<TheWorld_Viewer_Utils::GridVertex> mesh;
+			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.1 ") + __FUNCTION__, "Get MeshId from cache");
+			//vector<TheWorld_Utils::GridVertex> mesh;
 			gridStepInWU = MapManager::gridStepInWU();
 			std::string cacheDir = m_SqlInterface->dataPath();
-			cache = TheWorld_Viewer_Utils::MeshCacheBuffer(cacheDir, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
+			cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 
 			// client has the buffer as it has sent its mesh id
 			serverCacheMeshId = cache.getMeshIdFromMeshCache();
@@ -762,9 +762,9 @@ namespace TheWorld_MapManager
 		{
 			// the buffer is present in server cache and it has the same mesh id as the client: we can answer only the header (0 elements)
 
-			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeply 1b.2 ") + __FUNCTION__, "Set header in buffer (use client cache)");
-			std::vector<TheWorld_Viewer_Utils::GridVertex> vectGridVertices;
-			cache.setBufferForMeshCache(meshId, numVerticesPerSize, vectGridVertices, meshBuffer);
+			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.2 ") + __FUNCTION__, "Set header in buffer (use client cache)");
+			std::vector<float> vectGridHeights;
+			cache.setBufferForMeshCache(meshId, numVerticesPerSize, gridStepInWU, vectGridHeights, meshBuffer);
 		}
 		else
 		{
@@ -772,7 +772,7 @@ namespace TheWorld_MapManager
 			{
 				//client has an old version of the mesh or does not have one but the server has the buffer in its cache
 
-				TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeply 1b.3 ") + __FUNCTION__, "Set buffer from server cache");
+				TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.3 ") + __FUNCTION__, "Set buffer from server cache");
 				meshId = serverCacheMeshId;
 				size_t vectSizeFromCache;
 				cache.readBufferFromMeshCache(serverCacheMeshId, meshBuffer, vectSizeFromCache);
@@ -789,7 +789,7 @@ namespace TheWorld_MapManager
 				{
 					//server cache is invalid so we have to recalculate the mesh with a new mesh id and save it to the db
 
-					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeply 1b.4 ") + __FUNCTION__, "Create new MeshId");
+					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.4 ") + __FUNCTION__, "Create new MeshId");
 					GUID newId;
 					RPC_STATUS ret_val = ::UuidCreate(&newId);
 					if (ret_val != RPC_S_OK)
@@ -803,40 +803,38 @@ namespace TheWorld_MapManager
 					m_SqlInterface->setQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex, meshId);
 				}
 
-				std::vector<TheWorld_MapManager::SQLInterface::GridVertex> worldVertices;
+				std::vector<TheWorld_MapManager::SQLInterface::GridVertex> dbVertices;
 				{
-					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeply 1b.5 ") + __FUNCTION__, "getVertices from DB");
-					getVertices(lowerXGridVertex, lowerZGridVertex, anchorType::upperleftcorner, numVerticesPerSize, numVerticesPerSize, worldVertices, gridStepInWU, level);
+					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.5 ") + __FUNCTION__, "getVertices from DB");
+					getVertices(lowerXGridVertex, lowerZGridVertex, anchorType::upperleftcorner, numVerticesPerSize, numVerticesPerSize, dbVertices, gridStepInWU, level);
 				}
 
-				std::vector<TheWorld_Viewer_Utils::GridVertex> vectGridVertices;
+				std::vector<float> vectGridHeights;
 				{
-					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeply 1b.6 ") + __FUNCTION__, "Conv. DB GridVertex to buffer GridVertex");
-					size_t vertexArraySize = worldVertices.size();
-					if (vertexArraySize != numVerticesPerSize * numVerticesPerSize)
+					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.6 ") + __FUNCTION__, "Conv. DB GridVertex to vector of heights");
+					size_t dbVertexArraySize = dbVertices.size();
+					if (dbVertexArraySize != numVerticesPerSize * numVerticesPerSize)
 						throw(std::exception((std::string(__FUNCTION__) + std::string("vertexArraySize not of the correct size")).c_str()));
 
-					vectGridVertices.resize(vertexArraySize);
+					vectGridHeights.resize(dbVertexArraySize);
 					size_t idx = 0;
 					for (int z = 0; z < numVerticesPerSize; z++)
 						for (int x = 0; x < numVerticesPerSize; x++)
 						{
 							//Sleep(0);
-							TheWorld_MapManager::SQLInterface::GridVertex& v = worldVertices[z * numVerticesPerSize + x];
-							TheWorld_Viewer_Utils::GridVertex v1(v.posX(), v.altitude(), v.posZ(), level);
-							//vectGridVertices.push_back(v1);
-							vectGridVertices[idx] = v1;
+							TheWorld_MapManager::SQLInterface::GridVertex& v = dbVertices[z * numVerticesPerSize + x];
+							vectGridHeights[idx] = v.altitude();
 							idx++;
 						}
 				}
 
 				{
-					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeply 1b.7 ") + __FUNCTION__, "Reverse array to buffer");
-					cache.setBufferForMeshCache(meshId, numVerticesPerSize, vectGridVertices, meshBuffer);
+					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.7 ") + __FUNCTION__, "Reverse array to buffer");
+					cache.setBufferForMeshCache(meshId, numVerticesPerSize, gridStepInWU, vectGridHeights, meshBuffer);
 				}
 
 				{
-					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeply 1b.8 ") + __FUNCTION__, "Write buffer to cache");
+					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.8 ") + __FUNCTION__, "Write buffer to cache");
 					cache.writeBufferToMeshCache(meshBuffer);
 				}
 			}
