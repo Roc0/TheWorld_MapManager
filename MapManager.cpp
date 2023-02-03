@@ -764,7 +764,8 @@ namespace TheWorld_MapManager
 
 			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.2 ") + __FUNCTION__, "Set header in buffer (use client cache)");
 			std::vector<float> vectGridHeights;
-			cache.setBufferForMeshCache(meshId, numVerticesPerSize, gridStepInWU, vectGridHeights, meshBuffer);
+			float minAltitude = 0, maxAltitude = 0;
+			cache.setBufferForMeshCache(meshId, numVerticesPerSize, gridStepInWU, vectGridHeights, meshBuffer, minAltitude, maxAltitude);
 		}
 		else
 		{
@@ -830,7 +831,8 @@ namespace TheWorld_MapManager
 
 				{
 					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.7 ") + __FUNCTION__, "Reverse array to buffer");
-					cache.setBufferForMeshCache(meshId, numVerticesPerSize, gridStepInWU, vectGridHeights, meshBuffer);
+					float minAltitude = 0, maxAltitude = 0;
+					cache.setBufferForMeshCache(meshId, numVerticesPerSize, gridStepInWU, vectGridHeights, meshBuffer, minAltitude, maxAltitude);
 				}
 
 				{
