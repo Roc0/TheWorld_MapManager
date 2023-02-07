@@ -752,7 +752,7 @@ namespace TheWorld_MapManager
 			cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 
 			// client has the buffer as it has sent its mesh id
-			serverCacheMeshId = cache.getMeshIdFromMeshCache();
+			serverCacheMeshId = cache.getMeshIdFromCache();
 			dbHash = m_SqlInterface->getQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 			if (serverCacheMeshId != dbHash)
 				serverCacheMeshId.clear();
@@ -766,7 +766,7 @@ namespace TheWorld_MapManager
 			std::vector<float> vectGridHeights;
 			float minAltitude = 0, maxAltitude = 0;
 			TheWorld_Utils::MemoryBuffer terrainEditValuesBuffer;
-			cache.setBufferForMeshCache(meshId, numVerticesPerSize, gridStepInWU, terrainEditValuesBuffer, vectGridHeights, meshBuffer, minAltitude, maxAltitude);
+			cache.setBufferFromHeights(meshId, numVerticesPerSize, gridStepInWU, terrainEditValuesBuffer, vectGridHeights, meshBuffer, minAltitude, maxAltitude, true);
 		}
 		else
 		{
@@ -777,7 +777,7 @@ namespace TheWorld_MapManager
 				TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.3 ") + __FUNCTION__, "Set buffer from server cache");
 				meshId = serverCacheMeshId;
 				size_t vectSizeFromCache;
-				cache.readBufferFromMeshCache(serverCacheMeshId, meshBuffer, vectSizeFromCache);
+				cache.readBufferFromCache(serverCacheMeshId, meshBuffer, vectSizeFromCache);
 			}
 			else
 			{
@@ -834,12 +834,12 @@ namespace TheWorld_MapManager
 					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.7 ") + __FUNCTION__, "Reverse array to buffer");
 					float minAltitude = 0, maxAltitude = 0;
 					TheWorld_Utils::MemoryBuffer terrainEditValuesBuffer;
-					cache.setBufferForMeshCache(meshId, numVerticesPerSize, gridStepInWU, terrainEditValuesBuffer, vectGridHeights, meshBuffer, minAltitude, maxAltitude);
+					cache.setBufferFromHeights(meshId, numVerticesPerSize, gridStepInWU, terrainEditValuesBuffer, vectGridHeights, meshBuffer, minAltitude, maxAltitude, true);
 				}
 
 				{
 					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.8 ") + __FUNCTION__, "Write buffer to cache");
-					cache.writeBufferToMeshCache(meshBuffer);
+					cache.writeBufferToCache(meshBuffer);
 				}
 			}
 		}
