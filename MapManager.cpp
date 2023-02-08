@@ -776,8 +776,7 @@ namespace TheWorld_MapManager
 
 				TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.3 ") + __FUNCTION__, "Set buffer from server cache");
 				meshId = serverCacheMeshId;
-				size_t vectSizeFromCache;
-				cache.readBufferFromCache(serverCacheMeshId, meshBuffer, vectSizeFromCache);
+				cache.readBufferFromCache(serverCacheMeshId, meshBuffer);
 			}
 			else
 			{
