@@ -12,6 +12,7 @@
 
 #include <Rpc.h>
 
+//#include "GDN_TheWorld_Viewer.h"
 #include "MapManager.h"
 #include "DBSQLLite.h"
 #include "Profiler.h"
@@ -742,25 +743,41 @@ namespace TheWorld_MapManager
 		//PLOG_INFO << "PLOG_INFO MapManager::getQuadrantVertices - sev:" << sev;	// RELEASEDEBUG
 
 		std::string serverCacheMeshId;
-		std::string dbHash;
+		//std::string dbHash;
 		TheWorld_Utils::MeshCacheBuffer cache;
+		//{
+		//	std::string newMeshId1 = cache.generateNewMeshId();
+		//	std::string newMeshId2 = cache.generateNewMeshId();
+		//	bool b = cache.firstMeshIdMoreRecent(newMeshId1, newMeshId2);
+		//	assert(b == false);
+		//	b = cache.firstMeshIdMoreRecent(newMeshId2, newMeshId1);
+		//	assert(b == true);
+		//	std::string newMeshId3 = cache.generateNewMeshId();
+		//}
 		{
 			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.1 ") + __FUNCTION__, "Get MeshId from cache");
-			//vector<TheWorld_Utils::GridVertex> mesh;
 			gridStepInWU = MapManager::gridStepInWU();
 			std::string cacheDir = m_SqlInterface->dataPath();
 			cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 
 			// client has the buffer as it has sent its mesh id
 			serverCacheMeshId = cache.getMeshIdFromCache();
-			dbHash = m_SqlInterface->getQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
-			if (serverCacheMeshId != dbHash)
-				serverCacheMeshId.clear();
+			//dbHash = m_SqlInterface->getQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
+			//if (serverCacheMeshId != dbHash)
+			//	serverCacheMeshId.clear();
 		}
 
-		if (meshId == serverCacheMeshId && serverCacheMeshId.size() > 0)
+		bool clientCacheValid = false;
+		if (meshId.size() > 0 && (meshId == serverCacheMeshId || serverCacheMeshId.size() == 0))
+			clientCacheValid = true;
+		else
+			if (meshId.size() > 0 && serverCacheMeshId.size() > 0 && cache.firstMeshIdMoreRecent(meshId, serverCacheMeshId))
+				clientCacheValid = true;
+		
+		//if (meshId == serverCacheMeshId && serverCacheMeshId.size() > 0)
+		if (clientCacheValid)
 		{
-			// the buffer is present in server cache and it has the same mesh id as the client: we can answer only the header (0 elements)
+			// client cache is valid: more recent than server's one or server does not have a cache
 
 			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.2 ") + __FUNCTION__, "Set header in buffer (use client cache)");
 			std::vector<float> vectGridHeights;
@@ -770,9 +787,11 @@ namespace TheWorld_MapManager
 		}
 		else
 		{
+			// client cache is not valid: client does not have a cache or is less recent than server's one
+
 			if (serverCacheMeshId.size() > 0)
 			{
-				//client has an old version of the mesh or does not have one but the server has the buffer in its cache
+				//we can use server cache
 
 				TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.3 ") + __FUNCTION__, "Set buffer from server cache");
 				meshId = serverCacheMeshId;
@@ -780,60 +799,90 @@ namespace TheWorld_MapManager
 			}
 			else
 			{
-				if (dbHash.length() > 0)
-				{
-					//server cache is invalid but we use the db hash as mesh id
+				// nor client nor server has a cache
 
-					meshId = dbHash;
+				//if (dbHash.length() > 0)
+				//{
+				//	//server cache is invalid but we use the db hash as mesh id
+
+				//	meshId = dbHash;
+				//}
+				//else
+				//{
+				//	//server cache is invalid so we have to recalculate the mesh with a new mesh id and save it to the db
+
+				//	TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.4 ") + __FUNCTION__, "Create new MeshId");
+				//	GUID newId;
+				//	RPC_STATUS ret_val = ::UuidCreate(&newId);
+				//	if (ret_val != RPC_S_OK)
+				//	{
+				//		std::string msg = "UuidCreate in error with rc " + std::to_string(ret_val);
+				//		PLOG_ERROR << msg;
+				//		throw(MapManagerException(__FUNCTION__, msg.c_str()));
+				//	}
+				//	meshId = ToString(&newId);
+
+				//	m_SqlInterface->setQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex, meshId);
+				//}
+
+				//std::vector<TheWorld_MapManager::SQLInterface::GridVertex> dbVertices;
+				//{
+				//	TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.5 ") + __FUNCTION__, "getVertices from DB");
+				//	getVertices(lowerXGridVertex, lowerZGridVertex, anchorType::upperleftcorner, numVerticesPerSize, numVerticesPerSize, dbVertices, gridStepInWU, level);
+				//}
+
+				//std::vector<float> vectGridHeights;
+				//{
+				//	TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.6 ") + __FUNCTION__, "Conv. DB GridVertex to vector of heights");
+				//	size_t dbVertexArraySize = dbVertices.size();
+				//	if (dbVertexArraySize != numVerticesPerSize * numVerticesPerSize)
+				//		throw(std::exception((std::string(__FUNCTION__) + std::string("vertexArraySize not of the correct size")).c_str()));
+
+				//	vectGridHeights.resize(dbVertexArraySize);
+				//	size_t idx = 0;
+				//	for (int z = 0; z < numVerticesPerSize; z++)
+				//		for (int x = 0; x < numVerticesPerSize; x++)
+				//		{
+				//			//Sleep(0);
+				//			TheWorld_MapManager::SQLInterface::GridVertex& v = dbVertices[z * numVerticesPerSize + x];
+				//			vectGridHeights[idx] = v.altitude();
+				//			idx++;
+				//		}
+				//}
+
+				//{
+				//	TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.7 ") + __FUNCTION__, "Reverse array to buffer");
+				//	float minAltitude = 0, maxAltitude = 0;
+				//	TheWorld_Utils::MemoryBuffer terrainEditValuesBuffer;
+				//	cache.setBufferFromHeights(meshId, numVerticesPerSize, gridStepInWU, terrainEditValuesBuffer, vectGridHeights, meshBuffer, minAltitude, maxAltitude, true);
+				//}
+
+				meshId = cache.generateNewMeshId();
+				
+				TheWorld_Utils::MemoryBuffer tempBuffer; 
+				{
+					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.6 ") + __FUNCTION__, "Generate empty buffer");
+
+					TheWorld_Utils::MeshCacheBuffer::CacheData cacheData;
+					cacheData.meshId = meshId;
+					BYTE shortBuffer[256 + 1];	size_t size = 0;
+					TheWorld_Utils::serializeToByteStream<size_t>(sizeof(size_t), shortBuffer, size);
+					TheWorld_Utils::MemoryBuffer terrainEditValuesBuffer(shortBuffer, size);
+					cacheData.minHeight = 0.0f;
+					cacheData.maxHeight = 0.0f;
+					cacheData.terrainEditValues = &terrainEditValuesBuffer;
+					TheWorld_Utils::MemoryBuffer emptyFloat16HeightsBuffer;
+					TheWorld_Utils::MemoryBuffer emptyFloat32HeightsBuffer;
+					TheWorld_Utils::MemoryBuffer emptyNormalBuffer;
+					cacheData.heights16Buffer = &emptyFloat16HeightsBuffer;
+					cacheData.heights32Buffer = &emptyFloat32HeightsBuffer;
+					cacheData.normalsBuffer = &emptyNormalBuffer;
+					cache.setBufferFromCacheData(numVerticesPerSize, gridStepInWU, cacheData, tempBuffer);
 				}
-				else
-				{
-					//server cache is invalid so we have to recalculate the mesh with a new mesh id and save it to the db
-
-					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.4 ") + __FUNCTION__, "Create new MeshId");
-					GUID newId;
-					RPC_STATUS ret_val = ::UuidCreate(&newId);
-					if (ret_val != RPC_S_OK)
-					{
-						std::string msg = "UuidCreate in error with rc " + std::to_string(ret_val);
-						PLOG_ERROR << msg;
-						throw(MapManagerException(__FUNCTION__, msg.c_str()));
-					}
-					meshId = ToString(&newId);
-
-					m_SqlInterface->setQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex, meshId);
-				}
-
-				std::vector<TheWorld_MapManager::SQLInterface::GridVertex> dbVertices;
-				{
-					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.5 ") + __FUNCTION__, "getVertices from DB");
-					getVertices(lowerXGridVertex, lowerZGridVertex, anchorType::upperleftcorner, numVerticesPerSize, numVerticesPerSize, dbVertices, gridStepInWU, level);
-				}
-
-				std::vector<float> vectGridHeights;
-				{
-					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.6 ") + __FUNCTION__, "Conv. DB GridVertex to vector of heights");
-					size_t dbVertexArraySize = dbVertices.size();
-					if (dbVertexArraySize != numVerticesPerSize * numVerticesPerSize)
-						throw(std::exception((std::string(__FUNCTION__) + std::string("vertexArraySize not of the correct size")).c_str()));
-
-					vectGridHeights.resize(dbVertexArraySize);
-					size_t idx = 0;
-					for (int z = 0; z < numVerticesPerSize; z++)
-						for (int x = 0; x < numVerticesPerSize; x++)
-						{
-							//Sleep(0);
-							TheWorld_MapManager::SQLInterface::GridVertex& v = dbVertices[z * numVerticesPerSize + x];
-							vectGridHeights[idx] = v.altitude();
-							idx++;
-						}
-				}
 
 				{
-					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.7 ") + __FUNCTION__, "Reverse array to buffer");
-					float minAltitude = 0, maxAltitude = 0;
-					TheWorld_Utils::MemoryBuffer terrainEditValuesBuffer;
-					cache.setBufferFromHeights(meshId, numVerticesPerSize, gridStepInWU, terrainEditValuesBuffer, vectGridHeights, meshBuffer, minAltitude, maxAltitude, true);
+					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.6 ") + __FUNCTION__, "Copy buffer");
+					meshBuffer.assign((char*)tempBuffer.ptr(), tempBuffer.size());
 				}
 
 				{
