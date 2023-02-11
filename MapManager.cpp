@@ -775,7 +775,7 @@ namespace TheWorld_MapManager
 				clientCacheValid = true;
 		
 		//if (meshId == serverCacheMeshId && serverCacheMeshId.size() > 0)
-		if (clientCacheValid)
+		if (clientCacheValid || serverCacheMeshId.size() == 0)
 		{
 			// client cache is valid: more recent than server's one or server does not have a cache
 
@@ -787,7 +787,9 @@ namespace TheWorld_MapManager
 		}
 		else
 		{
-			// client cache is not valid: client does not have a cache or is less recent than server's one
+			// client cache is not valid and server has cache: we answer server's buffer
+
+			my_assert(serverCacheMeshId.size() > 0);
 
 			if (serverCacheMeshId.size() > 0)
 			{
@@ -799,6 +801,8 @@ namespace TheWorld_MapManager
 			}
 			else
 			{
+				// dead branch
+				
 				// nor client nor server has a cache
 
 				//if (dbHash.length() > 0)
@@ -857,27 +861,11 @@ namespace TheWorld_MapManager
 				//	cache.setBufferFromHeights(meshId, numVerticesPerSize, gridStepInWU, terrainEditValuesBuffer, vectGridHeights, meshBuffer, minAltitude, maxAltitude, true);
 				//}
 
-				meshId = cache.generateNewMeshId();
-				
 				TheWorld_Utils::MemoryBuffer tempBuffer; 
 				{
 					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.6 ") + __FUNCTION__, "Generate empty buffer");
 
-					TheWorld_Utils::MeshCacheBuffer::CacheData cacheData;
-					cacheData.meshId = meshId;
-					BYTE shortBuffer[256 + 1];	size_t size = 0;
-					TheWorld_Utils::serializeToByteStream<size_t>(sizeof(size_t), shortBuffer, size);
-					TheWorld_Utils::MemoryBuffer terrainEditValuesBuffer(shortBuffer, size);
-					cacheData.minHeight = 0.0f;
-					cacheData.maxHeight = 0.0f;
-					cacheData.terrainEditValues = &terrainEditValuesBuffer;
-					TheWorld_Utils::MemoryBuffer emptyFloat16HeightsBuffer;
-					TheWorld_Utils::MemoryBuffer emptyFloat32HeightsBuffer;
-					TheWorld_Utils::MemoryBuffer emptyNormalBuffer;
-					cacheData.heights16Buffer = &emptyFloat16HeightsBuffer;
-					cacheData.heights32Buffer = &emptyFloat32HeightsBuffer;
-					cacheData.normalsBuffer = &emptyNormalBuffer;
-					cache.setBufferFromCacheData(numVerticesPerSize, gridStepInWU, cacheData, tempBuffer);
+					cache.setEmptyBuffer(numVerticesPerSize, gridStepInWU, meshId, tempBuffer);
 				}
 
 				{
