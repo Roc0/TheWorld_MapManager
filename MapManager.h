@@ -173,6 +173,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void getVertices(float anchorXInWUs, float anchorZInWUs, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) void getVertices(float& anchorXInWUs, float& anchorZInWUs, anchorType type, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) void getQuadrantVertices(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshId, std::string& meshBuffer);
+		_declspec(dllexport) void uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer);
 		_declspec(dllexport) void getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) inline float calcPreviousCoordOnTheGridInWUs(float coordInWUs);
 		_declspec(dllexport) inline float calcNextCoordOnTheGridInWUs(float coordInWUs);

@@ -733,6 +733,16 @@ namespace TheWorld_MapManager
 		}
 	}
 
+	void MapManager::uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer)
+	{
+		TheWorld_Utils::GuardProfiler profiler(std::string("UploadBuffer 1b ") + __FUNCTION__, "uploadCacheBuffer");
+
+		TheWorld_Utils::MeshCacheBuffer cache;
+		std::string cacheDir = m_SqlInterface->dataPath();
+		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
+		cache.writeBufferToCache(meshBuffer);
+	}
+
 	void MapManager::getQuadrantVertices(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshId, std::string& meshBuffer)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b ") + __FUNCTION__, "getQuadrantVertices");
