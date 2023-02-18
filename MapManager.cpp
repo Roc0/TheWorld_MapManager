@@ -740,7 +740,7 @@ namespace TheWorld_MapManager
 		TheWorld_Utils::MeshCacheBuffer cache;
 		std::string cacheDir = m_SqlInterface->dataPath();
 		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
-		cache.writeBufferToCache(meshBuffer);
+		cache.writeBufferToCache(meshBuffer, true);
 	}
 
 	void MapManager::getQuadrantVertices(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshId, std::string& meshBuffer)
