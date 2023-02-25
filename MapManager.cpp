@@ -875,7 +875,7 @@ namespace TheWorld_MapManager
 				{
 					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.6 ") + __FUNCTION__, "Generate empty buffer");
 
-					cache.setEmptyBuffer(numVerticesPerSize, gridStepInWU, meshId, tempBuffer);
+					cache.setEmptyBuffer(numVerticesPerSize, meshId, tempBuffer);
 				}
 
 				{
