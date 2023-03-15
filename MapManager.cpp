@@ -793,7 +793,7 @@ namespace TheWorld_MapManager
 			std::vector<float> vectGridHeights;
 			float minAltitude = 0, maxAltitude = 0;
 			TheWorld_Utils::MemoryBuffer terrainEditValuesBuffer;
-			cache.setBufferFromHeights(meshId, numVerticesPerSize, gridStepInWU, terrainEditValuesBuffer, vectGridHeights, meshBuffer, minAltitude, maxAltitude, true);
+			cache.setBufferFromHeights(meshId, numVerticesPerSize, gridStepInWU, terrainEditValuesBuffer, vectGridHeights, meshBuffer, minAltitude, maxAltitude, false);
 		}
 		else
 		{
