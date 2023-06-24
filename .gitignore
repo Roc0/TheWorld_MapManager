@@ -363,4 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 
 /Data/DB/*.db
-/Data/Cache/*.*
+#/Data/Cache/*.*
