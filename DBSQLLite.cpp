@@ -35,13 +35,13 @@ namespace TheWorld_MapManager
 			m_dbOpsInternalTransaction.endTransaction(false);
 	}
 
-	string DBSQLLite::readParam(std::string paranName)
+	std::string DBSQLLite::readParam(std::string paranName)
 	{
-		string paramValue = "";
+		std::string paramValue = "";
 		
 		DBSQLLiteOps dbOps(dbFilePath());
 		dbOps.init();
-		string sql = "SELECT ParamValue FROM Params WHERE ParamName = '" + paranName + "';";
+		std::string sql = "SELECT ParamValue FROM Params WHERE ParamName = '" + paranName + "';";
 		dbOps.prepareStmt(sql.c_str());
 		dbOps.acquireLock();
 		int rc = sqlite3_step(dbOps.getStmt());

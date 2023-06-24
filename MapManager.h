@@ -163,6 +163,7 @@ namespace TheWorld_MapManager
 		{
 			if (m_SqlInterface) m_SqlInterface->finalizeDB(); 
 		}
+		_declspec(dllexport) std::string getMapName(void);
 		_declspec(dllexport) float gridStepInWU(void);
 
 		enum class anchorType
