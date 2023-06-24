@@ -29,17 +29,20 @@ namespace TheWorld_MapManager
 	std::recursive_mutex MapManager::s_staticMapManagerInitializationMtx;
 	//enum class DBType MapManager::s_dbType = DBType::SQLLite;
 
+	const std::string MapNameParamName = "MapName";
+	std::string g_mapName = "";
+
 	// ************************************************************************************************************************************************
 	// size of the square grid of vertices used to expand the map (for example on new WD), this size is expressed in number of vertices so it is an int
 	// ************************************************************************************************************************************************
-	const string GrowingBlockVertexNumberShiftParamName = "GrowingBlockVertexNumberShift";
+	const std::string GrowingBlockVertexNumberShiftParamName = "GrowingBlockVertexNumberShift";
 	//int g_DBGrowingBlockVertexNumberShift = 10;	// 10 ==> g_DBGrowingBlockVertexNumber = 1024;
 	//int g_DBGrowingBlockVertexNumberShift = 8;	// 8 ==> g_DBGrowingBlockVertexNumber = 256;
 	int g_DBGrowingBlockVertexNumberShift = 0;
 	int g_DBGrowingBlockVertexNumber = 1 << g_DBGrowingBlockVertexNumberShift;
 	// ************************************************************************************************************************************************
 
-	const string GridStepInWUParamName = "GridStepInWU";
+	const std::string GridStepInWUParamName = "GridStepInWU";
 	float g_gridStepInWU = 0.0f;		// distance in world unit between a vertex of the grid and the next
 
 	MapManager::MapManager(/*const char* logPath, plog::Severity sev, plog::IAppender* appender,*/ char* configFileName, bool multiThreadEnvironment /* every thread is provided with its own DB connection associated to the thread::id*/)
@@ -58,7 +61,7 @@ namespace TheWorld_MapManager
 		if (configFileName == nullptr)
 			configFilePath += "\\TheWorld_MapManager.json";
 		else
-			configFilePath += string ("\\") + configFileName;
+			configFilePath += string("\\") + configFileName;
 
 		//if (appender == nullptr)
 		//{
@@ -73,7 +76,7 @@ namespace TheWorld_MapManager
 		//{
 		//	m_utils.staticInit(nullptr, sev, appender);
 		//}
-		
+
 		Json::Value root;
 		std::ifstream jsonFile(configFilePath);
 		jsonFile >> root;
@@ -83,15 +86,21 @@ namespace TheWorld_MapManager
 		m_instrumented = false;
 		m_consoleDebugMode = false;
 
-		string s = m_SqlInterface->readParam(GrowingBlockVertexNumberShiftParamName);
+		std::string s = m_SqlInterface->readParam(GrowingBlockVertexNumberShiftParamName);
 		if (s.empty())
 			throw(MapManagerException(__FUNCTION__, string("Param <" + GrowingBlockVertexNumberShiftParamName + "> not read from DB").c_str()));
 		g_DBGrowingBlockVertexNumberShift = stoi(s);
 		g_DBGrowingBlockVertexNumber = 1 << g_DBGrowingBlockVertexNumberShift;
+		
 		s = m_SqlInterface->readParam(GridStepInWUParamName);
 		if (s.empty())
 			throw(MapManagerException(__FUNCTION__, string("Param <" + GridStepInWUParamName + "> not read from DB").c_str()));
 		g_gridStepInWU = stof(s);
+
+		g_mapName = m_SqlInterface->readParam(MapNameParamName);
+		if (g_mapName.empty())
+			throw(MapManagerException(__FUNCTION__, string("Param <" + MapNameParamName + "> not read from DB").c_str()));
+
 	}
 
 	MapManager::~MapManager()
@@ -123,16 +132,23 @@ namespace TheWorld_MapManager
 			MapManagerUtils::staticInit(nullptr, sev, appender);
 		}
 	}
-	
+
 	void MapManager::staticDeinit(void)
 	{
 		MapManagerUtils::staticDeinit();
 	}
-	
+
 	void MapManager::setLogMaxSeverity(plog::Severity sev)
 	{
 		plog::get()->setMaxSeverity(sev);
 		PLOG(plog::get()->getMaxSeverity()) << "Log severity changed to: " << std::to_string(sev);
+	}
+
+	std::string MapManager::getMapName(void)
+	{
+		if (g_mapName.size() == 0)
+			throw(MapManagerException(__FUNCTION__, string("MapManager not initialized!").c_str()));
+		return g_mapName;
 	}
 
 	float MapManager::gridStepInWU(void)
@@ -739,7 +755,8 @@ namespace TheWorld_MapManager
 
 		TheWorld_Utils::MeshCacheBuffer cache;
 		std::string cacheDir = m_SqlInterface->dataPath();
-		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
+		std::string mapName = getMapName();
+		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 		cache.writeBufferToCache(meshBuffer, true);
 	}
 
@@ -768,7 +785,8 @@ namespace TheWorld_MapManager
 			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.1 ") + __FUNCTION__, "Get MeshId from cache");
 			gridStepInWU = MapManager::gridStepInWU();
 			std::string cacheDir = m_SqlInterface->dataPath();
-			cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
+			std::string mapName = getMapName();
+			cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 
 			// client has the buffer as it has sent its mesh id
 			serverCacheMeshId = cache.getMeshIdFromCache();
@@ -784,7 +802,6 @@ namespace TheWorld_MapManager
 			if (meshId.size() > 0 && serverCacheMeshId.size() > 0 && cache.firstMeshIdMoreRecent(meshId, serverCacheMeshId))
 				clientCacheValid = true;
 		
-		//if (meshId == serverCacheMeshId && serverCacheMeshId.size() > 0)
 		if (clientCacheValid || serverCacheMeshId.size() == 0)
 		{
 			// client cache is valid: more recent than server's one or server does not have a cache

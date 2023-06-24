@@ -53,6 +53,7 @@ create table GridVertex_Mod(
 	PRIMARY KEY(VertexRowId)
 );
 
+insert into Params (ParamName, ParamValue) values ("MapName", "TestMap01");
 insert into Params (ParamName, ParamValue) values ("GrowingBlockVertexNumberShift", "8");	-- 8 ==> 256 vertices per growing block
 insert into Params (ParamName, ParamValue) values ("GridStepInWU", "2.0");
 
