@@ -7,6 +7,7 @@
 #include <math.h>
 
 #include "WorldDefiner.h"
+#include "Utils.h"
 
 namespace TheWorld_MapManager
 {
@@ -14,14 +15,22 @@ namespace TheWorld_MapManager
 #define SQL_DUPKEY	1
 #define SQL_KO		999
 
-	enum class DBType
-	{
-		SQLLite = 0
-	};
-	
 	class SQLInterface
 	{
 	public:
+		enum class DBType
+		{
+			SQLLite = 0
+		};
+
+		enum class QuadrantStatus
+		{
+			NotSet = -1,
+			Empty = 0,
+			Loading = 1,
+			Complete = 2
+		};
+
 		SQLInterface(DBType dbt, const char* dataPath, bool consoleDebugMode = false)
 		{
 			m_dbt = dbt;
@@ -69,6 +78,20 @@ namespace TheWorld_MapManager
 				m_level = 0;
 				m_initialAltitude = 0.0;
 				m_rowid = -1;
+				m_normX = 0;
+				m_normY = 0;
+				m_normZ = 0;
+				m_colorR = -1;
+				m_colorG = -1;
+				m_colorB = -1;
+				m_colorA = -1;
+				m_lowElevationTexAmount = -1;
+				m_highElevationTexAmount = -1;
+				m_dirtTexAmount = -1;
+				m_rocksTexAmount = -1;
+				m_globalMapR = -1;
+				m_globalMapG = -1;
+				m_globalMapB = -1;
 			}
 			GridVertex(float posX, float posZ, int level = 0)
 			{
@@ -105,6 +128,20 @@ namespace TheWorld_MapManager
 						m_azimuth = (float)(M_PI * 2.0) - m_azimuth;
 				}
 				m_rowid = -1;
+				m_normX = 0;
+				m_normY = 0;
+				m_normZ = 0;
+				m_colorR = -1;
+				m_colorG = -1;
+				m_colorB = -1;
+				m_colorA = -1;
+				m_lowElevationTexAmount = -1;
+				m_highElevationTexAmount = -1;
+				m_dirtTexAmount = -1;
+				m_rocksTexAmount = -1;
+				m_globalMapR = -1;
+				m_globalMapG = -1;
+				m_globalMapB = -1;
 			}
 			
 			// needed to use an istance of GridVertex as a key in a map (to keep the map sorted by m_posZ and by m_posX for equal m_posZ)
@@ -127,7 +164,10 @@ namespace TheWorld_MapManager
 					return false;
 			}
 
-			void setInternalValues(float posX, float altitude, float posZ, float radius, float azimuth, int level, float initialAltitude, __int64 rowid)
+			void setInternalValues(float posX, float altitude, float posZ, float radius, float azimuth, int level, float initialAltitude, __int64 rowid,
+				float normX = 0, float normY = 0, float normZ = 0, int colorR = -1, int colorG = -1, int colorB = -1, int colorA = -1,
+				int lowElevationTexAmount = -1, int highElevationTexAmount = -1, int dirtTexAmount = -1, int rocksTexAmount = -1,
+				int globalMapR = -1, int globalMapG = -1, int globalMapB = -1)
 			{
 				m_posX = posX;
 				m_altitude = altitude;
@@ -137,6 +177,20 @@ namespace TheWorld_MapManager
 				m_level = level;
 				m_initialAltitude = initialAltitude;
 				m_rowid = rowid;
+				m_normX = normX;
+				m_normY = normY;
+				m_normZ = normZ;
+				m_colorR = colorR;
+				m_colorG = colorG;
+				m_colorB = colorB;
+				m_colorA = colorA;
+				m_lowElevationTexAmount = lowElevationTexAmount;
+				m_highElevationTexAmount = highElevationTexAmount;
+				m_dirtTexAmount = dirtTexAmount;
+				m_rocksTexAmount = rocksTexAmount;
+				m_globalMapR = globalMapR;
+				m_globalMapG = globalMapG;
+				m_globalMapB = globalMapB;
 			}
 
 			float posX(void) const
@@ -171,6 +225,62 @@ namespace TheWorld_MapManager
 			{
 				return m_rowid; 
 			}
+			float normX(void) const
+			{
+				return m_normX;
+			}
+			float normY(void) const
+			{
+				return m_normY;
+			}
+			float normZ(void) const
+			{
+				return m_normZ;
+			}
+			int colorR(void) const
+			{
+				return m_colorR;
+			}
+			int colorG(void) const
+			{
+				return m_colorG;
+			}
+			int colorB(void) const
+			{
+				return m_colorB;
+			}
+			int colorA(void) const
+			{
+				return m_colorA;
+			}
+			int lowElevationTexAmount(void) const
+			{
+				return m_lowElevationTexAmount;
+			}
+			int highElevationTexAmount(void) const
+			{
+				return m_highElevationTexAmount;
+			}
+			int dirtTexAmount(void) const
+			{
+				return m_dirtTexAmount;
+			}
+			int rocksTexAmount(void) const
+			{
+				return m_rocksTexAmount;
+			}
+			int globalMapR(void) const
+			{
+				return m_globalMapR;
+			}
+			int globalMapG(void) const
+			{
+				return m_globalMapG;
+			}
+			int globalMapB(void) const
+			{
+				return m_globalMapB;
+			}
 
 		private:
 			float m_posX;
@@ -181,6 +291,20 @@ namespace TheWorld_MapManager
 			int m_level;
 			float m_initialAltitude;
 			__int64 m_rowid;
+			float m_normX;
+			float m_normY;
+			float m_normZ;
+			int m_colorR;					// 0/255
+			int m_colorG;					// 0/255
+			int m_colorB;					// 0/255
+			int m_colorA;					// 0/255
+			int m_lowElevationTexAmount;	// 0/255
+			int m_highElevationTexAmount;	// 0/255
+			int m_dirtTexAmount;			// 0/255
+			int m_rocksTexAmount;			// 0/255
+			int m_globalMapR;				// 0/255
+			int m_globalMapG;				// 0/255
+			int m_globalMapB;				// 0/255
 		};
 
 		// Pure	virtual functions
@@ -194,13 +318,15 @@ namespace TheWorld_MapManager
 		virtual void getVertex(__int64 vertexRowid, GridVertex& gridVertex, int level) = 0;
 		virtual void getVertex(GridVertex& gridVertex) = 0;
 		virtual void getVertices(float minX, float maxX, float minZ, float maxZ, std::vector<GridVertex>& vectGridVertices, int level) = 0;
+		virtual size_t eraseVertices(float minX, float maxX, float minZ, float maxZ, int level) = 0;
 		virtual bool getWD(float posX, float posZ, int level, WDType type, WorldDefiner& WD) = 0;
 		virtual bool getWD(__int64 wdRowid, WorldDefiner& WD) = 0;
 		virtual void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& vectWDRowId) = 0;
 		virtual bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
 		virtual bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
-		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ) = 0;
-		virtual void setQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, std::string hash) = 0;
+		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class SQLInterface::QuadrantStatus& status) = 0;
+		virtual void writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, bool& stop) = 0;
+		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, enum class SQLInterface::QuadrantStatus& status, TheWorld_Utils::TerrainEdit& terrainEdit) = 0;
 		virtual void finalizeDB(void) = 0;
 
 	private:

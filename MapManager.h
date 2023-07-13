@@ -8,6 +8,8 @@
 #include "MapManager_Utils.h"
 #include <plog/Log.h>
 #include <..\TheWorld_GDN_Viewer\TheWorld_GDN_Viewer\Viewer_Utils.h>
+#include "Utils.h"
+#include <map>
 
 //#include "Eigen\Dense"
 //using namespace Eigen;
@@ -122,6 +124,17 @@ namespace TheWorld_MapManager
 			int m_posZ;
 		};
 
+		class InitMap
+		{
+		public:
+			std::thread m_alignCacheAndDbThread;
+			bool m_alignCacheAndDbThreadRequiredExit = true;
+
+		};
+
+		typedef std::map<int, InitMap*> MapInitMapPerLevel;
+		typedef std::map<size_t, MapInitMapPerLevel> MapInitMap;
+
 		_declspec(dllexport) MapManager(/*const char* logPath = NULL, plog::Severity sev = plog::Severity::none, plog::IAppender* appender = nullptr,*/ char* configFileName = nullptr, bool multiThreadEnvironment = false);
 		_declspec(dllexport) ~MapManager();
 		_declspec(dllexport) static void staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender = nullptr, bool multiThreadEnvironment = true/* every thread is provided with its own DB connection associated to the thread::id*/);
@@ -174,6 +187,13 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void getVertices(float anchorXInWUs, float anchorZInWUs, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) void getVertices(float& anchorXInWUs, float& anchorZInWUs, anchorType type, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) void getQuadrantVertices(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshId, std::string& meshBuffer);
+		_declspec(dllexport) int alignDiskCacheAndDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
+		_declspec(dllexport) void alignDiskCacheAndDB(size_t numVerticesPerSize, int level);
+		_declspec(dllexport) void alignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
+		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(void);
+		_declspec(dllexport) void stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
+		_declspec(dllexport) void writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
+		_declspec(dllexport) void writeDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
 		_declspec(dllexport) void uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer);
 		_declspec(dllexport) void getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) inline float calcPreviousCoordOnTheGridInWUs(float coordInWUs);
@@ -188,6 +208,7 @@ namespace TheWorld_MapManager
 		void getFlatGrid(float minXInWUs, float minZInWUs, int numPointX, int numPointZ, vector<FlatGridPoint>& grid, float& gridStepInWU);
 		void internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int& numFoundInDB, int level = 0);
 		void internalGetVertices(float min_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level);
+		void internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level);
 		void getEmptyVertexGrid(vector<FlatGridPoint>& grid, vector<SQLInterface::GridVertex>& mesh, int level = 0);
 		float getDistance(float x1, float y1, float x2, float y2);
 		bool TransformProjectedCoordEPSG3857ToGeoCoordEPSG4326(double X, double Y, double& lon, double& lat, int& lonDegrees, int& lonMinutes, double& lonSeconds, int& latDegrees, int& latMinutes, double& latSeconds);
@@ -210,6 +231,11 @@ namespace TheWorld_MapManager
 		std::string m_dataPath;
 		MapManagerUtils m_utils;
 		//static std::recursive_mutex s_mtxInternalData;
+
+		static std::recursive_mutex s_cacheMtx;
+
+		static std::recursive_mutex s_initMapMtx;
+		static MapInitMap s_mapInitMap;
 	};
 }
 

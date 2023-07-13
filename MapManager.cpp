@@ -8,6 +8,7 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include <thread>
 //#include <filesystem>
 
 #include <Rpc.h>
@@ -27,6 +28,9 @@ namespace TheWorld_MapManager
 	//std::recursive_mutex MapManager::s_mtxInternalData;
 	bool MapManager::staticMapManagerInitializationDone = false;
 	std::recursive_mutex MapManager::s_staticMapManagerInitializationMtx;
+	std::recursive_mutex MapManager::s_initMapMtx;
+	std::recursive_mutex MapManager::s_cacheMtx;
+	MapManager::MapInitMap MapManager::s_mapInitMap;
 	//enum class DBType MapManager::s_dbType = DBType::SQLLite;
 
 	const std::string MapNameParamName = "MapName";
@@ -82,7 +86,7 @@ namespace TheWorld_MapManager
 		jsonFile >> root;
 		m_dataPath = root["DataPath"].asString();
 
-		m_SqlInterface = new DBSQLLite(DBType::SQLLite, m_dataPath.c_str());
+		m_SqlInterface = new DBSQLLite(SQLInterface::DBType::SQLLite, m_dataPath.c_str());
 		m_instrumented = false;
 		m_consoleDebugMode = false;
 
@@ -100,7 +104,6 @@ namespace TheWorld_MapManager
 		g_mapName = m_SqlInterface->readParam(MapNameParamName);
 		if (g_mapName.empty())
 			throw(MapManagerException(__FUNCTION__, string("Param <" + MapNameParamName + "> not read from DB").c_str()));
-
 	}
 
 	MapManager::~MapManager()
@@ -753,13 +756,446 @@ namespace TheWorld_MapManager
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("UploadBuffer 1b ") + __FUNCTION__, "uploadCacheBuffer");
 
+		std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+		
 		TheWorld_Utils::MeshCacheBuffer cache;
 		std::string cacheDir = m_SqlInterface->dataPath();
 		std::string mapName = getMapName();
 		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
-		cache.writeBufferToCache(meshBuffer, true);
+		cache.writeBufferToDiskCache(meshBuffer, true);
+		//bool stop = false;
+		//writeDiskCacheToDB(cache, stop);
 	}
 
+	void MapManager::writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop)
+	{
+		TheWorld_Utils::GuardProfiler profiler(std::string("writeDiskCacheToDB ") + __FUNCTION__, "ALL");
+
+		bool emptyBuffer = cache.isEmptyBuffer(cache.getMeshIdFromDisk());
+		
+		TheWorld_Utils::MemoryBuffer buffer;
+		cache.readBufferFromDisk(cache.getMeshIdFromDisk(), buffer);
+		
+		TheWorld_Utils::MemoryBuffer terrainEditValues;
+		TheWorld_Utils::MemoryBuffer heights16Buffer;
+		TheWorld_Utils::MemoryBuffer heights32Buffer;
+		TheWorld_Utils::MemoryBuffer normalsBuffer;
+		TheWorld_Utils::MemoryBuffer splatmapBuffer;
+		TheWorld_Utils::MemoryBuffer colormapBuffer;
+		TheWorld_Utils::MemoryBuffer globalmapBuffer;
+		TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData cacheQuadrantData;
+		cacheQuadrantData.meshId = cache.getMeshIdFromDisk();
+		cacheQuadrantData.terrainEditValues = &terrainEditValues;
+		cacheQuadrantData.heights16Buffer = &heights16Buffer;
+		cacheQuadrantData.heights32Buffer = &heights32Buffer;
+		cacheQuadrantData.normalsBuffer = &normalsBuffer;
+		cacheQuadrantData.splatmapBuffer = &splatmapBuffer;
+		cacheQuadrantData.colormapBuffer = &colormapBuffer;
+		cacheQuadrantData.globalmapBuffer = &globalmapBuffer;
+		if (!emptyBuffer)
+			cache.refreshCacheQuadrantDataFromBuffer(buffer, cacheQuadrantData, false);
+		
+		m_SqlInterface->writeQuadrantToDB(cache, cacheQuadrantData, stop);
+	}
+
+	void MapManager::writeDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop)
+	{
+		TheWorld_Utils::GuardProfiler profiler(std::string("writeDiskCacheFromDB ") + __FUNCTION__, "ALL");
+
+		std::string meshId;
+		TheWorld_Utils::TerrainEdit terrainEdit;
+		enum class SQLInterface::QuadrantStatus status;
+		m_SqlInterface->readQuadrantFromDB(cache, meshId, status, terrainEdit);
+
+		if (status == SQLInterface::QuadrantStatus::Loading)
+			return;
+
+		if (meshId.size() == 0)
+			return;
+
+		TheWorld_Utils::MemoryBuffer heights16Buffer;
+		TheWorld_Utils::MemoryBuffer heights32Buffer;
+		TheWorld_Utils::MemoryBuffer normalsBuffer;
+		TheWorld_Utils::MemoryBuffer splatmapBuffer;
+		TheWorld_Utils::MemoryBuffer colormapBuffer;
+		TheWorld_Utils::MemoryBuffer globalmapBuffer;
+
+		float gridStep = cache.getGridStepInWU();
+		size_t vertexPerSize = cache.getNumVerticesPerSize();
+		int level = cache.getLevel();
+		float quadPosX = cache.getLowerXGridVertex();
+		float quadPosZ = cache.getLowerZGridVertex();
+		float quadEndPosX = quadPosX + (vertexPerSize - 1) * gridStep;
+		float quadEndPosZ = quadPosZ + (vertexPerSize - 1) * gridStep;
+
+		int numFoundInDB = 0;
+		std::vector<SQLInterface::GridVertex> vectGridVertex;
+		size_t numVertices = vectGridVertex.size();
+		internalGetVertices(quadPosX, quadEndPosX, quadPosZ, quadEndPosZ, (int)vertexPerSize, (int)vertexPerSize, vectGridVertex, gridStep, numFoundInDB, level);
+		if (numVertices != 0 && numVertices != vertexPerSize * vertexPerSize)
+			throw(MapManagerException(__FUNCTION__, (std::string("internalGetVertices returned unexpected size: ") + std::to_string(numVertices) + "(expected" + std::to_string(vertexPerSize * vertexPerSize) + ")").c_str()));
+
+		TheWorld_Utils::MemoryBuffer buffer;
+		
+		float minHeight = FLT_MAX, maxHeight = FLT_MIN;
+		
+		if (numFoundInDB > 0 && numVertices > 0)
+		{
+			heights16Buffer.reserve(numVertices * sizeof(uint16_t));
+			uint16_t* _tempHeights16BufferPtr = (uint16_t*)heights16Buffer.ptr();
+			heights32Buffer.reserve(numVertices * sizeof(float));
+			float* _tempHeights32BufferPtr = (float*)heights32Buffer.ptr();
+			normalsBuffer.reserve(numVertices * sizeof(TheWorld_Utils::_RGB));
+			TheWorld_Utils::_RGB* _tempNormalsBufferPtr = (TheWorld_Utils::_RGB*)normalsBuffer.ptr();
+			splatmapBuffer.reserve(numVertices * sizeof(TheWorld_Utils::_RGBA));
+			TheWorld_Utils::_RGBA* _tempSplatmapBufferPtr = (TheWorld_Utils::_RGBA*)splatmapBuffer.ptr();
+			colormapBuffer.reserve(numVertices * sizeof(TheWorld_Utils::_RGBA));
+			TheWorld_Utils::_RGBA* _tempColormapBufferPtr = (TheWorld_Utils::_RGBA*)colormapBuffer.ptr();
+			globalmapBuffer.reserve(numVertices * sizeof(TheWorld_Utils::_RGB));
+			TheWorld_Utils::_RGB* _tempGlobalmapBufferPtr = (TheWorld_Utils::_RGB*)globalmapBuffer.ptr();
+
+			bool normalMapEmpty = false, splatMapEmpty = false, colorMapEmpty = false, globalMapEmpty = false;
+			
+			size_t x = 0, z = 0;
+			for (auto& gridVertex : vectGridVertex)
+			{
+				if (stop)
+					return;
+				
+				TheWorld_Utils::FLOAT_32 f;
+				f.f32 = gridVertex.altitude();
+
+				if (f.f32 < minHeight)
+					minHeight = f.f32;
+
+				if (f.f32 > maxHeight)
+					maxHeight = f.f32;
+
+				*_tempHeights16BufferPtr = TheWorld_Utils::MeshCacheBuffer::halfFromFloat(f.u32);
+				_tempHeights16BufferPtr++;
+				
+				*_tempHeights32BufferPtr = f.f32;
+				_tempHeights32BufferPtr++;
+
+				if (!normalMapEmpty)
+				{
+					if (gridVertex.normX() == 0 && gridVertex.normY() == 0 && gridVertex.normZ() == 0)
+						normalMapEmpty = true;
+					else
+					{
+						Eigen::Vector3d normal(gridVertex.normX(), gridVertex.normY(), gridVertex.normZ());
+						Eigen::Vector3d packedNormal = TheWorld_Utils::packNormal(normal);
+						(*_tempNormalsBufferPtr).r = (BYTE)(packedNormal.x() * 255);	// normals coords range from 0 to 1 but if expressed as color in a normalmap range from 0 to 255
+						(*_tempNormalsBufferPtr).g = (BYTE)(packedNormal.y() * 255);
+						(*_tempNormalsBufferPtr).b = (BYTE)(packedNormal.z() * 255);
+						_tempNormalsBufferPtr++;
+					}
+				}
+
+				if (!splatMapEmpty)
+				{
+					if (gridVertex.lowElevationTexAmount() == -1 && gridVertex.highElevationTexAmount() == -1 && gridVertex.dirtTexAmount() == -1 && gridVertex.rocksTexAmount() == -1)
+						splatMapEmpty = true;
+					else
+					{
+						(*_tempSplatmapBufferPtr).r = BYTE(gridVertex.lowElevationTexAmount());
+						(*_tempSplatmapBufferPtr).g = BYTE(gridVertex.highElevationTexAmount());
+						(*_tempSplatmapBufferPtr).b = BYTE(gridVertex.dirtTexAmount());
+						(*_tempSplatmapBufferPtr).a = BYTE(gridVertex.rocksTexAmount());
+						_tempSplatmapBufferPtr++;
+					}
+				}
+
+				if (!colorMapEmpty)
+				{
+					if (gridVertex.colorR() == -1 && gridVertex.colorG() == -1 && gridVertex.colorB() == -1 && gridVertex.colorA() == -1)
+						colorMapEmpty = true;
+					else
+					{
+						(*_tempColormapBufferPtr).r = BYTE(gridVertex.colorR());
+						(*_tempColormapBufferPtr).g = BYTE(gridVertex.colorG());
+						(*_tempColormapBufferPtr).b = BYTE(gridVertex.colorB());
+						(*_tempColormapBufferPtr).a = BYTE(gridVertex.colorA());
+						_tempColormapBufferPtr++;
+					}
+				}
+
+				if (!globalMapEmpty)
+				{
+					if (gridVertex.globalMapR() == -1 && gridVertex.globalMapG() == -1 && gridVertex.globalMapB() == -1)
+						globalMapEmpty = true;
+					else
+					{
+						(*_tempGlobalmapBufferPtr).r = BYTE(gridVertex.globalMapR());
+						(*_tempGlobalmapBufferPtr).g = BYTE(gridVertex.globalMapG());
+						(*_tempGlobalmapBufferPtr).b = BYTE(gridVertex.globalMapB());
+						_tempGlobalmapBufferPtr++;
+					}
+				}
+
+				x++;
+				if (x == vertexPerSize)
+				{
+					x = 0;
+					z++;
+				}
+			}
+
+			if (x != 0 && z != vertexPerSize)
+				throw(MapManagerException(__FUNCTION__, (std::string("something wrong iterating grid vertices: x=") + std::to_string(x) + " z=" + std::to_string(z)).c_str()));
+
+			heights16Buffer.adjustSize(numVertices * sizeof(uint16_t));
+			heights32Buffer.adjustSize(numVertices * sizeof(float));
+			if (normalMapEmpty)
+				normalsBuffer.clear();
+			else
+				normalsBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGB));
+			if (splatMapEmpty)
+				splatmapBuffer.clear();
+			else
+				splatmapBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGBA));
+			if (colorMapEmpty)
+				colormapBuffer.clear();
+			else
+				colormapBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGBA));
+			if (globalMapEmpty)
+				globalmapBuffer.clear();
+			else
+				globalmapBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGB));
+
+			TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData cacheQuadrantData;
+			cacheQuadrantData.meshId = meshId;
+
+			if (heights16Buffer.size() > 0)
+				cacheQuadrantData.heights16Buffer = &heights16Buffer;
+
+			if (heights32Buffer.size() > 0)
+				cacheQuadrantData.heights32Buffer = &heights32Buffer;
+
+			if (normalsBuffer.size() > 0)
+				cacheQuadrantData.normalsBuffer = &normalsBuffer;
+			else
+				terrainEdit.normalsNeedRegen = true;
+
+			if (splatmapBuffer.size() > 0)
+				cacheQuadrantData.splatmapBuffer = &splatmapBuffer;
+			else
+				terrainEdit.extraValues.texturesNeedRegen = true;
+
+			if (colormapBuffer.size() > 0)
+				cacheQuadrantData.colormapBuffer = &colormapBuffer;
+			else
+				terrainEdit.extraValues.emptyColormap = true;
+
+			if (globalmapBuffer.size() > 0)
+				cacheQuadrantData.globalmapBuffer = &globalmapBuffer;
+			else
+				terrainEdit.extraValues.emptyGlobalmap = true;
+
+			TheWorld_Utils::MemoryBuffer terrainEditValues;
+			if (terrainEdit.size > 0)
+			{
+				terrainEdit.serialize(terrainEditValues);
+				cacheQuadrantData.terrainEditValues = &terrainEditValues;
+				cacheQuadrantData.minHeight = terrainEdit.minHeight;
+				cacheQuadrantData.maxHeight = terrainEdit.maxHeight;
+			}
+			if (minHeight != FLT_MAX)
+			{
+				cacheQuadrantData.minHeight = minHeight;
+				//terrainEdit.minHeight = cacheQuadrantData.minHeight;
+			}
+			if (maxHeight != FLT_MIN)
+			{
+				cacheQuadrantData.maxHeight = maxHeight;
+				//terrainEdit.maxHeight = cacheQuadrantData.maxHeight;
+			}
+
+			cache.setBufferFromCacheQuadrantData(cache.getNumVerticesPerSize(), cacheQuadrantData, buffer);
+		}
+		else
+		{
+			//if no vertices of the quadrant in DB we force empty quadrant meshid (with empy quadrant meshid only the hash is updated and cahce and db are aligned)
+			std::string emptyBufferMeshId;
+			cache.setEmptyBuffer(cache.getNumVerticesPerSize(), emptyBufferMeshId, buffer);
+			writeDiskCacheToDB(cache, stop);
+		}
+		
+		cache.writeBufferToDiskCache(buffer);
+	}
+
+#define MAPMANAGER_NOTHING_TO_DO		0
+#define MAPMANAGER_UPDATED_CACHE		1
+#define MAPMANAGER_UPDATED_DB			2
+#define MAPMANAGER_UPDATED_CACHE_AND_DB 3
+
+	void MapManager::alignDiskCacheAndDB(size_t numVerticesPerSize, int level)
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+
+		if (!s_mapInitMap.contains(numVerticesPerSize))
+		{
+			MapInitMapPerLevel m;
+			s_mapInitMap[numVerticesPerSize] = m;
+		}
+		if (!s_mapInitMap[numVerticesPerSize].contains(level) || s_mapInitMap[numVerticesPerSize][level] == nullptr)
+			s_mapInitMap[numVerticesPerSize][level] = new InitMap;
+
+		s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit = false;
+		s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThread = std::thread(&MapManager::alignDiskCacheAndDBTask, this, numVerticesPerSize, level);
+	}
+
+	void MapManager::stopAlignDiskCacheAndDBTasks(void)
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+
+		for (auto& m : s_mapInitMap)
+		{
+			for (auto m1 : m.second)
+			{
+				stopAlignDiskCacheAndDBTask(m.first, m1.first);
+			}
+		}
+
+		s_mapInitMap.clear();
+	}
+
+	void MapManager::stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level)
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+
+		if (!s_mapInitMap.contains(numVerticesPerSize))
+			return;
+
+		if (!s_mapInitMap[numVerticesPerSize].contains(level))
+			return;
+
+		if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThread.joinable())
+		{
+			s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit = true;
+			s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThread.join();
+			delete s_mapInitMap[numVerticesPerSize][level];
+			s_mapInitMap[numVerticesPerSize][level] = nullptr;
+		}
+	}
+
+#define WAIT_TIME_BEFORE_NEW_SCAN	30000
+
+	void MapManager::alignDiskCacheAndDBTask(size_t numVerticesPerSize, int level)
+	{
+		PLOG_DEBUG << "Align CACHE <==> DB - Start alignement thread";
+
+		while (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
+		{
+			float gridStepInWU = MapManager::gridStepInWU();
+			std::string cacheDir = m_SqlInterface->dataPath();
+			std::string mapName = getMapName();
+			std::vector<TheWorld_Utils::MeshCacheBuffer> vectDiskCache;
+			TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, vectDiskCache);
+
+			if (vectDiskCache.size() > 0)
+			{
+				for (auto& cache : vectDiskCache)
+				{
+					if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
+						break;
+
+					int ret = alignDiskCacheAndDB(cache, s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit);
+					ret = 0;
+				}
+			}
+
+			TheWorld_Viewer_Utils::MsTimePoint start = std::chrono::time_point_cast<TheWorld_Viewer_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
+			while (true)
+			{
+				if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
+					break;
+
+				TheWorld_Viewer_Utils::MsTimePoint now = std::chrono::time_point_cast<TheWorld_Viewer_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
+				long long elapsedWaiting = (now - start).count();
+				if (elapsedWaiting > WAIT_TIME_BEFORE_NEW_SCAN)
+					break;
+
+				Sleep(50);
+			}
+		}
+	}
+
+	int MapManager::alignDiskCacheAndDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop)
+	{
+		TheWorld_Utils::GuardProfiler profiler(std::string("alignCacheAndDB ") + __FUNCTION__, "getQuadrantVertices");
+
+		PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr();
+
+		std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+
+		int ret = MAPMANAGER_NOTHING_TO_DO;
+
+		std::string serverCacheMeshId = cache.getMeshIdFromDisk();
+		enum class SQLInterface::QuadrantStatus status;
+		std::string dbCacheId = m_SqlInterface->getQuadrantHash(cache.getGridStepInWU(), cache.getNumVerticesPerSize(), cache.getLevel(), cache.getLowerXGridVertex(), cache.getLowerZGridVertex(), status);
+		if (status == SQLInterface::QuadrantStatus::Loading)
+			dbCacheId = "";
+
+		size_t size = serverCacheMeshId.size();
+		const char* p = serverCacheMeshId.c_str();
+		size_t size1 = dbCacheId.size();
+		const char* p1 = dbCacheId.c_str();
+
+		size = memcmp(serverCacheMeshId.c_str(), dbCacheId.c_str(), size);
+
+		if (serverCacheMeshId.size() == 0 && dbCacheId.size() == 0)
+		{
+			// no info of the terrain in cache nor in the db
+			TheWorld_Utils::MemoryBuffer tempBuffer; 
+			
+			{
+				TheWorld_Utils::GuardProfiler profiler(std::string("alignCacheAndDB 1.1 ") + __FUNCTION__, "Generate empty buffer");
+				cache.setEmptyBuffer(cache.getNumVerticesPerSize(), serverCacheMeshId, tempBuffer);
+			}
+
+			{
+				TheWorld_Utils::GuardProfiler profiler(std::string("alignCacheAndDB 1.2 ") + __FUNCTION__, "Write buffer to cache");
+				cache.writeBufferToDiskCache(tempBuffer);
+			}
+			writeDiskCacheToDB(cache, stop);
+
+			ret = MAPMANAGER_UPDATED_CACHE_AND_DB;
+		}
+		else if (serverCacheMeshId.size() == 0)
+		{
+			// info of the terrain is in DB
+			writeDiskCacheFromDB(cache, stop);
+			ret = MAPMANAGER_UPDATED_CACHE;
+		}
+		else if (dbCacheId.size() == 0)
+		{
+			// info of the terrain is in cache
+			writeDiskCacheToDB(cache, stop);
+			ret = MAPMANAGER_UPDATED_DB;
+		}
+		else
+		{
+			// info of the terrain is in cache and in db
+			if (serverCacheMeshId.compare(dbCacheId) == 0)
+			{
+				ret = MAPMANAGER_NOTHING_TO_DO;
+			}
+			else if (cache.firstMeshIdMoreRecent(serverCacheMeshId, dbCacheId))
+			{
+				writeDiskCacheToDB(cache, stop);
+				ret = MAPMANAGER_UPDATED_DB;
+			}
+			else
+			{
+				writeDiskCacheFromDB(cache, stop);
+				ret = MAPMANAGER_UPDATED_CACHE;
+			}
+		}
+
+		return ret;
+	}
+	
 	void MapManager::getQuadrantVertices(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshId, std::string& meshBuffer)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b ") + __FUNCTION__, "getQuadrantVertices");
@@ -788,23 +1224,27 @@ namespace TheWorld_MapManager
 			std::string mapName = getMapName();
 			cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 
-			// client has the buffer as it has sent its mesh id
-			serverCacheMeshId = cache.getMeshIdFromCache();
-			//dbHash = m_SqlInterface->getQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
-			//if (serverCacheMeshId != dbHash)
-			//	serverCacheMeshId.clear();
+			serverCacheMeshId = cache.getMeshIdFromDisk();
+
+			if (serverCacheMeshId.size() == 0)
+			{
+				bool stop = false;
+				int ret = alignDiskCacheAndDB(cache, stop);
+				serverCacheMeshId = cache.getMeshIdFromDisk();
+				my_assert(serverCacheMeshId.size() > 0);
+			}
 		}
 
 		bool clientCacheValid = false;
-		if (meshId.size() > 0 && (meshId == serverCacheMeshId || serverCacheMeshId.size() == 0))
+		if (meshId.size() > 0 && meshId == serverCacheMeshId)
 			clientCacheValid = true;
 		else
-			if (meshId.size() > 0 && serverCacheMeshId.size() > 0 && cache.firstMeshIdMoreRecent(meshId, serverCacheMeshId))
+			if (meshId.size() > 0 && cache.firstMeshIdMoreRecent(meshId, serverCacheMeshId))
 				clientCacheValid = true;
 		
-		if (clientCacheValid || serverCacheMeshId.size() == 0)
+		if (clientCacheValid)
 		{
-			// client cache is valid: more recent than server's one or server does not have a cache
+			// client cache is valid: more recent than server's one (if server's cache is empty it MUST be less recent by design) - W answer an empty buffer so that client can use its own buffer
 
 			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.2 ") + __FUNCTION__, "Set header in buffer (use client cache)");
 			std::vector<float> vectGridHeights;
@@ -814,97 +1254,11 @@ namespace TheWorld_MapManager
 		}
 		else
 		{
-			// client cache is not valid and server has cache: we answer server's buffer
+			// client cache is not valid we answer server's buffer (it can be empty)
 
-			my_assert(serverCacheMeshId.size() > 0);
-
-			if (serverCacheMeshId.size() > 0)
-			{
-				//we can use server cache
-
-				TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.3 ") + __FUNCTION__, "Set buffer from server cache");
-				meshId = serverCacheMeshId;
-				cache.readBufferFromCache(serverCacheMeshId, meshBuffer);
-			}
-			else
-			{
-				// dead branch
-				
-				// nor client nor server has a cache
-
-				//if (dbHash.length() > 0)
-				//{
-				//	//server cache is invalid but we use the db hash as mesh id
-
-				//	meshId = dbHash;
-				//}
-				//else
-				//{
-				//	//server cache is invalid so we have to recalculate the mesh with a new mesh id and save it to the db
-
-				//	TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.4 ") + __FUNCTION__, "Create new MeshId");
-				//	GUID newId;
-				//	RPC_STATUS ret_val = ::UuidCreate(&newId);
-				//	if (ret_val != RPC_S_OK)
-				//	{
-				//		std::string msg = "UuidCreate in error with rc " + std::to_string(ret_val);
-				//		PLOG_ERROR << msg;
-				//		throw(MapManagerException(__FUNCTION__, msg.c_str()));
-				//	}
-				//	meshId = ToString(&newId);
-
-				//	m_SqlInterface->setQuadrantHash(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex, meshId);
-				//}
-
-				//std::vector<TheWorld_MapManager::SQLInterface::GridVertex> dbVertices;
-				//{
-				//	TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.5 ") + __FUNCTION__, "getVertices from DB");
-				//	getVertices(lowerXGridVertex, lowerZGridVertex, anchorType::upperleftcorner, numVerticesPerSize, numVerticesPerSize, dbVertices, gridStepInWU, level);
-				//}
-
-				//std::vector<float> vectGridHeights;
-				//{
-				//	TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.6 ") + __FUNCTION__, "Conv. DB GridVertex to vector of heights");
-				//	size_t dbVertexArraySize = dbVertices.size();
-				//	if (dbVertexArraySize != numVerticesPerSize * numVerticesPerSize)
-				//		throw(std::exception((std::string(__FUNCTION__) + std::string("vertexArraySize not of the correct size")).c_str()));
-
-				//	vectGridHeights.resize(dbVertexArraySize);
-				//	size_t idx = 0;
-				//	for (int z = 0; z < numVerticesPerSize; z++)
-				//		for (int x = 0; x < numVerticesPerSize; x++)
-				//		{
-				//			//Sleep(0);
-				//			TheWorld_MapManager::SQLInterface::GridVertex& v = dbVertices[z * numVerticesPerSize + x];
-				//			vectGridHeights[idx] = v.altitude();
-				//			idx++;
-				//		}
-				//}
-
-				//{
-				//	TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.7 ") + __FUNCTION__, "Reverse array to buffer");
-				//	float minAltitude = 0, maxAltitude = 0;
-				//	TheWorld_Utils::MemoryBuffer terrainEditValuesBuffer;
-				//	cache.setBufferFromHeights(meshId, numVerticesPerSize, gridStepInWU, terrainEditValuesBuffer, vectGridHeights, meshBuffer, minAltitude, maxAltitude, true);
-				//}
-
-				TheWorld_Utils::MemoryBuffer tempBuffer; 
-				{
-					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.6 ") + __FUNCTION__, "Generate empty buffer");
-
-					cache.setEmptyBuffer(numVerticesPerSize, meshId, tempBuffer);
-				}
-
-				{
-					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.6 ") + __FUNCTION__, "Copy buffer");
-					meshBuffer.assign((char*)tempBuffer.ptr(), tempBuffer.size());
-				}
-
-				{
-					TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.8 ") + __FUNCTION__, "Write buffer to cache");
-					cache.writeBufferToCache(meshBuffer);
-				}
-			}
+			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.3 ") + __FUNCTION__, "Set buffer from server cache");
+			meshId = serverCacheMeshId;
+			cache.readBufferFromDisk(serverCacheMeshId, meshBuffer);
 		}
 	}
 		
@@ -950,12 +1304,21 @@ namespace TheWorld_MapManager
 
 	void MapManager::internalGetVertices(float min_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level)
 	{
+		TheWorld_Utils::GuardProfiler profiler(std::string("internalGetVertices1 ") + __FUNCTION__, "ALL");
+
+		float max_X_OnTheGridInWUs = min_X_OnTheGridInWUs + numVerticesX * gridStepInWU;
+		float max_Z_OnTheGridInWUs = min_Z_OnTheGridInWUs + numVerticesZ * gridStepInWU;
+		internalGetVertices(min_X_OnTheGridInWUs, max_X_OnTheGridInWUs, min_Z_OnTheGridInWUs, max_Z_OnTheGridInWUs, numVerticesX, numVerticesZ, mesh, gridStepInWU, numFoundInDB, level);
+	}
+		
+	void MapManager::internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level)
+	{
+		TheWorld_Utils::GuardProfiler profiler(std::string("internalGetVertices2 ") + __FUNCTION__, "ALL");
+		
 		vector<FlatGridPoint> grid;
 		getFlatGrid(min_X_OnTheGridInWUs, min_Z_OnTheGridInWUs, numVerticesX, numVerticesZ, grid, gridStepInWU);
 		getEmptyVertexGrid(grid, mesh, level);
 
-		float max_X_OnTheGridInWUs = min_X_OnTheGridInWUs + numVerticesX * gridStepInWU;
-		float max_Z_OnTheGridInWUs = min_Z_OnTheGridInWUs + numVerticesZ * gridStepInWU;
 		vector<SQLInterface::GridVertex> vectGridVerticesFromDB;
 		m_SqlInterface->getVertices(min_X_OnTheGridInWUs, max_X_OnTheGridInWUs, min_Z_OnTheGridInWUs, max_Z_OnTheGridInWUs, vectGridVerticesFromDB, level);
 
