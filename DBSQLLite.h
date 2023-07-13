@@ -8,6 +8,9 @@
 #include <memory>
 #include <thread>
 
+#define MAX_TIME_RETRY_ON_DB_BUSY	1000
+#define SLEEP_TIME_ON_DB_BUSY		10
+
 namespace TheWorld_MapManager
 {
 	class DBSQLLiteConn
@@ -69,9 +72,25 @@ namespace TheWorld_MapManager
 			return m_pDB; 
 		}
 
+		void acquireExclusiveAccessToDB()
+		{
+			m_DBAccessMtx.lock();
+		}
+
+		void releaseExclusiveAccessToDB()
+		{
+			m_DBAccessMtx.unlock();
+		}
+
+		std::recursive_mutex& getExclusiveDBAccessMutex(void)
+		{
+			return m_DBAccessMtx;
+		}
+
 	private:
 		sqlite3* m_pDB;
 		string m_dbFilePath;
+		std::recursive_mutex m_DBAccessMtx;
 	};
 
 	class DBThreadContext
@@ -270,9 +289,8 @@ namespace TheWorld_MapManager
 			if (db == NULL)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB not opened!"));
 
-#define BEGINTTRANS_MAX_TIME_RETRY_ON_DB_BUSY	5000
-#define BEGINTTRANS_SLEEP_TIME_ON_DB_BUSY		1
-
+			m_conn->acquireExclusiveAccessToDB();
+			
 			TimerMs clock(false, false);
 			clock.tick();
 			while (true)
@@ -281,17 +299,23 @@ namespace TheWorld_MapManager
 				int rc = sqlite3_exec(db, "BEGIN IMMEDIATE TRANSACTION;", NULL, NULL, NULL);
 				releaseLock();
 				if (rc != SQLITE_OK && rc != SQLITE_BUSY)
+				{
+					m_conn->releaseExclusiveAccessToDB();
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB Begin Transaction failed!", sqlite3_errmsg(getConn()), rc));
+				}
 				
 				if (rc == SQLITE_OK)
 					break;
 				else
 				{
 					auto msDuration = clock.partialDuration().count();
-					if (msDuration > BEGINTTRANS_MAX_TIME_RETRY_ON_DB_BUSY)
+					if (msDuration > MAX_TIME_RETRY_ON_DB_BUSY)
+					{
+						m_conn->releaseExclusiveAccessToDB();
 						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB Begin Transaction failed! SQLITE_BUSY after timeout", sqlite3_errmsg(getConn()), rc));
+					}
 					else
-						Sleep(BEGINTTRANS_SLEEP_TIME_ON_DB_BUSY);
+						Sleep(SLEEP_TIME_ON_DB_BUSY);
 				}
 			}
 
@@ -301,10 +325,14 @@ namespace TheWorld_MapManager
 		void endTransaction(bool commit = true)
 		{
 			if (!m_initialized)
+			{
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps instance not initialized!"));
+			}
 
-			if (!m_transactionOpened )
+			if (!m_transactionOpened)
+			{
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite there is not an oened transaction!"));
+			}
 
 			if (commit)
 			{
@@ -312,24 +340,24 @@ namespace TheWorld_MapManager
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException("DB SQLite DB Commit Transaction failed!", sqlite3_errmsg(getConn()), rc)); */
 
-#define COMMIT_MAX_TIME_RETRY_ON_DB_BUSY	1000
-#define COMMIT_SLEEP_TIME_ON_DB_BUSY		10
-
 				prepareStmt("COMMIT TRANSACTION;");
 
 				int numRetry = 0;
 				int rc = SQLITE_BUSY;
-				while (rc == SQLITE_BUSY && numRetry < COMMIT_MAX_TIME_RETRY_ON_DB_BUSY / COMMIT_SLEEP_TIME_ON_DB_BUSY)
+				while (rc == SQLITE_BUSY && numRetry < MAX_TIME_RETRY_ON_DB_BUSY / SLEEP_TIME_ON_DB_BUSY)
 				{
 					acquireLock();
 					rc = sqlite3_step(m_stmt);		//executing the statement
 					releaseLock();
 					if (rc == SQLITE_BUSY)
-						Sleep(COMMIT_SLEEP_TIME_ON_DB_BUSY);
+						Sleep(SLEEP_TIME_ON_DB_BUSY);
 					numRetry++;
 				}
 				if (rc != SQLITE_DONE)
+				{
+					m_conn->releaseExclusiveAccessToDB();
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB Commit Transaction failed!", sqlite3_errmsg(getConn()), rc));
+				}
 
 				finalizeStmt();
 				
@@ -340,26 +368,29 @@ namespace TheWorld_MapManager
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException("DB SQLite DB Rollback Transaction failed!", sqlite3_errmsg(getConn()), rc));*/
 
-#define COMMIT_MAX_TIME_RETRY_ON_DB_BUSY	1000
-#define COMMIT_SLEEP_TIME_ON_DB_BUSY		10
 				prepareStmt("ROLLBACK TRANSACTION;");
 
 				int numRetry = 0;
 				int rc = SQLITE_BUSY;
-				while (rc == SQLITE_BUSY && numRetry < COMMIT_MAX_TIME_RETRY_ON_DB_BUSY / COMMIT_SLEEP_TIME_ON_DB_BUSY)
+				while (rc == SQLITE_BUSY && numRetry < MAX_TIME_RETRY_ON_DB_BUSY / SLEEP_TIME_ON_DB_BUSY)
 				{
 					acquireLock();
 					rc = sqlite3_step(m_stmt);		//executing the statement
 					releaseLock();
 					if (rc == SQLITE_BUSY)
-						Sleep(COMMIT_SLEEP_TIME_ON_DB_BUSY);
+						Sleep(SLEEP_TIME_ON_DB_BUSY);
 					numRetry++;
 				}
 				if (rc != SQLITE_DONE)
+				{
+					m_conn->releaseExclusiveAccessToDB();
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB Rollback Transaction failed!", sqlite3_errmsg(getConn()), rc));
+				}
 
 				finalizeStmt();
 			}
+
+			m_conn->releaseExclusiveAccessToDB();
 
 			m_transactionOpened = false;
 		}
@@ -379,7 +410,7 @@ namespace TheWorld_MapManager
 			return sqlite3_errmsg(getConn()); 
 		}
 
-		void prepareStmt(const char* szSql)
+		void prepareStmt(const char* szSql, sqlite3_stmt** stmt = nullptr)
 		{
 			if (!m_initialized)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps instance not initialized!"));
@@ -388,50 +419,115 @@ namespace TheWorld_MapManager
 			if (db == NULL)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB not opened!"));
 
-			if (m_stmt != NULL)
-				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to prepare a statement not finalized!"));
+			if (stmt == nullptr)
+				if (m_stmt != NULL)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to prepare a statement not finalized!"));
 
-			const char* pzTail;
-			acquireLock();
-			int rc = sqlite3_prepare_v2(db, szSql, -1, &m_stmt, &pzTail);
-			releaseLock();
+			std::recursive_mutex& exclusiveDBAccessMutex = m_conn->getExclusiveDBAccessMutex();
+			std::lock_guard<std::recursive_mutex> lock(exclusiveDBAccessMutex);
+
+			int numRetry = 0;
+			int rc = SQLITE_BUSY;
+			while (rc == SQLITE_BUSY && numRetry < MAX_TIME_RETRY_ON_DB_BUSY / SLEEP_TIME_ON_DB_BUSY)
+			{
+				const char* pzTail;
+				acquireLock();
+				if (stmt == nullptr)
+					rc = sqlite3_prepare_v2(db, szSql, -1, &m_stmt, &pzTail);
+				else
+					rc = sqlite3_prepare_v2(db, szSql, -1, stmt, &pzTail);
+				releaseLock();
+				if (rc == SQLITE_BUSY)
+				{
+					Sleep(SLEEP_TIME_ON_DB_BUSY);
+				}
+				numRetry++;
+			}
 			if (rc != SQLITE_OK)
+			{
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite prepare of a statement failed!", sqlite3_errmsg(getConn()), rc));
+			}
 
-			m_preparedStmtSQL = szSql;
+			if (stmt == nullptr)
+				m_preparedStmtSQL = szSql;
 		}
 
-		void finalizeStmt(void)
+		void finalizeStmt(sqlite3_stmt* stmt = nullptr)
 		{
 			if (!m_initialized)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps instance not initialized!"));
-			if (m_stmt == NULL)
-				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to finalize a statement not prepared!"));
+			if (stmt == nullptr)
+				if (m_stmt == NULL)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to finalize a statement not prepared!"));
 
-			acquireLock();
-			int rc = sqlite3_finalize(m_stmt);
-			releaseLock();
+			std::recursive_mutex& exclusiveDBAccessMutex = m_conn->getExclusiveDBAccessMutex();
+			std::lock_guard<std::recursive_mutex> lock(exclusiveDBAccessMutex);
+
+			int numRetry = 0;
+			int rc = SQLITE_BUSY;
+			while (rc == SQLITE_BUSY && numRetry < MAX_TIME_RETRY_ON_DB_BUSY / SLEEP_TIME_ON_DB_BUSY)
+			{
+				acquireLock();
+				if (stmt == nullptr)
+					rc = sqlite3_finalize(m_stmt);
+				else
+					rc = sqlite3_finalize(stmt);
+				releaseLock();
+				if (rc == SQLITE_BUSY)
+					Sleep(SLEEP_TIME_ON_DB_BUSY);
+				numRetry++;
+			}
 			if (rc != SQLITE_OK)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite finalize of a statement failed!", sqlite3_errmsg(getConn()), rc));
 
-			m_stmt = NULL;
-			m_preparedStmtSQL.clear();
+			if (stmt == nullptr)
+			{
+				m_stmt = NULL;
+				m_preparedStmtSQL.clear();
+			}
 		}
 
 		sqlite3_stmt* getStmt()
 		{
 			return m_stmt; 
 		}
+
 		bool isTransactionOpened() 
 		{
 			return m_transactionOpened; 
 		}
 
-		void resetStmt(void)
+		void resetStmt(sqlite3_stmt* stmt = nullptr)
 		{
-			int rc = sqlite3_reset(m_stmt);
+			int rc;
+			if (stmt == nullptr)
+				rc = sqlite3_reset(m_stmt);
+			else
+				rc = sqlite3_reset(stmt);
 			if (rc != SQLITE_OK && rc != SQLITE_CONSTRAINT)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite reset of a statement failed!", sqlite3_errmsg(getConn()), rc));
+		}
+
+		int execStmt(sqlite3_stmt* stmt = nullptr)
+		{
+			std::recursive_mutex& exclusiveDBAccessMutex = m_conn->getExclusiveDBAccessMutex();
+			std::lock_guard<std::recursive_mutex> lock(exclusiveDBAccessMutex);
+
+			int numRetry = 0;
+			int rc = SQLITE_BUSY;
+			while (rc == SQLITE_BUSY && numRetry < MAX_TIME_RETRY_ON_DB_BUSY / SLEEP_TIME_ON_DB_BUSY)
+			{
+				acquireLock();
+				if (stmt == nullptr)
+					rc = sqlite3_step(m_stmt);
+				else
+					rc = sqlite3_step(stmt);
+				releaseLock();
+				if (rc == SQLITE_BUSY)
+					Sleep(SLEEP_TIME_ON_DB_BUSY);
+				numRetry++;
+			}
+			return rc;
 		}
 
 		void acquireLock(void)
@@ -480,7 +576,7 @@ namespace TheWorld_MapManager
 			s_connPool.resetForCurrentThread();
 		}
 
-		string completeSQL(const char* sql, ...)
+		std::string completeSQL(const char* sql, ...)
 		{
 			char buffer[512];
 			va_list params;
@@ -501,9 +597,9 @@ namespace TheWorld_MapManager
 		bool m_initialized;
 		bool m_lockAcquired;
 		sqlite3_stmt* m_stmt;
-		string m_preparedStmtSQL;
+		std::string m_preparedStmtSQL;
 		bool m_transactionOpened;
-		string m_dbFilePath;
+		std::string m_dbFilePath;
 	};
 
 	class DBSQLLite : public SQLInterface
@@ -535,14 +631,16 @@ namespace TheWorld_MapManager
 		void clearVerticesMarkedForUpdate(void);
 		void getVertex(__int64 vertexRowid, GridVertex& gridVertex, int level = 0);
 		void getVertex(GridVertex& gridVertex);
-		void getVertices(float minX, float maxX, float minZ, float maxZ, vector<GridVertex>& vectGridVertices, int level = 0);
+		void getVertices(float minX, float maxX, float minZ, float maxZ, std::vector<GridVertex>& vectGridVertices, int level = 0);
+		size_t eraseVertices(float minX, float maxX, float minZ, float maxZ, int level = 0);
 		bool getWD(float posX, float posZ, int level, WDType type, WorldDefiner& WD);
 		bool getWD(__int64 wdRowid, WorldDefiner& WD);
-		void getWDRowIdForVertex(__int64 vertexRowid, vector<__int64>& vectWDRowId);
+		void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& vectWDRowId);
 		bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
 		bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
-		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ);
-		virtual void setQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, std::string hash);
+		std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class SQLInterface::QuadrantStatus& status);
+		void writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, bool& stop);
+		void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, enum class QuadrantStatus& status, TheWorld_Utils::TerrainEdit& terrainEdit);
 		void finalizeDB(void);
 
 	private:
