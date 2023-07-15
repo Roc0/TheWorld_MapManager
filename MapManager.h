@@ -188,9 +188,9 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void getVertices(float& anchorXInWUs, float& anchorZInWUs, anchorType type, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) void getQuadrantVertices(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshId, std::string& meshBuffer);
 		_declspec(dllexport) int alignDiskCacheAndDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
-		_declspec(dllexport) void alignDiskCacheAndDB(size_t numVerticesPerSize, int level);
+		_declspec(dllexport) void alignDiskCacheAndDB(bool isInEditor, size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void alignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
-		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(void);
+		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(bool isInEditor);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
 		_declspec(dllexport) void writeDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);

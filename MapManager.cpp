@@ -1029,8 +1029,11 @@ namespace TheWorld_MapManager
 #define MAPMANAGER_UPDATED_DB			2
 #define MAPMANAGER_UPDATED_CACHE_AND_DB 3
 
-	void MapManager::alignDiskCacheAndDB(size_t numVerticesPerSize, int level)
+	void MapManager::alignDiskCacheAndDB(bool isInEditor, size_t numVerticesPerSize, int level)
 	{
+		if (isInEditor)
+			return;
+		
 		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
 
 		if (!s_mapInitMap.contains(numVerticesPerSize))
@@ -1045,8 +1048,11 @@ namespace TheWorld_MapManager
 		s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThread = std::thread(&MapManager::alignDiskCacheAndDBTask, this, numVerticesPerSize, level);
 	}
 
-	void MapManager::stopAlignDiskCacheAndDBTasks(void)
+	void MapManager::stopAlignDiskCacheAndDBTasks(bool isInEditor)
 	{
+		if (isInEditor)
+			return;
+
 		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
 
 		for (auto& m : s_mapInitMap)
