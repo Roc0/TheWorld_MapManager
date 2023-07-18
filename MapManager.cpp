@@ -767,7 +767,7 @@ namespace TheWorld_MapManager
 		//writeDiskCacheToDB(cache, stop);
 	}
 
-	void MapManager::writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop)
+	bool MapManager::writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("writeDiskCacheToDB ") + __FUNCTION__, "ALL");
 
@@ -795,10 +795,12 @@ namespace TheWorld_MapManager
 		if (!emptyBuffer)
 			cache.refreshCacheQuadrantDataFromBuffer(buffer, cacheQuadrantData, false);
 		
-		m_SqlInterface->writeQuadrantToDB(cache, cacheQuadrantData, stop);
+		bool completed = m_SqlInterface->writeQuadrantToDB(cache, cacheQuadrantData, stop);
+
+		return completed;
 	}
 
-	void MapManager::writeDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop)
+	bool MapManager::writeDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("writeDiskCacheFromDB ") + __FUNCTION__, "ALL");
 
@@ -808,10 +810,10 @@ namespace TheWorld_MapManager
 		m_SqlInterface->readQuadrantFromDB(cache, meshId, status, terrainEdit);
 
 		if (status == SQLInterface::QuadrantStatus::Loading)
-			return;
+			return false;
 
 		if (meshId.size() == 0)
-			return;
+			return false;
 
 		TheWorld_Utils::MemoryBuffer heights16Buffer;
 		TheWorld_Utils::MemoryBuffer heights32Buffer;
@@ -860,7 +862,7 @@ namespace TheWorld_MapManager
 			for (auto& gridVertex : vectGridVertex)
 			{
 				if (stop)
-					return;
+					return false;
 				
 				TheWorld_Utils::FLOAT_32 f;
 				f.f32 = gridVertex.altitude();
@@ -1015,15 +1017,19 @@ namespace TheWorld_MapManager
 		}
 		else
 		{
-			//if no vertices of the quadrant in DB we force empty quadrant meshid (with empy quadrant meshid only the hash is updated and cahce and db are aligned)
+			//if no vertices of the quadrant in DB we force empty quadrant meshid (with empty quadrant meshid only the hash is updated and cache and db are aligned)
 			std::string emptyBufferMeshId;
 			cache.setEmptyBuffer(cache.getNumVerticesPerSize(), emptyBufferMeshId, buffer);
 			writeDiskCacheToDB(cache, stop);
 		}
 		
 		cache.writeBufferToDiskCache(buffer);
+
+		return true;
+
 	}
 
+#define MAPMANAGER_STOPPED				-1
 #define MAPMANAGER_NOTHING_TO_DO		0
 #define MAPMANAGER_UPDATED_CACHE		1
 #define MAPMANAGER_UPDATED_DB			2
@@ -1090,6 +1096,7 @@ namespace TheWorld_MapManager
 	void MapManager::alignDiskCacheAndDBTask(size_t numVerticesPerSize, int level)
 	{
 		PLOG_DEBUG << "Align CACHE <==> DB - Start alignement thread";
+		//return;
 
 		while (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 		{
@@ -1099,15 +1106,21 @@ namespace TheWorld_MapManager
 			std::vector<TheWorld_Utils::MeshCacheBuffer> vectDiskCache;
 			TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, vectDiskCache);
 
+			size_t progr = 0;
 			if (vectDiskCache.size() > 0)
 			{
 				for (auto& cache : vectDiskCache)
 				{
+					progr++;
+
 					if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 						break;
 
 					int ret = alignDiskCacheAndDB(cache, s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit);
-					ret = 0;
+					if (ret != MAPMANAGER_NOTHING_TO_DO && ret != MAPMANAGER_STOPPED)
+					{
+						PLOG_DEBUG << "Align CACHE <==> DB - Aligned cache element " << progr << "/" << vectDiskCache.size();
+					}
 				}
 			}
 
@@ -1125,13 +1138,13 @@ namespace TheWorld_MapManager
 				Sleep(50);
 			}
 		}
+
+		PLOG_DEBUG << "Align CACHE <==> DB - Stop alignement thread";
 	}
 
 	int MapManager::alignDiskCacheAndDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("alignCacheAndDB ") + __FUNCTION__, "getQuadrantVertices");
-
-		PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr();
 
 		std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
 
@@ -1143,42 +1156,58 @@ namespace TheWorld_MapManager
 		if (status == SQLInterface::QuadrantStatus::Loading)
 			dbCacheId = "";
 
-		size_t size = serverCacheMeshId.size();
-		const char* p = serverCacheMeshId.c_str();
-		size_t size1 = dbCacheId.size();
-		const char* p1 = dbCacheId.c_str();
-
-		size = memcmp(serverCacheMeshId.c_str(), dbCacheId.c_str(), size);
+		//size_t size = serverCacheMeshId.size();
+		//const char* p = serverCacheMeshId.c_str();
+		//size_t size1 = dbCacheId.size();
+		//const char* p1 = dbCacheId.c_str();
+		//size = memcmp(serverCacheMeshId.c_str(), dbCacheId.c_str(), size);
 
 		if (serverCacheMeshId.size() == 0 && dbCacheId.size() == 0)
 		{
 			// no info of the terrain in cache nor in the db
-			TheWorld_Utils::MemoryBuffer tempBuffer; 
 			
-			{
-				TheWorld_Utils::GuardProfiler profiler(std::string("alignCacheAndDB 1.1 ") + __FUNCTION__, "Generate empty buffer");
-				cache.setEmptyBuffer(cache.getNumVerticesPerSize(), serverCacheMeshId, tempBuffer);
-			}
+			ret = MAPMANAGER_NOTHING_TO_DO;
 
-			{
-				TheWorld_Utils::GuardProfiler profiler(std::string("alignCacheAndDB 1.2 ") + __FUNCTION__, "Write buffer to cache");
-				cache.writeBufferToDiskCache(tempBuffer);
-			}
-			writeDiskCacheToDB(cache, stop);
+			//TheWorld_Utils::MemoryBuffer tempBuffer;
+			//
+			//{
+			//	TheWorld_Utils::GuardProfiler profiler(std::string("alignCacheAndDB 1.1 ") + __FUNCTION__, "Generate empty buffer");
+			//	cache.setEmptyBuffer(cache.getNumVerticesPerSize(), serverCacheMeshId, tempBuffer);
+			//}
 
-			ret = MAPMANAGER_UPDATED_CACHE_AND_DB;
+			//{
+			//	TheWorld_Utils::GuardProfiler profiler(std::string("alignCacheAndDB 1.2 ") + __FUNCTION__, "Write buffer to cache");
+			//	cache.writeBufferToDiskCache(tempBuffer);
+			//}
+			//writeDiskCacheToDB(cache, stop);
+
+			//ret = MAPMANAGER_UPDATED_CACHE_AND_DB;
 		}
 		else if (serverCacheMeshId.size() == 0)
 		{
 			// info of the terrain is in DB
-			writeDiskCacheFromDB(cache, stop);
-			ret = MAPMANAGER_UPDATED_CACHE;
+			PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " DB ==> Cache";
+			bool completed = writeDiskCacheFromDB(cache, stop);
+			if (completed)
+			{
+				PLOG_DEBUG << "Align CACHE <==> DB - Alignement " << cache.getCacheIdStr() << " DB ==> Cache - Completed";
+				ret = MAPMANAGER_UPDATED_CACHE;
+			}
+			else
+				ret = MAPMANAGER_STOPPED;
 		}
 		else if (dbCacheId.size() == 0)
 		{
 			// info of the terrain is in cache
-			writeDiskCacheToDB(cache, stop);
-			ret = MAPMANAGER_UPDATED_DB;
+			PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " Cache ==> DB";
+			bool completed = writeDiskCacheToDB(cache, stop);
+			if (completed)
+			{
+				PLOG_DEBUG << "Align CACHE <==> DB - Alignement " << cache.getCacheIdStr() << " Cache ==> DB - Completed";
+				ret = MAPMANAGER_UPDATED_DB;
+			}
+			else
+				ret = MAPMANAGER_STOPPED;
 		}
 		else
 		{
@@ -1189,13 +1218,27 @@ namespace TheWorld_MapManager
 			}
 			else if (cache.firstMeshIdMoreRecent(serverCacheMeshId, dbCacheId))
 			{
-				writeDiskCacheToDB(cache, stop);
-				ret = MAPMANAGER_UPDATED_DB;
+				PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " Cache ==> DB";
+				bool completed = writeDiskCacheToDB(cache, stop);
+				if (completed)
+				{
+					PLOG_DEBUG << "Align CACHE <==> DB - Alignement " << cache.getCacheIdStr() << " Cache ==> DB - Completed";
+					ret = MAPMANAGER_UPDATED_DB;
+				}
+				else
+					ret = MAPMANAGER_STOPPED;
 			}
 			else
 			{
-				writeDiskCacheFromDB(cache, stop);
-				ret = MAPMANAGER_UPDATED_CACHE;
+				PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " DB ==> Cache";
+				bool completed = writeDiskCacheFromDB(cache, stop);
+				if (completed)
+				{
+					PLOG_DEBUG << "Align CACHE <==> DB - Alignement " << cache.getCacheIdStr() << " DB ==> Cache - Completed";
+					ret = MAPMANAGER_UPDATED_CACHE;
+				}
+				else
+					ret = MAPMANAGER_STOPPED;
 			}
 		}
 
@@ -1235,18 +1278,21 @@ namespace TheWorld_MapManager
 			if (serverCacheMeshId.size() == 0)
 			{
 				bool stop = false;
-				int ret = alignDiskCacheAndDB(cache, stop);
-				serverCacheMeshId = cache.getMeshIdFromDisk();
-				my_assert(serverCacheMeshId.size() > 0);
+				//int ret = alignDiskCacheAndDB(cache, stop);
+				//serverCacheMeshId = cache.getMeshIdFromDisk();
+				//my_assert(serverCacheMeshId.size() > 0);
 			}
 		}
 
 		bool clientCacheValid = false;
-		if (meshId.size() > 0 && meshId == serverCacheMeshId)
-			clientCacheValid = true;
-		else
-			if (meshId.size() > 0 && cache.firstMeshIdMoreRecent(meshId, serverCacheMeshId))
+		if (meshId.size() > 0)
+		{
+			if (meshId == serverCacheMeshId)
 				clientCacheValid = true;
+			else
+				if (serverCacheMeshId.size() == 0 || cache.firstMeshIdMoreRecent(meshId, serverCacheMeshId))
+					clientCacheValid = true;
+		}
 		
 		if (clientCacheValid)
 		{
