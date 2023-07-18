@@ -8,7 +8,8 @@
 #include <memory>
 #include <thread>
 
-#define MAX_TIME_RETRY_ON_DB_BUSY	1000
+//#define MAX_TIME_RETRY_ON_DB_BUSY	1000
+#define MAX_TIME_RETRY_ON_DB_BUSY	60000
 #define SLEEP_TIME_ON_DB_BUSY		10
 
 namespace TheWorld_MapManager
@@ -74,22 +75,36 @@ namespace TheWorld_MapManager
 
 		void acquireExclusiveAccessToDB()
 		{
+			//std::recursive_mutex& mtx = getExclusiveDBAccessMutex();
+			//mtx.lock();
 			m_DBAccessMtx.lock();
 		}
 
 		void releaseExclusiveAccessToDB()
 		{
+			//std::recursive_mutex& mtx = getExclusiveDBAccessMutex();
+			////mtx.
+			//mtx.unlock();
 			m_DBAccessMtx.unlock();
 		}
 
 		std::recursive_mutex& getExclusiveDBAccessMutex(void)
 		{
+			//s_mutexPoolMtx.lock();
+			//if (!s_mutexPool.contains(m_dbFilePath))
+			//{
+			//	s_mutexPool[m_dbFilePath] = new std::recursive_mutex;
+			//}
+			//s_mutexPoolMtx.unlock();
+			//return *s_mutexPool[m_dbFilePath];
 			return m_DBAccessMtx;
 		}
 
 	private:
 		sqlite3* m_pDB;
 		string m_dbFilePath;
+		static std::map<std::string, std::recursive_mutex*> s_mutexPool;
+		static std::recursive_mutex s_mutexPoolMtx;
 		std::recursive_mutex m_DBAccessMtx;
 	};
 
@@ -527,6 +542,10 @@ namespace TheWorld_MapManager
 					Sleep(SLEEP_TIME_ON_DB_BUSY);
 				numRetry++;
 			}
+			if (rc == SQLITE_BUSY)
+			{
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite prepare of a statement failed!", sqlite3_errmsg(getConn()), rc));
+			}
 			return rc;
 		}
 
@@ -639,7 +658,7 @@ namespace TheWorld_MapManager
 		bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
 		bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
 		std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class SQLInterface::QuadrantStatus& status);
-		void writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, bool& stop);
+		bool writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, bool& stop);
 		void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, enum class QuadrantStatus& status, TheWorld_Utils::TerrainEdit& terrainEdit);
 		void finalizeDB(void);
 

@@ -192,8 +192,8 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void alignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(bool isInEditor);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
-		_declspec(dllexport) void writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
-		_declspec(dllexport) void writeDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
+		_declspec(dllexport) bool writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
+		_declspec(dllexport) bool writeDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
 		_declspec(dllexport) void uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer);
 		_declspec(dllexport) void getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) inline float calcPreviousCoordOnTheGridInWUs(float coordInWUs);

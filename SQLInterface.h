@@ -325,7 +325,7 @@ namespace TheWorld_MapManager
 		virtual bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
 		virtual bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
 		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class SQLInterface::QuadrantStatus& status) = 0;
-		virtual void writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, bool& stop) = 0;
+		virtual bool writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, bool& stop) = 0;
 		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, enum class SQLInterface::QuadrantStatus& status, TheWorld_Utils::TerrainEdit& terrainEdit) = 0;
 		virtual void finalizeDB(void) = 0;
 

@@ -17,6 +17,8 @@ namespace TheWorld_MapManager
 	DBThreadContextPool DBSQLLiteOps::s_connPool;
 	enum class DBSQLLiteOps::ConnectionType DBSQLLiteOps::s_connType = DBSQLLiteOps::ConnectionType::SingleConn;
 	std::recursive_mutex DBSQLLiteOps::s_DBAccessMtx;
+	std::map<std::string, std::recursive_mutex*> DBSQLLiteConn::s_mutexPool;
+	std::recursive_mutex DBSQLLiteConn::s_mutexPoolMtx;
 		
 	DBSQLLite::DBSQLLite(DBType _dbt, const char* _dataPath, bool consoelDebugMode) : SQLInterface(_dbt, _dataPath, consoelDebugMode)
 	{
@@ -957,7 +959,7 @@ namespace TheWorld_MapManager
 		return h;
 	}
 
-	void DBSQLLite::writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, bool& stop)
+	bool DBSQLLite::writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, bool& stop)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("writeQuadrantToDB ") + __FUNCTION__, "ALL");
 
@@ -1076,6 +1078,7 @@ namespace TheWorld_MapManager
 			if (rc != SQLITE_OK)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 			rc = dbOps->execStmt();
+			int numDeleted = sqlite3_changes(dbOps->getConn());
 			if (rc != SQLITE_DONE)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete from QuadrantLoading table!", sqlite3_errmsg(dbOps->getConn()), rc));
 			dbOps->finalizeStmt();
@@ -1086,6 +1089,7 @@ namespace TheWorld_MapManager
 			if (rc != SQLITE_OK)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind TerrainQuadrant.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 			rc = dbOps->execStmt();
+			numDeleted = sqlite3_changes(dbOps->getConn());
 			if (rc != SQLITE_DONE)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete from TerrainQuadrant table!", sqlite3_errmsg(dbOps->getConn()), rc));
 			dbOps->finalizeStmt();
@@ -1353,15 +1357,6 @@ namespace TheWorld_MapManager
 				{
 					startIdxX = startIdxZ = 0; 
 					
-					//if (stop)
-					//{
-					//	// if stop required from other thread rollback and exit function
-					//	dbOps->finalizeStmt();
-					//	dbOps->finalizeStmt(stmt);
-					//	endTransaction(false);
-					//	return;
-					//}
-
 					float vertexPosX = quadPosX + x * gridStep;
 					float vertexPosY = cacheQuadrantData.heights32Buffer->at<float>(x, z, vertexPerSize);
 					float vertexPosZ = quadPosZ + z * gridStep;
@@ -1603,7 +1598,7 @@ namespace TheWorld_MapManager
 						if (stop)
 						{
 							PLOG_DEBUG << "Align CACHE <==> DB - Stop requested, vertices written to DB " << std::to_string(z * vertexPerSize + x + 1);
-							return;
+							return false;
 						}
 
 						profiler1 = new TheWorld_Utils::GuardProfiler(std::string("writeQuadrantToDB 1 ") + __FUNCTION__, "GrideVertex Transaction");
@@ -1658,6 +1653,8 @@ namespace TheWorld_MapManager
 
 			endTransaction();
 		}
+
+		return true;
 	}
 
 	void DBSQLLite::readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, enum class SQLInterface::QuadrantStatus& status, TheWorld_Utils::TerrainEdit& terrainEdit)
