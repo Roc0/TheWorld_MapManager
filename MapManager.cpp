@@ -1115,11 +1115,14 @@ namespace TheWorld_MapManager
 
 					if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 						break;
-
+					
+					TheWorld_Utils::MsTimePoint start = std::chrono::time_point_cast<TheWorld_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
+					
 					int ret = alignDiskCacheAndDB(cache, s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit);
 					if (ret != MAPMANAGER_NOTHING_TO_DO && ret != MAPMANAGER_STOPPED)
 					{
-						PLOG_DEBUG << "Align CACHE <==> DB - Aligned cache element " << progr << "/" << vectDiskCache.size();
+						TheWorld_Utils::MsTimePoint now = std::chrono::time_point_cast<TheWorld_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
+						PLOG_DEBUG << "Align CACHE <==> DB - Aligned cache element " << progr << "/" << vectDiskCache.size() << " - Elapsed " << (now - start).count() << " ms";
 					}
 				}
 			}
