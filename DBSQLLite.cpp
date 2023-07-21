@@ -928,14 +928,15 @@ namespace TheWorld_MapManager
 		}
 	}
 
-	std::string DBSQLLite::getQuadrantHash(float gridStep, size_t vertexPerSize, size_t level, float posX, float posZ, enum class SQLInterface::QuadrantStatus& status)
+	std::string DBSQLLite::getQuadrantHash(float gridStep, size_t vertexPerSize, size_t level, float posX, float posZ, enum class SQLInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType)
 	{
 		std::string h = "";
 		status = SQLInterface::QuadrantStatus::NotSet;
+		vertexStoreType = SQLInterface::QuadrantVertexStoreType::NotSet;
 
 		DBSQLLiteOps dbOps(dbFilePath());
 		dbOps.init();
-		string sql = "SELECT Hash, Status FROM Quadrant WHERE GridStepInWU = %s AND VertexPerSize = %s AND Level = %s AND PosXStart = %s AND PosZStart = %s;";
+		string sql = "SELECT Hash, Status, VertexStoreType FROM Quadrant WHERE GridStepInWU = %s AND VertexPerSize = %s AND Level = %s AND PosXStart = %s AND PosZStart = %s;";
 		string sql1 = dbOps.completeSQL(sql.c_str(), to_string(gridStep).c_str(), to_string(vertexPerSize).c_str(), to_string(level).c_str(), to_string(posX).c_str(), to_string(posZ).c_str());
 		dbOps.prepareStmt(sql1.c_str());
 		int rc = dbOps.execStmt();
@@ -952,14 +953,21 @@ namespace TheWorld_MapManager
 			else if (s == "E")
 				status = SQLInterface::QuadrantStatus::Empty;
 			else
-				throw(MapManagerExceptionDBException(__FUNCTION__, std::string(std::string("DB SQLite unexpected status") + s + "!").c_str(), sqlite3_errmsg(dbOps.getConn()), rc));
+				throw(MapManagerExceptionDBException(__FUNCTION__, std::string(std::string("DB SQLite unexpected status ") + s + "!").c_str(), sqlite3_errmsg(dbOps.getConn()), rc));
+			s = (const char*)sqlite3_column_text(dbOps.getStmt(), 2);
+			if (s == "X")
+				vertexStoreType = SQLInterface::QuadrantVertexStoreType::eXtended;
+			else if (s == "C")
+				vertexStoreType = SQLInterface::QuadrantVertexStoreType::Compact;
+			else
+				throw(MapManagerExceptionDBException(__FUNCTION__, std::string(std::string("DB SQLite unexpected VertexStoreType ") + s + "!").c_str(), sqlite3_errmsg(dbOps.getConn()), rc));
 		}
 		dbOps.finalizeStmt();
 
 		return h;
 	}
 
-	bool DBSQLLite::writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, bool& stop)
+	bool DBSQLLite::writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, std::string strBuffer, enum class QuadrantVertexStoreType vertexStoreType, bool& stop)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("writeQuadrantToDB ") + __FUNCTION__, "ALL");
 
@@ -982,7 +990,8 @@ namespace TheWorld_MapManager
 			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite cannot procede inside caller's transaction!", ""), 0);
 
 		enum class SQLInterface::QuadrantStatus status;
-		std::string hash = getQuadrantHash(gridStep, vertexPerSize, level, quadPosX, quadPosZ, status);
+		enum class SQLInterface::QuadrantVertexStoreType _vertexStoreType;
+		std::string hash = getQuadrantHash(gridStep, vertexPerSize, level, quadPosX, quadPosZ, status, _vertexStoreType);
 
 		beginTransaction();
 
@@ -994,10 +1003,12 @@ namespace TheWorld_MapManager
 		{
 			eraseOldHash = true;
 
+			_vertexStoreType = vertexStoreType;
+			
 			//hash = cache.generateNewMeshId();
 			hash = cacheQuadrantData.meshId;
 
-			sql = "INSERT INTO Quadrant (GridStepInWU, VertexPerSize, Level, PosXStart, PosZStart, PosXEnd, PosZEnd, Status, Hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
+			sql = "INSERT INTO Quadrant (GridStepInWU, VertexPerSize, Level, PosXStart, PosZStart, PosXEnd, PosZEnd, Status, Hash, VertexStoreType) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 			dbOps->prepareStmt(sql.c_str());
 
 			rc = sqlite3_bind_double(dbOps->getStmt(), 1, gridStep);
@@ -1036,6 +1047,11 @@ namespace TheWorld_MapManager
 			rc = sqlite3_bind_blob(dbOps->getStmt(), 9, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
 			if (rc != SQLITE_OK)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind Quadrant.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+			std::string str_vertex_store_type = vertexStoreType == QuadrantVertexStoreType::Compact ? "C" : "X";
+			rc = sqlite3_bind_text(dbOps->getStmt(), 10, str_vertex_store_type.c_str(), -1, SQLITE_TRANSIENT);
+			if (rc != SQLITE_OK)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind Quadrant.Status failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 
 			rc = dbOps->execStmt();
 			if (rc != SQLITE_DONE)
@@ -1128,7 +1144,8 @@ namespace TheWorld_MapManager
 			dbOps->finalizeStmt();
 		}
 			
-		if (cacheQuadrantData.heights32Buffer->size() > 0)
+		if ( (_vertexStoreType == QuadrantVertexStoreType::Compact && strBuffer.size() > 0)
+			|| (_vertexStoreType == QuadrantVertexStoreType::eXtended && cacheQuadrantData.heights32Buffer->size() > 0) )
 		{
 			// read QuadrantLoading to restart: if start from beginning ==> write terrainEditValues and start loading GridVertex else continue loading gridvertex
 
@@ -1300,364 +1317,413 @@ namespace TheWorld_MapManager
 				endTransaction();
 			}
 
-			// Table GridVertex
-			size_t numVertices = vertexPerSize * vertexPerSize;
+			if (_vertexStoreType == QuadrantVertexStoreType::Compact)
+			{
+				beginTransaction();
 
-			//if (cacheQuadrantData.heights16Buffer->size() != numVertices * sizeof(uint16_t))
-			//	throw(MapManagerExceptionWrongInput(__FUNCTION__, "heights16Buffer wrong size!"));
+				string sql = "INSERT OR REPLACE INTO QuadrantDataCompact (Hash, Data) VALUES (?,?);";
+				dbOps->prepareStmt(sql.c_str());
+				rc = sqlite3_bind_blob(dbOps->getStmt(), 1, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
+				if (rc != SQLITE_OK)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+				rc = sqlite3_bind_blob(dbOps->getStmt(), 2, strBuffer.c_str(), (int)strBuffer.size(), SQLITE_STATIC);
+				if (rc != SQLITE_OK)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+				rc = dbOps->execStmt();
+				int numInsertedUpdated = sqlite3_changes(dbOps->getConn());
+				if (rc != SQLITE_DONE)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete from QuadrantLoading table!", sqlite3_errmsg(dbOps->getConn()), rc));
+				dbOps->finalizeStmt();
 
-			if (cacheQuadrantData.heights32Buffer->size() != numVertices * sizeof(float))
-				throw(MapManagerExceptionWrongInput(__FUNCTION__, "heights32Buffer wrong size!"));
+				sql = "DELETE FROM QuadrantLoading WHERE Hash = ?;";
+				dbOps->prepareStmt(sql.c_str());
+				rc = sqlite3_bind_blob(dbOps->getStmt(), 1, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
+				if (rc != SQLITE_OK)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+				rc = dbOps->execStmt();
+				int numDeleted = sqlite3_changes(dbOps->getConn());
+				if (rc != SQLITE_DONE)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete from QuadrantLoading table!", sqlite3_errmsg(dbOps->getConn()), rc));
+				dbOps->finalizeStmt();
 
-			if (cacheQuadrantData.normalsBuffer->size() > 0 && !(cacheQuadrantData.normalsBuffer->size() == sizeof(struct TheWorld_Utils::_RGB) || cacheQuadrantData.normalsBuffer->size() == numVertices * sizeof(struct TheWorld_Utils::_RGB)))
-				throw(MapManagerExceptionWrongInput(__FUNCTION__, "normalsBuffer wrong size!"));
-			bool normalMapEmpty = false;
-			if (cacheQuadrantData.normalsBuffer->size() == 0 || cacheQuadrantData.normalsBuffer->size() == sizeof(struct TheWorld_Utils::_RGB))
-				normalMapEmpty = true;
+				sql = "UPDATE Quadrant SET Status = ? WHERE Hash = ?;";
+				dbOps->prepareStmt(sql.c_str());
+				std::string str_status = "C";
+				rc = sqlite3_bind_text(dbOps->getStmt(), 1, str_status.c_str(), -1, SQLITE_TRANSIENT);
+				if (rc != SQLITE_OK)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind Quadrant.Status failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+				rc = sqlite3_bind_blob(dbOps->getStmt(), 2, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
+				if (rc != SQLITE_OK)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+				rc = dbOps->execStmt();
+				int numUpdated = sqlite3_changes(dbOps->getConn());
+				if (rc != SQLITE_DONE)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete from QuadrantLoading table!", sqlite3_errmsg(dbOps->getConn()), rc));
+				dbOps->finalizeStmt();
 
-			if (cacheQuadrantData.splatmapBuffer->size() > 0 && cacheQuadrantData.splatmapBuffer->size() != numVertices * sizeof(struct TheWorld_Utils::_RGBA))
-				throw(MapManagerExceptionWrongInput(__FUNCTION__, "splatmapBuffer wrong size!"));
-			bool splatMapEmpty = false;
-			if (cacheQuadrantData.splatmapBuffer->size() == 0)
-				splatMapEmpty = true;
+				endTransaction();
+			}
+			else
+			{
+				// Table GridVertex
+				size_t numVertices = vertexPerSize * vertexPerSize;
 
-			if (cacheQuadrantData.colormapBuffer->size() > 0 && cacheQuadrantData.colormapBuffer->size() != numVertices * sizeof(struct TheWorld_Utils::_RGBA))
-				throw(MapManagerExceptionWrongInput(__FUNCTION__, "colormapBuffer wrong size!"));
-			bool colorMapEmpty = false;
-			if (cacheQuadrantData.colormapBuffer->size() == 0)
-				colorMapEmpty = true;
+				//if (cacheQuadrantData.heights16Buffer->size() != numVertices * sizeof(uint16_t))
+				//	throw(MapManagerExceptionWrongInput(__FUNCTION__, "heights16Buffer wrong size!"));
 
-			if (cacheQuadrantData.globalmapBuffer->size() > 0 && cacheQuadrantData.globalmapBuffer->size() != numVertices * sizeof(struct TheWorld_Utils::_RGB))
-				throw(MapManagerExceptionWrongInput(__FUNCTION__, "globalmapBuffer wrong size!"));
-			bool globalMapEmpty = false;
-			if (cacheQuadrantData.globalmapBuffer->size() == 0)
-				globalMapEmpty = true;
+				if (cacheQuadrantData.heights32Buffer->size() != numVertices * sizeof(float))
+					throw(MapManagerExceptionWrongInput(__FUNCTION__, "heights32Buffer wrong size!"));
 
-			beginTransaction();
+				if (cacheQuadrantData.normalsBuffer->size() > 0 && !(cacheQuadrantData.normalsBuffer->size() == sizeof(struct TheWorld_Utils::_RGB) || cacheQuadrantData.normalsBuffer->size() == numVertices * sizeof(struct TheWorld_Utils::_RGB)))
+					throw(MapManagerExceptionWrongInput(__FUNCTION__, "normalsBuffer wrong size!"));
+				bool normalMapEmpty = false;
+				if (cacheQuadrantData.normalsBuffer->size() == 0 || cacheQuadrantData.normalsBuffer->size() == sizeof(struct TheWorld_Utils::_RGB))
+					normalMapEmpty = true;
 
-			//size_t numDeleted = eraseVertices(quadPosX, quadEndPosX, quadPosZ, quadEndPosZ, level);
+				if (cacheQuadrantData.splatmapBuffer->size() > 0 && cacheQuadrantData.splatmapBuffer->size() != numVertices * sizeof(struct TheWorld_Utils::_RGBA))
+					throw(MapManagerExceptionWrongInput(__FUNCTION__, "splatmapBuffer wrong size!"));
+				bool splatMapEmpty = false;
+				if (cacheQuadrantData.splatmapBuffer->size() == 0)
+					splatMapEmpty = true;
 
-			string sql = "INSERT OR REPLACE INTO GridVertex (PosX, PosZ, Level, Radius, Azimuth, InitialAltitude, PosY, NormX, NormY, NormZ, ColorR, ColorG, ColorB, ColorA, LowElevationTexAmount, HighElevationTexAmount, DirtTexAmount, RocksTexAmount, GlobalMapR, GlobalMapG, GlobalMapB) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
-			dbOps->prepareStmt(sql.c_str());
+				if (cacheQuadrantData.colormapBuffer->size() > 0 && cacheQuadrantData.colormapBuffer->size() != numVertices * sizeof(struct TheWorld_Utils::_RGBA))
+					throw(MapManagerExceptionWrongInput(__FUNCTION__, "colormapBuffer wrong size!"));
+				bool colorMapEmpty = false;
+				if (cacheQuadrantData.colormapBuffer->size() == 0)
+					colorMapEmpty = true;
 
-			sqlite3_stmt* stmt = nullptr;
-			sql1 = "INSERT OR REPLACE INTO QuadrantLoading (Hash, LastXIdxLoaded, LastZIdxLoaded) VALUES (?, ?, ?);";
-			dbOps->prepareStmt(sql1.c_str(), &stmt);
+				if (cacheQuadrantData.globalmapBuffer->size() > 0 && cacheQuadrantData.globalmapBuffer->size() != numVertices * sizeof(struct TheWorld_Utils::_RGB))
+					throw(MapManagerExceptionWrongInput(__FUNCTION__, "globalmapBuffer wrong size!"));
+				bool globalMapEmpty = false;
+				if (cacheQuadrantData.globalmapBuffer->size() == 0)
+					globalMapEmpty = true;
+
+				beginTransaction();
+
+				//size_t numDeleted = eraseVertices(quadPosX, quadEndPosX, quadPosZ, quadEndPosZ, level);
+
+				string sql = "INSERT OR REPLACE INTO GridVertex (PosX, PosZ, Level, Radius, Azimuth, InitialAltitude, PosY, NormX, NormY, NormZ, ColorR, ColorG, ColorB, ColorA, LowElevationTexAmount, HighElevationTexAmount, DirtTexAmount, RocksTexAmount, GlobalMapR, GlobalMapG, GlobalMapB) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
+				dbOps->prepareStmt(sql.c_str());
+
+				sqlite3_stmt* stmt = nullptr;
+				sql1 = "INSERT OR REPLACE INTO QuadrantLoading (Hash, LastXIdxLoaded, LastZIdxLoaded) VALUES (?, ?, ?);";
+				dbOps->prepareStmt(sql1.c_str(), &stmt);
 
 #define MAX_INSERT_BEFORE_COMMIT 1000
 #define MAX_INSERT_BEFORE_LOG 100000
 
-			size_t num = 0;
-			size_t numForLog = 0;
-			TheWorld_Utils::GuardProfiler* profiler1 = new TheWorld_Utils::GuardProfiler(std::string("writeQuadrantToDB 1 ") + __FUNCTION__, "GrideVertex Transaction");
-			
-			for (size_t z = startIdxZ; z < vertexPerSize; z++)
-			{
-				for (size_t x = startIdxX; x < vertexPerSize; x++)
+				size_t num = 0;
+				size_t numForLog = 0;
+				TheWorld_Utils::GuardProfiler* profiler1 = new TheWorld_Utils::GuardProfiler(std::string("writeQuadrantToDB 1 ") + __FUNCTION__, "GrideVertex Transaction");
+
+				for (size_t z = startIdxZ; z < vertexPerSize; z++)
 				{
-					startIdxX = startIdxZ = 0; 
-					
-					float vertexPosX = quadPosX + x * gridStep;
-					float vertexPosY = cacheQuadrantData.heights32Buffer->at<float>(x, z, vertexPerSize);
-					float vertexPosZ = quadPosZ + z * gridStep;
-					float initialAltitude = vertexPosY;
-					GridVertex v(vertexPosX, vertexPosZ, initialAltitude, level);
-					float radius = v.radius();
-					float azimuth = v.azimuth();
-					float normalX = 0, normalY = 0, normalZ = 0;
-					size_t lowElevationTexAmount = 0, highElevationTexAmount = 0, dirtTexAmount = 0, rocksTexAmount = 0;	// 0-255
-					size_t colorR = 0, colorG = 0, colorB = 0, colorA = 0;	// 0-255
-					size_t globalMapR = 0, globalMapG = 0, globalMapB = 0;	// 0-255
-					if (!normalMapEmpty)
+					for (size_t x = startIdxX; x < vertexPerSize; x++)
 					{
-						struct TheWorld_Utils::_RGB rgbNormal = cacheQuadrantData.normalsBuffer->at<TheWorld_Utils::_RGB>(x, z, vertexPerSize);									// 0-255
-						Eigen::Vector3d packedNormal((const double)(double(rgbNormal.r) / 255), (const double)(double(rgbNormal.g) / 255), (const double)(double(rgbNormal.b) / 255));	// 0.0f-1.0f
-						Eigen::Vector3d normal = TheWorld_Utils::unpackNormal(packedNormal);
-						//float nx = (float)normal.x(), ny = (float)normal.y(), nz = (float)normal.z();
-						//normal.normalize();
-						normalX = (float)normal.x();	normalY = (float)normal.y();	normalZ = (float)normal.z();
-					}
-					if (!splatMapEmpty)
-					{
-						struct TheWorld_Utils::_RGBA rgba = cacheQuadrantData.splatmapBuffer->at<TheWorld_Utils::_RGBA>(x, z, vertexPerSize);
-						lowElevationTexAmount = (size_t)rgba.r;
-						highElevationTexAmount = (size_t)rgba.g;
-						dirtTexAmount = (size_t)rgba.b;
-						rocksTexAmount = (size_t)rgba.a;
-					}
-					if (!colorMapEmpty)
-					{
-						struct TheWorld_Utils::_RGBA rgba = cacheQuadrantData.colormapBuffer->at<TheWorld_Utils::_RGBA>(x, z, vertexPerSize);
-						colorR = (size_t)rgba.r;
-						colorG = (size_t)rgba.g;
-						colorB = (size_t)rgba.b;
-						colorA = (size_t)rgba.a;
-					}
-					if (!globalMapEmpty)
-					{
-						struct TheWorld_Utils::_RGB rgb = cacheQuadrantData.globalmapBuffer->at<TheWorld_Utils::_RGB>(x, z, vertexPerSize);
-						globalMapR = (size_t)rgb.r;
-						globalMapG = (size_t)rgb.g;
-						globalMapB = (size_t)rgb.b;
-					}
+						startIdxX = startIdxZ = 0;
 
-					rc = sqlite3_bind_double(dbOps->getStmt(), 1, vertexPosX);
-					if (rc != SQLITE_OK)
-						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.PosX failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-					rc = sqlite3_bind_double(dbOps->getStmt(), 2, vertexPosZ);
-					if (rc != SQLITE_OK)
-						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.PosZ failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-					rc = sqlite3_bind_int(dbOps->getStmt(), 3, level);
-					if (rc != SQLITE_OK)
-						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.Level failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-					rc = sqlite3_bind_double(dbOps->getStmt(), 4, radius);
-					if (rc != SQLITE_OK)
-						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.Radius failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-					rc = sqlite3_bind_double(dbOps->getStmt(), 5, azimuth);
-					if (rc != SQLITE_OK)
-						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.Azimuth failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-					rc = sqlite3_bind_double(dbOps->getStmt(), 6, initialAltitude);
-					if (rc != SQLITE_OK)
-						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.InitialAltitude failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-					rc = sqlite3_bind_double(dbOps->getStmt(), 7, vertexPosY);
-					if (rc != SQLITE_OK)
-						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.PosY failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-					if (normalMapEmpty)
-					{
-						rc = sqlite3_bind_null(dbOps->getStmt(), 8);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.NormX failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_null(dbOps->getStmt(), 9);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.NormY failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_null(dbOps->getStmt(), 10);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.NormZ failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-					}
-					else
-					{
-						rc = sqlite3_bind_double(dbOps->getStmt(), 8, normalX);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.NormX failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_double(dbOps->getStmt(), 9, normalY);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.NormY failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_double(dbOps->getStmt(), 10, normalZ);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.NormZ failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-					}
-
-					if (colorMapEmpty)
-					{
-						rc = sqlite3_bind_null(dbOps->getStmt(), 11);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorR failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_null(dbOps->getStmt(), 12);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorG failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_null(dbOps->getStmt(), 13);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorB failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_null(dbOps->getStmt(), 14);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorA failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-					}
-					else
-					{
-						rc = sqlite3_bind_int(dbOps->getStmt(), 11, (int)colorR);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorR failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_int(dbOps->getStmt(), 12, (int)colorG);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorG failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_int(dbOps->getStmt(), 13, (int)colorB);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorB failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_int(dbOps->getStmt(), 14, (int)colorA);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorA failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-					}
-
-					if (splatMapEmpty)
-					{
-						rc = sqlite3_bind_null(dbOps->getStmt(), 15);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.LowElevationTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_null(dbOps->getStmt(), 16);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.HighElevationTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_null(dbOps->getStmt(), 17);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.DirtTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_null(dbOps->getStmt(), 18);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.RocksTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-					}
-					else
-					{
-						rc = sqlite3_bind_int(dbOps->getStmt(), 15, (int)lowElevationTexAmount);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.LowElevationTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_int(dbOps->getStmt(), 16, (int)highElevationTexAmount);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.HighElevationTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_int(dbOps->getStmt(), 17, (int)dirtTexAmount);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.DirtTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_int(dbOps->getStmt(), 18, (int)rocksTexAmount);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.RocksTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-					}
-
-					if (globalMapEmpty)
-					{
-						rc = sqlite3_bind_null(dbOps->getStmt(), 19);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.GlobalMapR failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_null(dbOps->getStmt(), 20);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.GlobalMapG failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_null(dbOps->getStmt(), 21);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.GlobalMapB failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-					}
-					else
-					{
-						rc = sqlite3_bind_int(dbOps->getStmt(), 19, (int)globalMapR);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.GlobalMapR failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_int(dbOps->getStmt(), 20, (int)globalMapG);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.GlobalMapG failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-						rc = sqlite3_bind_int(dbOps->getStmt(), 21, (int)globalMapB);
-						if (rc != SQLITE_OK)
-							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.GlobalMapB failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-					}
-
-					rc = dbOps->execStmt();
-					if (rc != SQLITE_DONE)
-						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite insert/update GridVertex failed!", dbOps->errMsg(), rc));
-
-					dbOps->resetStmt();
-
-					rc = sqlite3_bind_blob(stmt, 1, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
-					if (rc != SQLITE_OK)
-						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-					rc = sqlite3_bind_int(stmt, 2, (int)x);
-					if (rc != SQLITE_OK)
-						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.LastXIdxLoaded failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-					rc = sqlite3_bind_int(stmt, 3, (int)z);
-					if (rc != SQLITE_OK)
-						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.LastZIdxLoaded failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-
-					rc = dbOps->execStmt(stmt);
-					if (rc != SQLITE_DONE)
-						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite insert/update QuadrantLoading failed!", dbOps->errMsg(), rc));
-
-					dbOps->resetStmt(stmt);
-
-					num++;
-					numForLog++;
-
-					if (num >= MAX_INSERT_BEFORE_COMMIT)
-					{
-						dbOps->finalizeStmt();
-						dbOps->finalizeStmt(stmt);
-						endTransaction();
-						delete profiler1;
-
-						if (stop)
+						float vertexPosX = quadPosX + x * gridStep;
+						float vertexPosY = cacheQuadrantData.heights32Buffer->at<float>(x, z, vertexPerSize);
+						float vertexPosZ = quadPosZ + z * gridStep;
+						float initialAltitude = vertexPosY;
+						GridVertex v(vertexPosX, vertexPosZ, initialAltitude, level);
+						float radius = v.radius();
+						float azimuth = v.azimuth();
+						float normalX = 0, normalY = 0, normalZ = 0;
+						size_t lowElevationTexAmount = 0, highElevationTexAmount = 0, dirtTexAmount = 0, rocksTexAmount = 0;	// 0-255
+						size_t colorR = 0, colorG = 0, colorB = 0, colorA = 0;	// 0-255
+						size_t globalMapR = 0, globalMapG = 0, globalMapB = 0;	// 0-255
+						if (!normalMapEmpty)
 						{
-							PLOG_DEBUG << "Align CACHE <==> DB - Stop requested, vertices written to DB " << std::to_string(z * vertexPerSize + x + 1);
-							return false;
+							struct TheWorld_Utils::_RGB rgbNormal = cacheQuadrantData.normalsBuffer->at<TheWorld_Utils::_RGB>(x, z, vertexPerSize);									// 0-255
+							Eigen::Vector3d packedNormal((const double)(double(rgbNormal.r) / 255), (const double)(double(rgbNormal.g) / 255), (const double)(double(rgbNormal.b) / 255));	// 0.0f-1.0f
+							Eigen::Vector3d normal = TheWorld_Utils::unpackNormal(packedNormal);
+							//float nx = (float)normal.x(), ny = (float)normal.y(), nz = (float)normal.z();
+							//normal.normalize();
+							normalX = (float)normal.x();	normalY = (float)normal.y();	normalZ = (float)normal.z();
+						}
+						if (!splatMapEmpty)
+						{
+							struct TheWorld_Utils::_RGBA rgba = cacheQuadrantData.splatmapBuffer->at<TheWorld_Utils::_RGBA>(x, z, vertexPerSize);
+							lowElevationTexAmount = (size_t)rgba.r;
+							highElevationTexAmount = (size_t)rgba.g;
+							dirtTexAmount = (size_t)rgba.b;
+							rocksTexAmount = (size_t)rgba.a;
+						}
+						if (!colorMapEmpty)
+						{
+							struct TheWorld_Utils::_RGBA rgba = cacheQuadrantData.colormapBuffer->at<TheWorld_Utils::_RGBA>(x, z, vertexPerSize);
+							colorR = (size_t)rgba.r;
+							colorG = (size_t)rgba.g;
+							colorB = (size_t)rgba.b;
+							colorA = (size_t)rgba.a;
+						}
+						if (!globalMapEmpty)
+						{
+							struct TheWorld_Utils::_RGB rgb = cacheQuadrantData.globalmapBuffer->at<TheWorld_Utils::_RGB>(x, z, vertexPerSize);
+							globalMapR = (size_t)rgb.r;
+							globalMapG = (size_t)rgb.g;
+							globalMapB = (size_t)rgb.b;
 						}
 
-						profiler1 = new TheWorld_Utils::GuardProfiler(std::string("writeQuadrantToDB 1 ") + __FUNCTION__, "GrideVertex Transaction");
-						beginTransaction();
-						dbOps->prepareStmt(sql.c_str());
-						dbOps->prepareStmt(sql1.c_str(), &stmt);
-						num = 0;
-					}
+						rc = sqlite3_bind_double(dbOps->getStmt(), 1, vertexPosX);
+						if (rc != SQLITE_OK)
+							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.PosX failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 
-					if (numForLog >= MAX_INSERT_BEFORE_LOG)
-					{
-						//PLOG_DEBUG << "DBSQLLite::writeQuadrantToDB - " << cache.getCacheFilePath() << ": " << std::to_string(z * vertexPerSize + x + 1) << " vertices written to DB";
-						PLOG_DEBUG << "Align CACHE <==> DB - Vertices written to DB " << std::to_string(z * vertexPerSize + x + 1);
-						numForLog = 0;
+						rc = sqlite3_bind_double(dbOps->getStmt(), 2, vertexPosZ);
+						if (rc != SQLITE_OK)
+							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.PosZ failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+						rc = sqlite3_bind_int(dbOps->getStmt(), 3, level);
+						if (rc != SQLITE_OK)
+							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.Level failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+						rc = sqlite3_bind_double(dbOps->getStmt(), 4, radius);
+						if (rc != SQLITE_OK)
+							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.Radius failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+						rc = sqlite3_bind_double(dbOps->getStmt(), 5, azimuth);
+						if (rc != SQLITE_OK)
+							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.Azimuth failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+						rc = sqlite3_bind_double(dbOps->getStmt(), 6, initialAltitude);
+						if (rc != SQLITE_OK)
+							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.InitialAltitude failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+						rc = sqlite3_bind_double(dbOps->getStmt(), 7, vertexPosY);
+						if (rc != SQLITE_OK)
+							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.PosY failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+						if (normalMapEmpty)
+						{
+							rc = sqlite3_bind_null(dbOps->getStmt(), 8);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.NormX failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_null(dbOps->getStmt(), 9);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.NormY failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_null(dbOps->getStmt(), 10);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.NormZ failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+						}
+						else
+						{
+							rc = sqlite3_bind_double(dbOps->getStmt(), 8, normalX);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.NormX failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_double(dbOps->getStmt(), 9, normalY);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.NormY failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_double(dbOps->getStmt(), 10, normalZ);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.NormZ failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+						}
+
+						if (colorMapEmpty)
+						{
+							rc = sqlite3_bind_null(dbOps->getStmt(), 11);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorR failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_null(dbOps->getStmt(), 12);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorG failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_null(dbOps->getStmt(), 13);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorB failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_null(dbOps->getStmt(), 14);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorA failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+						}
+						else
+						{
+							rc = sqlite3_bind_int(dbOps->getStmt(), 11, (int)colorR);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorR failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_int(dbOps->getStmt(), 12, (int)colorG);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorG failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_int(dbOps->getStmt(), 13, (int)colorB);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorB failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_int(dbOps->getStmt(), 14, (int)colorA);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.ColorA failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+						}
+
+						if (splatMapEmpty)
+						{
+							rc = sqlite3_bind_null(dbOps->getStmt(), 15);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.LowElevationTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_null(dbOps->getStmt(), 16);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.HighElevationTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_null(dbOps->getStmt(), 17);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.DirtTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_null(dbOps->getStmt(), 18);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.RocksTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+						}
+						else
+						{
+							rc = sqlite3_bind_int(dbOps->getStmt(), 15, (int)lowElevationTexAmount);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.LowElevationTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_int(dbOps->getStmt(), 16, (int)highElevationTexAmount);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.HighElevationTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_int(dbOps->getStmt(), 17, (int)dirtTexAmount);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.DirtTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_int(dbOps->getStmt(), 18, (int)rocksTexAmount);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.RocksTexAmount failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+						}
+
+						if (globalMapEmpty)
+						{
+							rc = sqlite3_bind_null(dbOps->getStmt(), 19);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.GlobalMapR failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_null(dbOps->getStmt(), 20);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.GlobalMapG failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_null(dbOps->getStmt(), 21);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.GlobalMapB failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+						}
+						else
+						{
+							rc = sqlite3_bind_int(dbOps->getStmt(), 19, (int)globalMapR);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.GlobalMapR failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_int(dbOps->getStmt(), 20, (int)globalMapG);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.GlobalMapG failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+							rc = sqlite3_bind_int(dbOps->getStmt(), 21, (int)globalMapB);
+							if (rc != SQLITE_OK)
+								throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind GridVertex.GlobalMapB failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+						}
+
+						rc = dbOps->execStmt();
+						if (rc != SQLITE_DONE)
+							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite insert/update GridVertex failed!", dbOps->errMsg(), rc));
+
+						dbOps->resetStmt();
+
+						rc = sqlite3_bind_blob(stmt, 1, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
+						if (rc != SQLITE_OK)
+							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+						rc = sqlite3_bind_int(stmt, 2, (int)x);
+						if (rc != SQLITE_OK)
+							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.LastXIdxLoaded failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+						rc = sqlite3_bind_int(stmt, 3, (int)z);
+						if (rc != SQLITE_OK)
+							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.LastZIdxLoaded failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+						rc = dbOps->execStmt(stmt);
+						if (rc != SQLITE_DONE)
+							throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite insert/update QuadrantLoading failed!", dbOps->errMsg(), rc));
+
+						dbOps->resetStmt(stmt);
+
+						num++;
+						numForLog++;
+
+						if (num >= MAX_INSERT_BEFORE_COMMIT)
+						{
+							dbOps->finalizeStmt();
+							dbOps->finalizeStmt(stmt);
+							endTransaction();
+							delete profiler1;
+
+							if (stop)
+							{
+								PLOG_DEBUG << "Align CACHE <==> DB - Stop requested, vertices written to DB " << std::to_string(z * vertexPerSize + x + 1);
+								return false;
+							}
+
+							profiler1 = new TheWorld_Utils::GuardProfiler(std::string("writeQuadrantToDB 1 ") + __FUNCTION__, "GrideVertex Transaction");
+							beginTransaction();
+							dbOps->prepareStmt(sql.c_str());
+							dbOps->prepareStmt(sql1.c_str(), &stmt);
+							num = 0;
+						}
+
+						if (numForLog >= MAX_INSERT_BEFORE_LOG)
+						{
+							//PLOG_DEBUG << "DBSQLLite::writeQuadrantToDB - " << cache.getCacheFilePath() << ": " << std::to_string(z * vertexPerSize + x + 1) << " vertices written to DB";
+							PLOG_DEBUG << "Align CACHE <==> DB - Vertices written to DB " << std::to_string(z * vertexPerSize + x + 1);
+							numForLog = 0;
+						}
 					}
 				}
+
+				PLOG_DEBUG << "Align CACHE <==> DB - Vertices written to DB " << std::to_string(vertexPerSize * vertexPerSize);
+
+				delete profiler1;
+
+				dbOps->finalizeStmt(stmt);
+
+				dbOps->finalizeStmt();
+
+				sql = "DELETE FROM QuadrantLoading WHERE Hash = ?;";
+				dbOps->prepareStmt(sql.c_str());
+				rc = sqlite3_bind_blob(dbOps->getStmt(), 1, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
+				if (rc != SQLITE_OK)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+				rc = dbOps->execStmt();
+				int numDeleted = sqlite3_changes(dbOps->getConn());
+				if (rc != SQLITE_DONE)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete from QuadrantLoading table!", sqlite3_errmsg(dbOps->getConn()), rc));
+				dbOps->finalizeStmt();
+
+				sql = "UPDATE Quadrant SET Status = ? WHERE Hash = ?;";
+				dbOps->prepareStmt(sql.c_str());
+				std::string str_status = "C";
+				rc = sqlite3_bind_text(dbOps->getStmt(), 1, str_status.c_str(), -1, SQLITE_TRANSIENT);
+				if (rc != SQLITE_OK)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind Quadrant.Status failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+				rc = sqlite3_bind_blob(dbOps->getStmt(), 2, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
+				if (rc != SQLITE_OK)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+				rc = dbOps->execStmt();
+				int numUpdated = sqlite3_changes(dbOps->getConn());
+				if (rc != SQLITE_DONE)
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete from QuadrantLoading table!", sqlite3_errmsg(dbOps->getConn()), rc));
+				dbOps->finalizeStmt();
+
+				endTransaction();
 			}
-
-			PLOG_DEBUG << "Align CACHE <==> DB - Vertices written to DB " << std::to_string(vertexPerSize * vertexPerSize);
-
-			delete profiler1;
-			
-			dbOps->finalizeStmt(stmt);
-
-			dbOps->finalizeStmt();
-
-			sql = "DELETE FROM QuadrantLoading WHERE Hash = ?;";
-			dbOps->prepareStmt(sql.c_str());
-			rc = sqlite3_bind_blob(dbOps->getStmt(), 1, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
-			if (rc != SQLITE_OK)
-				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-			rc = dbOps->execStmt();
-			int numDeleted = sqlite3_changes(dbOps->getConn());
-			if (rc != SQLITE_DONE)
-				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete from QuadrantLoading table!", sqlite3_errmsg(dbOps->getConn()), rc));
-			dbOps->finalizeStmt();
-
-			sql = "UPDATE Quadrant SET Status = ? WHERE Hash = ?;";
-			dbOps->prepareStmt(sql.c_str());
-			std::string str_status = "C";
-			rc = sqlite3_bind_text(dbOps->getStmt(), 1, str_status.c_str(), -1, SQLITE_TRANSIENT);
-			if (rc != SQLITE_OK)
-				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind Quadrant.Status failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-			rc = sqlite3_bind_blob(dbOps->getStmt(), 2, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
-			if (rc != SQLITE_OK)
-				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-			rc = dbOps->execStmt();
-			int numUpdated = sqlite3_changes(dbOps->getConn());
-			if (rc != SQLITE_DONE)
-				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete from QuadrantLoading table!", sqlite3_errmsg(dbOps->getConn()), rc));
-			dbOps->finalizeStmt();
-
-			endTransaction();
 		}
 
 		return true;
 	}
 
-	void DBSQLLite::readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, enum class SQLInterface::QuadrantStatus& status, TheWorld_Utils::TerrainEdit& terrainEdit)
+	void DBSQLLite::readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class SQLInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("readQuadrantFromDB ") + __FUNCTION__, "ALL");
 		
@@ -1676,7 +1742,7 @@ namespace TheWorld_MapManager
 		float quadEndPosX = quadPosX + (vertxePerSize - 1) * gridStep;
 		float quadEndPosZ = quadPosZ + (vertxePerSize - 1) * gridStep;
 
-		string sql1 = "SELECT Hash FROM Quadrant WHERE GridStepInWU = %s, VertexPerSize = %s AND Level = %s AND PosXStart = %s AND PosZStart = %s;";
+		string sql1 = "SELECT Hash, Status, VertexStoreType FROM Quadrant WHERE GridStepInWU = %s, VertexPerSize = %s AND Level = %s AND PosXStart = %s AND PosZStart = %s;";
 		string sql = dbOps.completeSQL(sql1.c_str(), to_string(gridStep).c_str(), to_string(vertxePerSize).c_str(), to_string(level).c_str(), to_string(quadPosX).c_str(), to_string(quadPosZ).c_str());
 		dbOps.prepareStmt(sql.c_str());
 
@@ -1688,7 +1754,23 @@ namespace TheWorld_MapManager
 			return;
 
 		meshId = std::string((char*)sqlite3_column_blob(dbOps.getStmt(), 0), sqlite3_column_bytes(dbOps.getStmt(), 0));
-		
+		std::string s = (const char *)sqlite3_column_text(dbOps.getStmt(), 1);
+		if (s == "C")
+			status = SQLInterface::QuadrantStatus::Complete;
+		else if(s == "L")
+			status = SQLInterface::QuadrantStatus::Loading;
+		else if (s == "E")
+			status = SQLInterface::QuadrantStatus::Empty;
+		else
+			throw(MapManagerExceptionDBException(__FUNCTION__, std::string(std::string("DB SQLite unexpected Status ") + s + "!").c_str(), sqlite3_errmsg(dbOps.getConn()), rc));
+		s = (const char*)sqlite3_column_text(dbOps.getStmt(), 2);
+		if (s == "X")
+			vertexStoreType = SQLInterface::QuadrantVertexStoreType::eXtended;
+		else if (s == "C")
+			vertexStoreType = SQLInterface::QuadrantVertexStoreType::Compact;
+		else
+			throw(MapManagerExceptionDBException(__FUNCTION__, std::string(std::string("DB SQLite unexpected VertexStoreType ") + s + "!").c_str(), sqlite3_errmsg(dbOps.getConn()), rc));
+
 		sql = "SELECT "
 			"TerrainType,"						// 0
 			"MinHeigth,"						// 1
@@ -1722,34 +1804,52 @@ namespace TheWorld_MapManager
 		if (rc == SQLITE_DONE)
 		{
 			terrainEdit.size = 0;
-			return;
+		}
+		else
+		{
+			terrainEdit.size = sizeof(TheWorld_Utils::TerrainEdit);
+			terrainEdit.needUploadToServer = false;
+			terrainEdit.normalsNeedRegen = false;
+			terrainEdit.terrainType = (enum TheWorld_Utils::TerrainEdit::TerrainType)sqlite3_column_int(dbOps.getStmt(), 0);
+			terrainEdit.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 1);
+			terrainEdit.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 2);
+			strcpy_s(terrainEdit.extraValues.lowElevationTexName_r, sizeof(terrainEdit.extraValues.lowElevationTexName_r), (const char*)sqlite3_column_text(dbOps.getStmt(), 3));
+			strcpy_s(terrainEdit.extraValues.highElevationTexName_g, sizeof(terrainEdit.extraValues.highElevationTexName_g), (const char*)sqlite3_column_text(dbOps.getStmt(), 4));
+			strcpy_s(terrainEdit.extraValues.dirtTexName_b, sizeof(terrainEdit.extraValues.dirtTexName_b), (const char*)sqlite3_column_text(dbOps.getStmt(), 5));
+			strcpy_s(terrainEdit.extraValues.rocksTexName_a, sizeof(terrainEdit.extraValues.rocksTexName_a), (const char*)sqlite3_column_text(dbOps.getStmt(), 6));
+			terrainEdit.extraValues.texturesNeedRegen = false;
+			terrainEdit.extraValues.emptyColormap = false;
+			terrainEdit.extraValues.emptyGlobalmap = false;
+			terrainEdit.eastSideXPlus.needBlend = sqlite3_column_int(dbOps.getStmt(), 7) == 1 ? true : false;
+			terrainEdit.eastSideXPlus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 8);
+			terrainEdit.eastSideXPlus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 9);
+			terrainEdit.westSideXMinus.needBlend = sqlite3_column_int(dbOps.getStmt(), 10) == 1 ? true : false;
+			terrainEdit.westSideXMinus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 11);
+			terrainEdit.westSideXMinus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 12);
+			terrainEdit.southSideZPlus.needBlend = sqlite3_column_int(dbOps.getStmt(), 13) == 1 ? true : false;
+			terrainEdit.southSideZPlus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 14);
+			terrainEdit.southSideZPlus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 15);
+			terrainEdit.northSideZMinus.needBlend = sqlite3_column_int(dbOps.getStmt(), 16) == 1 ? true : false;
+			terrainEdit.northSideZMinus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 17);
+			terrainEdit.northSideZMinus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 18);
 		}
 
-		terrainEdit.size = sizeof(TheWorld_Utils::TerrainEdit);
-		terrainEdit.needUploadToServer = false;
-		terrainEdit.normalsNeedRegen = false;
-		terrainEdit.terrainType = (enum TheWorld_Utils::TerrainEdit::TerrainType)sqlite3_column_int(dbOps.getStmt(), 0);
-		terrainEdit.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 1);
-		terrainEdit.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 2);
-		strcpy_s(terrainEdit.extraValues.lowElevationTexName_r, sizeof(terrainEdit.extraValues.lowElevationTexName_r), (const char*)sqlite3_column_text(dbOps.getStmt(), 3));
-		strcpy_s(terrainEdit.extraValues.highElevationTexName_g, sizeof(terrainEdit.extraValues.highElevationTexName_g), (const char*)sqlite3_column_text(dbOps.getStmt(), 4));
-		strcpy_s(terrainEdit.extraValues.dirtTexName_b, sizeof(terrainEdit.extraValues.dirtTexName_b), (const char*)sqlite3_column_text(dbOps.getStmt(), 5));
-		strcpy_s(terrainEdit.extraValues.rocksTexName_a, sizeof(terrainEdit.extraValues.rocksTexName_a), (const char*)sqlite3_column_text(dbOps.getStmt(), 6));
-		terrainEdit.extraValues.texturesNeedRegen = false;
-		terrainEdit.extraValues.emptyColormap = false;
-		terrainEdit.extraValues.emptyGlobalmap = false;
-		terrainEdit.eastSideXPlus.needBlend = sqlite3_column_int(dbOps.getStmt(), 7) == 1 ? true : false;
-		terrainEdit.eastSideXPlus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 8);
-		terrainEdit.eastSideXPlus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 9);
-		terrainEdit.westSideXMinus.needBlend = sqlite3_column_int(dbOps.getStmt(), 10) == 1 ? true : false;
-		terrainEdit.westSideXMinus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 11);
-		terrainEdit.westSideXMinus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 12);
-		terrainEdit.southSideZPlus.needBlend = sqlite3_column_int(dbOps.getStmt(), 13) == 1 ? true : false;
-		terrainEdit.southSideZPlus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 14);
-		terrainEdit.southSideZPlus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 15);
-		terrainEdit.northSideZMinus.needBlend = sqlite3_column_int(dbOps.getStmt(), 16) == 1 ? true : false;
-		terrainEdit.northSideZMinus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 17);
-		terrainEdit.northSideZMinus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 18);
+		if (vertexStoreType == SQLInterface::QuadrantVertexStoreType::Compact && status == SQLInterface::QuadrantStatus::Complete)
+		{
+			sql = "SELECT Data FROM QuadrantDataCompact WHERE Hash = ?;";
+			dbOps.prepareStmt(sql.c_str());
+			rc = sqlite3_bind_blob(dbOps.getStmt(), 1, meshId.c_str(), (int)meshId.size(), SQLITE_TRANSIENT);
+			if (rc != SQLITE_OK)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantDataCompact.Hash failed!", sqlite3_errmsg(dbOps.getConn()), rc));
+			rc = dbOps.execStmt();
+			if (rc != SQLITE_ROW && rc != SQLITE_DONE)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read from QuadrantDataCompact table!", sqlite3_errmsg(dbOps.getConn()), rc));
+			if (rc == SQLITE_ROW)
+				strBuffer = std::string((char*)sqlite3_column_blob(dbOps.getStmt(), 0), sqlite3_column_bytes(dbOps.getStmt(), 0));
+			else
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite data record not found in QuadrantDataCompact!", sqlite3_errmsg(dbOps.getConn()), rc));
+			dbOps.finalizeStmt();
+		}
 	}
 
 	void DBSQLLite::finalizeDB(void)

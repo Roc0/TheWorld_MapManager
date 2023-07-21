@@ -767,14 +767,20 @@ namespace TheWorld_MapManager
 		//writeDiskCacheToDB(cache, stop);
 	}
 
+//#define MAPMANAGER_WRITE_COMPACT_VERTICES_TO_DB		0
+//#define MAPMANAGER_WRITE_EXTENDED_VERTICES_TO_DB	1
+
 	bool MapManager::writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("writeDiskCacheToDB ") + __FUNCTION__, "ALL");
 
+		bool writeCompactVerticesToDB = true;
+		
 		bool emptyBuffer = cache.isEmptyBuffer(cache.getMeshIdFromDisk());
 		
-		TheWorld_Utils::MemoryBuffer buffer;
-		cache.readBufferFromDisk(cache.getMeshIdFromDisk(), buffer);
+		TheWorld_Utils::MemoryBuffer memoryBuffer;
+		cache.readBufferFromDisk(cache.getMeshIdFromDisk(), memoryBuffer);
+		std::string strBuffer;
 		
 		TheWorld_Utils::MemoryBuffer terrainEditValues;
 		TheWorld_Utils::MemoryBuffer heights16Buffer;
@@ -793,9 +799,22 @@ namespace TheWorld_MapManager
 		cacheQuadrantData.colormapBuffer = &colormapBuffer;
 		cacheQuadrantData.globalmapBuffer = &globalmapBuffer;
 		if (!emptyBuffer)
-			cache.refreshCacheQuadrantDataFromBuffer(buffer, cacheQuadrantData, false);
+		{
+			if (writeCompactVerticesToDB)
+			{
+				//size_t size = memoryBuffer.size();
+				//strBuffer.clear();
+				//strBuffer.reserve(size);
+				//strBuffer.append((char*)memoryBuffer.ptr(), size);
+				memoryBuffer.toString(strBuffer);
+			}
+
+			cache.refreshCacheQuadrantDataFromBuffer(memoryBuffer, cacheQuadrantData, false);
+		}
 		
-		bool completed = m_SqlInterface->writeQuadrantToDB(cache, cacheQuadrantData, stop);
+		SQLInterface::QuadrantVertexStoreType vertexStoreType = writeCompactVerticesToDB ? SQLInterface::QuadrantVertexStoreType::Compact : SQLInterface::QuadrantVertexStoreType::eXtended;
+
+		bool completed = m_SqlInterface->writeQuadrantToDB(cache, cacheQuadrantData, strBuffer, vertexStoreType, stop);
 
 		return completed;
 	}
@@ -807,224 +826,233 @@ namespace TheWorld_MapManager
 		std::string meshId;
 		TheWorld_Utils::TerrainEdit terrainEdit;
 		enum class SQLInterface::QuadrantStatus status;
-		m_SqlInterface->readQuadrantFromDB(cache, meshId, status, terrainEdit);
+		enum class SQLInterface::QuadrantVertexStoreType vertexStoreType;
+		std::string strBuffer;
+		m_SqlInterface->readQuadrantFromDB(cache, meshId, strBuffer, status, vertexStoreType, terrainEdit);
 
 		if (status == SQLInterface::QuadrantStatus::Loading)
 			return false;
 
 		if (meshId.size() == 0)
 			return false;
-
-		TheWorld_Utils::MemoryBuffer heights16Buffer;
-		TheWorld_Utils::MemoryBuffer heights32Buffer;
-		TheWorld_Utils::MemoryBuffer normalsBuffer;
-		TheWorld_Utils::MemoryBuffer splatmapBuffer;
-		TheWorld_Utils::MemoryBuffer colormapBuffer;
-		TheWorld_Utils::MemoryBuffer globalmapBuffer;
-
-		float gridStep = cache.getGridStepInWU();
-		size_t vertexPerSize = cache.getNumVerticesPerSize();
-		int level = cache.getLevel();
-		float quadPosX = cache.getLowerXGridVertex();
-		float quadPosZ = cache.getLowerZGridVertex();
-		float quadEndPosX = quadPosX + (vertexPerSize - 1) * gridStep;
-		float quadEndPosZ = quadPosZ + (vertexPerSize - 1) * gridStep;
-
-		int numFoundInDB = 0;
-		std::vector<SQLInterface::GridVertex> vectGridVertex;
-		size_t numVertices = vectGridVertex.size();
-		internalGetVertices(quadPosX, quadEndPosX, quadPosZ, quadEndPosZ, (int)vertexPerSize, (int)vertexPerSize, vectGridVertex, gridStep, numFoundInDB, level);
-		if (numVertices != 0 && numVertices != vertexPerSize * vertexPerSize)
-			throw(MapManagerException(__FUNCTION__, (std::string("internalGetVertices returned unexpected size: ") + std::to_string(numVertices) + "(expected" + std::to_string(vertexPerSize * vertexPerSize) + ")").c_str()));
-
-		TheWorld_Utils::MemoryBuffer buffer;
 		
-		float minHeight = FLT_MAX, maxHeight = FLT_MIN;
-		
-		if (numFoundInDB > 0 && numVertices > 0)
+		if (vertexStoreType == SQLInterface::QuadrantVertexStoreType::Compact)
 		{
-			heights16Buffer.reserve(numVertices * sizeof(uint16_t));
-			uint16_t* _tempHeights16BufferPtr = (uint16_t*)heights16Buffer.ptr();
-			heights32Buffer.reserve(numVertices * sizeof(float));
-			float* _tempHeights32BufferPtr = (float*)heights32Buffer.ptr();
-			normalsBuffer.reserve(numVertices * sizeof(TheWorld_Utils::_RGB));
-			TheWorld_Utils::_RGB* _tempNormalsBufferPtr = (TheWorld_Utils::_RGB*)normalsBuffer.ptr();
-			splatmapBuffer.reserve(numVertices * sizeof(TheWorld_Utils::_RGBA));
-			TheWorld_Utils::_RGBA* _tempSplatmapBufferPtr = (TheWorld_Utils::_RGBA*)splatmapBuffer.ptr();
-			colormapBuffer.reserve(numVertices * sizeof(TheWorld_Utils::_RGBA));
-			TheWorld_Utils::_RGBA* _tempColormapBufferPtr = (TheWorld_Utils::_RGBA*)colormapBuffer.ptr();
-			globalmapBuffer.reserve(numVertices * sizeof(TheWorld_Utils::_RGB));
-			TheWorld_Utils::_RGB* _tempGlobalmapBufferPtr = (TheWorld_Utils::_RGB*)globalmapBuffer.ptr();
-
-			bool normalMapEmpty = false, splatMapEmpty = false, colorMapEmpty = false, globalMapEmpty = false;
-			
-			size_t x = 0, z = 0;
-			for (auto& gridVertex : vectGridVertex)
-			{
-				if (stop)
-					return false;
-				
-				TheWorld_Utils::FLOAT_32 f;
-				f.f32 = gridVertex.altitude();
-
-				if (f.f32 < minHeight)
-					minHeight = f.f32;
-
-				if (f.f32 > maxHeight)
-					maxHeight = f.f32;
-
-				*_tempHeights16BufferPtr = TheWorld_Utils::MeshCacheBuffer::halfFromFloat(f.u32);
-				_tempHeights16BufferPtr++;
-				
-				*_tempHeights32BufferPtr = f.f32;
-				_tempHeights32BufferPtr++;
-
-				if (!normalMapEmpty)
-				{
-					if (gridVertex.normX() == 0 && gridVertex.normY() == 0 && gridVertex.normZ() == 0)
-						normalMapEmpty = true;
-					else
-					{
-						Eigen::Vector3d normal(gridVertex.normX(), gridVertex.normY(), gridVertex.normZ());
-						Eigen::Vector3d packedNormal = TheWorld_Utils::packNormal(normal);
-						(*_tempNormalsBufferPtr).r = (BYTE)(packedNormal.x() * 255);	// normals coords range from 0 to 1 but if expressed as color in a normalmap range from 0 to 255
-						(*_tempNormalsBufferPtr).g = (BYTE)(packedNormal.y() * 255);
-						(*_tempNormalsBufferPtr).b = (BYTE)(packedNormal.z() * 255);
-						_tempNormalsBufferPtr++;
-					}
-				}
-
-				if (!splatMapEmpty)
-				{
-					if (gridVertex.lowElevationTexAmount() == -1 && gridVertex.highElevationTexAmount() == -1 && gridVertex.dirtTexAmount() == -1 && gridVertex.rocksTexAmount() == -1)
-						splatMapEmpty = true;
-					else
-					{
-						(*_tempSplatmapBufferPtr).r = BYTE(gridVertex.lowElevationTexAmount());
-						(*_tempSplatmapBufferPtr).g = BYTE(gridVertex.highElevationTexAmount());
-						(*_tempSplatmapBufferPtr).b = BYTE(gridVertex.dirtTexAmount());
-						(*_tempSplatmapBufferPtr).a = BYTE(gridVertex.rocksTexAmount());
-						_tempSplatmapBufferPtr++;
-					}
-				}
-
-				if (!colorMapEmpty)
-				{
-					if (gridVertex.colorR() == -1 && gridVertex.colorG() == -1 && gridVertex.colorB() == -1 && gridVertex.colorA() == -1)
-						colorMapEmpty = true;
-					else
-					{
-						(*_tempColormapBufferPtr).r = BYTE(gridVertex.colorR());
-						(*_tempColormapBufferPtr).g = BYTE(gridVertex.colorG());
-						(*_tempColormapBufferPtr).b = BYTE(gridVertex.colorB());
-						(*_tempColormapBufferPtr).a = BYTE(gridVertex.colorA());
-						_tempColormapBufferPtr++;
-					}
-				}
-
-				if (!globalMapEmpty)
-				{
-					if (gridVertex.globalMapR() == -1 && gridVertex.globalMapG() == -1 && gridVertex.globalMapB() == -1)
-						globalMapEmpty = true;
-					else
-					{
-						(*_tempGlobalmapBufferPtr).r = BYTE(gridVertex.globalMapR());
-						(*_tempGlobalmapBufferPtr).g = BYTE(gridVertex.globalMapG());
-						(*_tempGlobalmapBufferPtr).b = BYTE(gridVertex.globalMapB());
-						_tempGlobalmapBufferPtr++;
-					}
-				}
-
-				x++;
-				if (x == vertexPerSize)
-				{
-					x = 0;
-					z++;
-				}
-			}
-
-			if (x != 0 && z != vertexPerSize)
-				throw(MapManagerException(__FUNCTION__, (std::string("something wrong iterating grid vertices: x=") + std::to_string(x) + " z=" + std::to_string(z)).c_str()));
-
-			heights16Buffer.adjustSize(numVertices * sizeof(uint16_t));
-			heights32Buffer.adjustSize(numVertices * sizeof(float));
-			if (normalMapEmpty)
-				normalsBuffer.clear();
-			else
-				normalsBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGB));
-			if (splatMapEmpty)
-				splatmapBuffer.clear();
-			else
-				splatmapBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGBA));
-			if (colorMapEmpty)
-				colormapBuffer.clear();
-			else
-				colormapBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGBA));
-			if (globalMapEmpty)
-				globalmapBuffer.clear();
-			else
-				globalmapBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGB));
-
-			TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData cacheQuadrantData;
-			cacheQuadrantData.meshId = meshId;
-
-			if (heights16Buffer.size() > 0)
-				cacheQuadrantData.heights16Buffer = &heights16Buffer;
-
-			if (heights32Buffer.size() > 0)
-				cacheQuadrantData.heights32Buffer = &heights32Buffer;
-
-			if (normalsBuffer.size() > 0)
-				cacheQuadrantData.normalsBuffer = &normalsBuffer;
-			else
-				terrainEdit.normalsNeedRegen = true;
-
-			if (splatmapBuffer.size() > 0)
-				cacheQuadrantData.splatmapBuffer = &splatmapBuffer;
-			else
-				terrainEdit.extraValues.texturesNeedRegen = true;
-
-			if (colormapBuffer.size() > 0)
-				cacheQuadrantData.colormapBuffer = &colormapBuffer;
-			else
-				terrainEdit.extraValues.emptyColormap = true;
-
-			if (globalmapBuffer.size() > 0)
-				cacheQuadrantData.globalmapBuffer = &globalmapBuffer;
-			else
-				terrainEdit.extraValues.emptyGlobalmap = true;
-
-			TheWorld_Utils::MemoryBuffer terrainEditValues;
-			if (terrainEdit.size > 0)
-			{
-				terrainEdit.serialize(terrainEditValues);
-				cacheQuadrantData.terrainEditValues = &terrainEditValues;
-				cacheQuadrantData.minHeight = terrainEdit.minHeight;
-				cacheQuadrantData.maxHeight = terrainEdit.maxHeight;
-			}
-			if (minHeight != FLT_MAX)
-			{
-				cacheQuadrantData.minHeight = minHeight;
-				//terrainEdit.minHeight = cacheQuadrantData.minHeight;
-			}
-			if (maxHeight != FLT_MIN)
-			{
-				cacheQuadrantData.maxHeight = maxHeight;
-				//terrainEdit.maxHeight = cacheQuadrantData.maxHeight;
-			}
-
-			cache.setBufferFromCacheQuadrantData(cache.getNumVerticesPerSize(), cacheQuadrantData, buffer);
+			cache.writeBufferToDiskCache(strBuffer);
 		}
 		else
 		{
-			//if no vertices of the quadrant in DB we force empty quadrant meshid (with empty quadrant meshid only the hash is updated and cache and db are aligned)
-			std::string emptyBufferMeshId;
-			cache.setEmptyBuffer(cache.getNumVerticesPerSize(), emptyBufferMeshId, buffer);
-			writeDiskCacheToDB(cache, stop);
+			TheWorld_Utils::MemoryBuffer heights16Buffer;
+			TheWorld_Utils::MemoryBuffer heights32Buffer;
+			TheWorld_Utils::MemoryBuffer normalsBuffer;
+			TheWorld_Utils::MemoryBuffer splatmapBuffer;
+			TheWorld_Utils::MemoryBuffer colormapBuffer;
+			TheWorld_Utils::MemoryBuffer globalmapBuffer;
+
+			float gridStep = cache.getGridStepInWU();
+			size_t vertexPerSize = cache.getNumVerticesPerSize();
+			int level = cache.getLevel();
+			float quadPosX = cache.getLowerXGridVertex();
+			float quadPosZ = cache.getLowerZGridVertex();
+			float quadEndPosX = quadPosX + (vertexPerSize - 1) * gridStep;
+			float quadEndPosZ = quadPosZ + (vertexPerSize - 1) * gridStep;
+
+			int numFoundInDB = 0;
+			std::vector<SQLInterface::GridVertex> vectGridVertex;
+			size_t numVertices = vectGridVertex.size();
+			internalGetVertices(quadPosX, quadEndPosX, quadPosZ, quadEndPosZ, (int)vertexPerSize, (int)vertexPerSize, vectGridVertex, gridStep, numFoundInDB, level);
+			if (numVertices != 0 && numVertices != vertexPerSize * vertexPerSize)
+				throw(MapManagerException(__FUNCTION__, (std::string("internalGetVertices returned unexpected size: ") + std::to_string(numVertices) + "(expected" + std::to_string(vertexPerSize * vertexPerSize) + ")").c_str()));
+
+			TheWorld_Utils::MemoryBuffer buffer;
+
+			float minHeight = FLT_MAX, maxHeight = FLT_MIN;
+
+			if (numFoundInDB > 0 && numVertices > 0)
+			{
+				heights16Buffer.reserve(numVertices * sizeof(uint16_t));
+				uint16_t* _tempHeights16BufferPtr = (uint16_t*)heights16Buffer.ptr();
+				heights32Buffer.reserve(numVertices * sizeof(float));
+				float* _tempHeights32BufferPtr = (float*)heights32Buffer.ptr();
+				normalsBuffer.reserve(numVertices * sizeof(TheWorld_Utils::_RGB));
+				TheWorld_Utils::_RGB* _tempNormalsBufferPtr = (TheWorld_Utils::_RGB*)normalsBuffer.ptr();
+				splatmapBuffer.reserve(numVertices * sizeof(TheWorld_Utils::_RGBA));
+				TheWorld_Utils::_RGBA* _tempSplatmapBufferPtr = (TheWorld_Utils::_RGBA*)splatmapBuffer.ptr();
+				colormapBuffer.reserve(numVertices * sizeof(TheWorld_Utils::_RGBA));
+				TheWorld_Utils::_RGBA* _tempColormapBufferPtr = (TheWorld_Utils::_RGBA*)colormapBuffer.ptr();
+				globalmapBuffer.reserve(numVertices * sizeof(TheWorld_Utils::_RGB));
+				TheWorld_Utils::_RGB* _tempGlobalmapBufferPtr = (TheWorld_Utils::_RGB*)globalmapBuffer.ptr();
+
+				bool normalMapEmpty = false, splatMapEmpty = false, colorMapEmpty = false, globalMapEmpty = false;
+
+				size_t x = 0, z = 0;
+				for (auto& gridVertex : vectGridVertex)
+				{
+					if (stop)
+						return false;
+
+					TheWorld_Utils::FLOAT_32 f;
+					f.f32 = gridVertex.altitude();
+
+					if (f.f32 < minHeight)
+						minHeight = f.f32;
+
+					if (f.f32 > maxHeight)
+						maxHeight = f.f32;
+
+					*_tempHeights16BufferPtr = TheWorld_Utils::MeshCacheBuffer::halfFromFloat(f.u32);
+					_tempHeights16BufferPtr++;
+
+					*_tempHeights32BufferPtr = f.f32;
+					_tempHeights32BufferPtr++;
+
+					if (!normalMapEmpty)
+					{
+						if (gridVertex.normX() == 0 && gridVertex.normY() == 0 && gridVertex.normZ() == 0)
+							normalMapEmpty = true;
+						else
+						{
+							Eigen::Vector3d normal(gridVertex.normX(), gridVertex.normY(), gridVertex.normZ());
+							Eigen::Vector3d packedNormal = TheWorld_Utils::packNormal(normal);
+							(*_tempNormalsBufferPtr).r = (BYTE)(packedNormal.x() * 255);	// normals coords range from 0 to 1 but if expressed as color in a normalmap range from 0 to 255
+							(*_tempNormalsBufferPtr).g = (BYTE)(packedNormal.y() * 255);
+							(*_tempNormalsBufferPtr).b = (BYTE)(packedNormal.z() * 255);
+							_tempNormalsBufferPtr++;
+						}
+					}
+
+					if (!splatMapEmpty)
+					{
+						if (gridVertex.lowElevationTexAmount() == -1 && gridVertex.highElevationTexAmount() == -1 && gridVertex.dirtTexAmount() == -1 && gridVertex.rocksTexAmount() == -1)
+							splatMapEmpty = true;
+						else
+						{
+							(*_tempSplatmapBufferPtr).r = BYTE(gridVertex.lowElevationTexAmount());
+							(*_tempSplatmapBufferPtr).g = BYTE(gridVertex.highElevationTexAmount());
+							(*_tempSplatmapBufferPtr).b = BYTE(gridVertex.dirtTexAmount());
+							(*_tempSplatmapBufferPtr).a = BYTE(gridVertex.rocksTexAmount());
+							_tempSplatmapBufferPtr++;
+						}
+					}
+
+					if (!colorMapEmpty)
+					{
+						if (gridVertex.colorR() == -1 && gridVertex.colorG() == -1 && gridVertex.colorB() == -1 && gridVertex.colorA() == -1)
+							colorMapEmpty = true;
+						else
+						{
+							(*_tempColormapBufferPtr).r = BYTE(gridVertex.colorR());
+							(*_tempColormapBufferPtr).g = BYTE(gridVertex.colorG());
+							(*_tempColormapBufferPtr).b = BYTE(gridVertex.colorB());
+							(*_tempColormapBufferPtr).a = BYTE(gridVertex.colorA());
+							_tempColormapBufferPtr++;
+						}
+					}
+
+					if (!globalMapEmpty)
+					{
+						if (gridVertex.globalMapR() == -1 && gridVertex.globalMapG() == -1 && gridVertex.globalMapB() == -1)
+							globalMapEmpty = true;
+						else
+						{
+							(*_tempGlobalmapBufferPtr).r = BYTE(gridVertex.globalMapR());
+							(*_tempGlobalmapBufferPtr).g = BYTE(gridVertex.globalMapG());
+							(*_tempGlobalmapBufferPtr).b = BYTE(gridVertex.globalMapB());
+							_tempGlobalmapBufferPtr++;
+						}
+					}
+
+					x++;
+					if (x == vertexPerSize)
+					{
+						x = 0;
+						z++;
+					}
+				}
+
+				if (x != 0 && z != vertexPerSize)
+					throw(MapManagerException(__FUNCTION__, (std::string("something wrong iterating grid vertices: x=") + std::to_string(x) + " z=" + std::to_string(z)).c_str()));
+
+				heights16Buffer.adjustSize(numVertices * sizeof(uint16_t));
+				heights32Buffer.adjustSize(numVertices * sizeof(float));
+				if (normalMapEmpty)
+					normalsBuffer.clear();
+				else
+					normalsBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGB));
+				if (splatMapEmpty)
+					splatmapBuffer.clear();
+				else
+					splatmapBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGBA));
+				if (colorMapEmpty)
+					colormapBuffer.clear();
+				else
+					colormapBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGBA));
+				if (globalMapEmpty)
+					globalmapBuffer.clear();
+				else
+					globalmapBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGB));
+
+				TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData cacheQuadrantData;
+				cacheQuadrantData.meshId = meshId;
+
+				if (heights16Buffer.size() > 0)
+					cacheQuadrantData.heights16Buffer = &heights16Buffer;
+
+				if (heights32Buffer.size() > 0)
+					cacheQuadrantData.heights32Buffer = &heights32Buffer;
+
+				if (normalsBuffer.size() > 0)
+					cacheQuadrantData.normalsBuffer = &normalsBuffer;
+				else
+					terrainEdit.normalsNeedRegen = true;
+
+				if (splatmapBuffer.size() > 0)
+					cacheQuadrantData.splatmapBuffer = &splatmapBuffer;
+				else
+					terrainEdit.extraValues.texturesNeedRegen = true;
+
+				if (colormapBuffer.size() > 0)
+					cacheQuadrantData.colormapBuffer = &colormapBuffer;
+				else
+					terrainEdit.extraValues.emptyColormap = true;
+
+				if (globalmapBuffer.size() > 0)
+					cacheQuadrantData.globalmapBuffer = &globalmapBuffer;
+				else
+					terrainEdit.extraValues.emptyGlobalmap = true;
+
+				TheWorld_Utils::MemoryBuffer terrainEditValues;
+				if (terrainEdit.size > 0)
+				{
+					terrainEdit.serialize(terrainEditValues);
+					cacheQuadrantData.terrainEditValues = &terrainEditValues;
+					cacheQuadrantData.minHeight = terrainEdit.minHeight;
+					cacheQuadrantData.maxHeight = terrainEdit.maxHeight;
+				}
+				if (minHeight != FLT_MAX)
+				{
+					cacheQuadrantData.minHeight = minHeight;
+					//terrainEdit.minHeight = cacheQuadrantData.minHeight;
+				}
+				if (maxHeight != FLT_MIN)
+				{
+					cacheQuadrantData.maxHeight = maxHeight;
+					//terrainEdit.maxHeight = cacheQuadrantData.maxHeight;
+				}
+
+				cache.setBufferFromCacheQuadrantData(cache.getNumVerticesPerSize(), cacheQuadrantData, buffer);
+			}
+			else
+			{
+				//if no vertices of the quadrant in DB we force empty quadrant meshid (with empty quadrant meshid only the hash is updated and cache and db are aligned)
+				std::string emptyBufferMeshId;
+				cache.setEmptyBuffer(cache.getNumVerticesPerSize(), emptyBufferMeshId, buffer);
+				writeDiskCacheToDB(cache, stop);
+			}
+
+			cache.writeBufferToDiskCache(buffer);
 		}
 		
-		cache.writeBufferToDiskCache(buffer);
-
 		return true;
 
 	}
@@ -1123,6 +1151,8 @@ namespace TheWorld_MapManager
 					{
 						TheWorld_Utils::MsTimePoint now = std::chrono::time_point_cast<TheWorld_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
 						PLOG_DEBUG << "Align CACHE <==> DB - Aligned cache element " << progr << "/" << vectDiskCache.size() << " - Elapsed " << (now - start).count() << " ms";
+						//s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit = true;
+						//break;
 					}
 				}
 			}
@@ -1155,7 +1185,8 @@ namespace TheWorld_MapManager
 
 		std::string serverCacheMeshId = cache.getMeshIdFromDisk();
 		enum class SQLInterface::QuadrantStatus status;
-		std::string dbCacheId = m_SqlInterface->getQuadrantHash(cache.getGridStepInWU(), cache.getNumVerticesPerSize(), cache.getLevel(), cache.getLowerXGridVertex(), cache.getLowerZGridVertex(), status);
+		enum class SQLInterface::QuadrantVertexStoreType vertexStoreType;
+		std::string dbCacheId = m_SqlInterface->getQuadrantHash(cache.getGridStepInWU(), cache.getNumVerticesPerSize(), cache.getLevel(), cache.getLowerXGridVertex(), cache.getLowerZGridVertex(), status, vertexStoreType);
 		if (status == SQLInterface::QuadrantStatus::Loading)
 			dbCacheId = "";
 
