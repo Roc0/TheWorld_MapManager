@@ -31,6 +31,13 @@ namespace TheWorld_MapManager
 			Complete = 2
 		};
 
+		enum class QuadrantVertexStoreType
+		{
+			NotSet = -1,
+			eXtended = 0,
+			Compact = 1
+		};
+
 		SQLInterface(DBType dbt, const char* dataPath, bool consoleDebugMode = false)
 		{
 			m_dbt = dbt;
@@ -324,9 +331,9 @@ namespace TheWorld_MapManager
 		virtual void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& vectWDRowId) = 0;
 		virtual bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
 		virtual bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
-		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class SQLInterface::QuadrantStatus& status) = 0;
-		virtual bool writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, bool& stop) = 0;
-		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, enum class SQLInterface::QuadrantStatus& status, TheWorld_Utils::TerrainEdit& terrainEdit) = 0;
+		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class SQLInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType) = 0;
+		virtual bool writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, std::string strBuffer, enum class QuadrantVertexStoreType vertexStoreType, bool& stop) = 0;
+		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class SQLInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit) = 0;
 		virtual void finalizeDB(void) = 0;
 
 	private:

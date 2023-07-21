@@ -86,6 +86,7 @@ create table Quadrant(
 	PosZEnd REAL NOT NULL,
 	Hash BLOB NOT NULL,
 	Status TEXT CHECK( Status IN ('C','L','E') ) NOT NULL DEFAULT 'E',
+	VertexStoreType TEXT CHECK( VertexStoreType IN ('X','C') ) NOT NULL DEFAULT 'X',
 	PRIMARY KEY(GridStepInWU, VertexPerSize, Level, PosXStart, PosZStart)
 );
 --create unique index Quadrant_Hash_Idx on Quadrant(Hash);
@@ -94,6 +95,12 @@ create table QuadrantLoading(
 	Hash BLOB NOT NULL,
 	LastXIdxLoaded INTEGER NOT NULL,	-- 0 to VertexPerSize - 1
 	LastZIdxLoaded INTEGER NOT NULL,	-- 0 to VertexPerSize - 1
+	PRIMARY KEY(Hash)
+);
+
+create table QuadrantDataCompact(
+	Hash BLOB NOT NULL,
+	Data BLOB NOT NULL,
 	PRIMARY KEY(Hash)
 );
 
