@@ -763,8 +763,8 @@ namespace TheWorld_MapManager
 		std::string mapName = getMapName();
 		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 		cache.writeBufferToDiskCache(meshBuffer, true);
-		//bool stop = false;
-		//writeDiskCacheToDB(cache, stop);
+		bool stop = false;
+		writeDiskCacheToDB(cache, stop);
 	}
 
 //#define MAPMANAGER_WRITE_COMPACT_VERTICES_TO_DB		0
@@ -798,6 +798,9 @@ namespace TheWorld_MapManager
 		cacheQuadrantData.splatmapBuffer = &splatmapBuffer;
 		cacheQuadrantData.colormapBuffer = &colormapBuffer;
 		cacheQuadrantData.globalmapBuffer = &globalmapBuffer;
+		
+		bool completed;
+
 		if (!emptyBuffer)
 		{
 			if (writeCompactVerticesToDB)
@@ -810,12 +813,13 @@ namespace TheWorld_MapManager
 			}
 
 			cache.refreshCacheQuadrantDataFromBuffer(memoryBuffer, cacheQuadrantData, false);
+
+			SQLInterface::QuadrantVertexStoreType vertexStoreType = writeCompactVerticesToDB ? SQLInterface::QuadrantVertexStoreType::Compact : SQLInterface::QuadrantVertexStoreType::eXtended;
+			completed = m_SqlInterface->writeQuadrantToDB(cache, cacheQuadrantData, strBuffer, vertexStoreType, stop);
 		}
+		else
+			completed = true;
 		
-		SQLInterface::QuadrantVertexStoreType vertexStoreType = writeCompactVerticesToDB ? SQLInterface::QuadrantVertexStoreType::Compact : SQLInterface::QuadrantVertexStoreType::eXtended;
-
-		bool completed = m_SqlInterface->writeQuadrantToDB(cache, cacheQuadrantData, strBuffer, vertexStoreType, stop);
-
 		return completed;
 	}
 
@@ -1047,7 +1051,7 @@ namespace TheWorld_MapManager
 				//if no vertices of the quadrant in DB we force empty quadrant meshid (with empty quadrant meshid only the hash is updated and cache and db are aligned)
 				std::string emptyBufferMeshId;
 				cache.setEmptyBuffer(cache.getNumVerticesPerSize(), emptyBufferMeshId, buffer);
-				writeDiskCacheToDB(cache, stop);
+				//writeDiskCacheToDB(cache, stop);
 			}
 
 			cache.writeBufferToDiskCache(buffer);
@@ -1177,7 +1181,7 @@ namespace TheWorld_MapManager
 
 	int MapManager::alignDiskCacheAndDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop)
 	{
-		TheWorld_Utils::GuardProfiler profiler(std::string("alignCacheAndDB ") + __FUNCTION__, "getQuadrantVertices");
+		TheWorld_Utils::GuardProfiler profiler(std::string("alignCacheAndDB ") + __FUNCTION__, "Single CACHE");
 
 		std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
 
@@ -1232,16 +1236,23 @@ namespace TheWorld_MapManager
 		}
 		else if (dbCacheId.size() == 0)
 		{
-			// info of the terrain is in cache
-			PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " Cache ==> DB";
-			bool completed = writeDiskCacheToDB(cache, stop);
-			if (completed)
+			bool emptyBuffer = cache.isEmptyBuffer(serverCacheMeshId);
+			
+			if (!emptyBuffer)
 			{
-				PLOG_DEBUG << "Align CACHE <==> DB - Alignement " << cache.getCacheIdStr() << " Cache ==> DB - Completed";
-				ret = MAPMANAGER_UPDATED_DB;
+				// info of the terrain is in cache
+				PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " Cache ==> DB";
+				bool completed = writeDiskCacheToDB(cache, stop);
+				if (completed)
+				{
+					PLOG_DEBUG << "Align CACHE <==> DB - Alignement " << cache.getCacheIdStr() << " Cache ==> DB - Completed";
+					ret = MAPMANAGER_UPDATED_DB;
+				}
+				else
+					ret = MAPMANAGER_STOPPED;
 			}
 			else
-				ret = MAPMANAGER_STOPPED;
+				ret = MAPMANAGER_NOTHING_TO_DO;
 		}
 		else
 		{
@@ -1312,9 +1323,9 @@ namespace TheWorld_MapManager
 			if (serverCacheMeshId.size() == 0)
 			{
 				bool stop = false;
-				//int ret = alignDiskCacheAndDB(cache, stop);
-				//serverCacheMeshId = cache.getMeshIdFromDisk();
-				//my_assert(serverCacheMeshId.size() > 0);
+				int ret = alignDiskCacheAndDB(cache, stop);
+				serverCacheMeshId = cache.getMeshIdFromDisk();
+				my_assert(serverCacheMeshId.size() > 0);
 			}
 		}
 
