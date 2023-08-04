@@ -1742,7 +1742,7 @@ namespace TheWorld_MapManager
 		float quadEndPosX = quadPosX + (vertxePerSize - 1) * gridStep;
 		float quadEndPosZ = quadPosZ + (vertxePerSize - 1) * gridStep;
 
-		string sql1 = "SELECT Hash, Status, VertexStoreType FROM Quadrant WHERE GridStepInWU = %s, VertexPerSize = %s AND Level = %s AND PosXStart = %s AND PosZStart = %s;";
+		string sql1 = "SELECT Hash, Status, VertexStoreType FROM Quadrant WHERE GridStepInWU = %s AND VertexPerSize = %s AND Level = %s AND PosXStart = %s AND PosZStart = %s;";
 		string sql = dbOps.completeSQL(sql1.c_str(), to_string(gridStep).c_str(), to_string(vertxePerSize).c_str(), to_string(level).c_str(), to_string(quadPosX).c_str(), to_string(quadPosZ).c_str());
 		dbOps.prepareStmt(sql.c_str());
 
@@ -1770,6 +1770,8 @@ namespace TheWorld_MapManager
 			vertexStoreType = SQLInterface::QuadrantVertexStoreType::Compact;
 		else
 			throw(MapManagerExceptionDBException(__FUNCTION__, std::string(std::string("DB SQLite unexpected VertexStoreType ") + s + "!").c_str(), sqlite3_errmsg(dbOps.getConn()), rc));
+
+		dbOps.finalizeStmt();
 
 		sql = "SELECT "
 			"TerrainType,"						// 0
@@ -1833,6 +1835,8 @@ namespace TheWorld_MapManager
 			terrainEdit.northSideZMinus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 17);
 			terrainEdit.northSideZMinus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 18);
 		}
+
+		dbOps.finalizeStmt();
 
 		if (vertexStoreType == SQLInterface::QuadrantVertexStoreType::Compact && status == SQLInterface::QuadrantStatus::Complete)
 		{
