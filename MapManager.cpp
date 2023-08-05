@@ -767,15 +767,14 @@ namespace TheWorld_MapManager
 		writeDiskCacheToDB(cache, stop);
 	}
 
-//#define MAPMANAGER_WRITE_COMPACT_VERTICES_TO_DB		0
-//#define MAPMANAGER_WRITE_EXTENDED_VERTICES_TO_DB	1
-
 	bool MapManager::writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("writeDiskCacheToDB ") + __FUNCTION__, "ALL");
 
-		bool writeCompactVerticesToDB = true;
-		
+		//bool writeCompactVerticesToDB = true;
+		bool writeCompactVerticesToDB = false;
+		PLOG_DEBUG << "MapManager::writeDiskCacheToDB - Compact ==> " << writeCompactVerticesToDB;
+
 		bool emptyBuffer = cache.isEmptyBuffer(cache.getMeshIdFromDisk());
 		
 		TheWorld_Utils::MemoryBuffer memoryBuffer;
@@ -863,14 +862,14 @@ namespace TheWorld_MapManager
 
 			int numFoundInDB = 0;
 			std::vector<SQLInterface::GridVertex> vectGridVertex;
-			size_t numVertices = vectGridVertex.size();
 			internalGetVertices(quadPosX, quadEndPosX, quadPosZ, quadEndPosZ, (int)vertexPerSize, (int)vertexPerSize, vectGridVertex, gridStep, numFoundInDB, level);
+			size_t numVertices = vectGridVertex.size();
 			if (numVertices != 0 && numVertices != vertexPerSize * vertexPerSize)
 				throw(MapManagerException(__FUNCTION__, (std::string("internalGetVertices returned unexpected size: ") + std::to_string(numVertices) + "(expected" + std::to_string(vertexPerSize * vertexPerSize) + ")").c_str()));
 
 			TheWorld_Utils::MemoryBuffer buffer;
 
-			float minHeight = FLT_MAX, maxHeight = FLT_MIN;
+			float minHeight = FLT_MAX, maxHeight = -FLT_MAX;
 
 			if (numFoundInDB > 0 && numVertices > 0)
 			{
@@ -1038,7 +1037,7 @@ namespace TheWorld_MapManager
 					cacheQuadrantData.minHeight = minHeight;
 					//terrainEdit.minHeight = cacheQuadrantData.minHeight;
 				}
-				if (maxHeight != FLT_MIN)
+				if (maxHeight != -FLT_MAX)
 				{
 					cacheQuadrantData.maxHeight = maxHeight;
 					//terrainEdit.maxHeight = cacheQuadrantData.maxHeight;
