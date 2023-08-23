@@ -1147,7 +1147,7 @@ namespace TheWorld_MapManager
 		if ( (_vertexStoreType == QuadrantVertexStoreType::Compact && strBuffer.size() > 0)
 			|| (_vertexStoreType == QuadrantVertexStoreType::eXtended && cacheQuadrantData.heights32Buffer->size() > 0) )
 		{
-			// read QuadrantLoading to restart: if start from beginning ==> write terrainEditValues and start loading GridVertex else continue loading gridvertex
+			// we have read QuadrantLoading to restart: if start from beginning ==> write terrainEditValues and start loading GridVertex else continue loading gridvertex
 
 			if (cacheQuadrantData.terrainEditValues->size() > 0)
 			{
@@ -1315,6 +1315,11 @@ namespace TheWorld_MapManager
 				dbOps->finalizeStmt();
 
 				endTransaction();
+
+				if (terrainEdit.terrainType != TheWorld_Utils::TerrainEdit::TerrainType::unknown)
+				{
+					// Write Noise Values
+				}
 			}
 
 			if (_vertexStoreType == QuadrantVertexStoreType::Compact)
@@ -1325,14 +1330,14 @@ namespace TheWorld_MapManager
 				dbOps->prepareStmt(sql.c_str());
 				rc = sqlite3_bind_blob(dbOps->getStmt(), 1, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
 				if (rc != SQLITE_OK)
-					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantDataCompact.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 				rc = sqlite3_bind_blob(dbOps->getStmt(), 2, strBuffer.c_str(), (int)strBuffer.size(), SQLITE_STATIC);
 				if (rc != SQLITE_OK)
-					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantDataCompact.Data failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 				rc = dbOps->execStmt();
 				int numInsertedUpdated = sqlite3_changes(dbOps->getConn());
 				if (rc != SQLITE_DONE)
-					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete from QuadrantLoading table!", sqlite3_errmsg(dbOps->getConn()), rc));
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to insert/replace into QuadrantDataCompact table!", sqlite3_errmsg(dbOps->getConn()), rc));
 				dbOps->finalizeStmt();
 
 				sql = "DELETE FROM QuadrantLoading WHERE Hash = ?;";
@@ -1354,11 +1359,11 @@ namespace TheWorld_MapManager
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind Quadrant.Status failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 				rc = sqlite3_bind_blob(dbOps->getStmt(), 2, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
 				if (rc != SQLITE_OK)
-					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantLoading.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind Quadrant.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 				rc = dbOps->execStmt();
 				int numUpdated = sqlite3_changes(dbOps->getConn());
 				if (rc != SQLITE_DONE)
-					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete from QuadrantLoading table!", sqlite3_errmsg(dbOps->getConn()), rc));
+					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to update from Quadrant table!", sqlite3_errmsg(dbOps->getConn()), rc));
 				dbOps->finalizeStmt();
 
 				endTransaction();
@@ -1838,6 +1843,12 @@ namespace TheWorld_MapManager
 
 		dbOps.finalizeStmt();
 
+		if (terrainEdit.terrainType != TheWorld_Utils::TerrainEdit::TerrainType::unknown)
+		{
+			// Read Noise Values
+		}
+		
+		
 		if (vertexStoreType == SQLInterface::QuadrantVertexStoreType::Compact && status == SQLInterface::QuadrantStatus::Complete)
 		{
 			sql = "SELECT Data FROM QuadrantDataCompact WHERE Hash = ?;";
