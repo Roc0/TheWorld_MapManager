@@ -1330,7 +1330,7 @@ namespace TheWorld_MapManager
 			diskCache_cacheQuadrantData.splatmapBuffer = &diskCache_splatmapBuffer;
 			diskCache_cacheQuadrantData.colormapBuffer = &diskCache_colormapBuffer;
 			diskCache_cacheQuadrantData.globalmapBuffer = &diskCache_globalmapBuffer;
-			if (diskCache_meshId.size() == 0)
+			if (diskCache_meshId.size() > 0)
 			{
 				cache.readBufferFromDisk(diskCache_meshId, buffer);
 				cache.refreshCacheQuadrantDataFromBuffer(buffer, diskCache_cacheQuadrantData, false);
