@@ -1318,6 +1318,7 @@ namespace TheWorld_MapManager
 
 				if (terrainEdit.terrainType != TheWorld_Utils::TerrainEdit::TerrainType::unknown)
 				{
+					// TODORIC
 					// Write Noise Values
 				}
 			}
@@ -1845,6 +1846,7 @@ namespace TheWorld_MapManager
 
 		if (terrainEdit.terrainType != TheWorld_Utils::TerrainEdit::TerrainType::unknown)
 		{
+			// TODORIC
 			// Read Noise Values
 		}
 		

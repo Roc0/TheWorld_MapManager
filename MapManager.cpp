@@ -1544,13 +1544,27 @@ namespace TheWorld_MapManager
 			// Compare
 			bool match = true;
 
-			if (memcmp((void*)&diskCache_terrainEditValues, (void*)&db_terrainEditValues, sizeof(diskCache_terrainEditValues)) != 0)
+			if ( !(diskCache_terrainEditValues == db_terrainEditValues) )
+				match = false;
+
+			if (diskCache_heights16Buffer.size() != db_heights16Buffer.size())
+				match = false;
+			if (diskCache_heights32Buffer.size() != db_heights32Buffer.size())
+				match = false;
+			if (diskCache_normalsBuffer.size() != db_normalsBuffer.size())
+				match = false;
+			if (diskCache_splatmapBuffer.size() != db_splatmapBuffer.size())
+				match = false;
+			if (diskCache_colormapBuffer.size() != db_colormapBuffer.size())
+				match = false;
+			if (diskCache_globalmapBuffer.size() != db_globalmapBuffer.size())
 				match = false;
 
 			for (size_t z = 0; z < numVerticesPerSize; z++)
 			{
 				for (size_t x = 0; x < numVerticesPerSize; x++)
 				{
+					if (diskCache_heights16Buffer.size() > 0 && db_heights16Buffer.size() > 0)
 					{
 						uint16_t diskCache_vertexPosY_16 = diskCache_heights16Buffer.at<uint16_t>(x, z, numVerticesPerSize);
 						uint16_t db_vertexPosY_16 = db_heights16Buffer.at<uint16_t>(x, z, numVerticesPerSize);
@@ -1558,6 +1572,7 @@ namespace TheWorld_MapManager
 							match = false;
 					}
 
+					if (diskCache_heights32Buffer.size() > 0 && db_heights32Buffer.size() > 0)
 					{
 						float diskCache_vertexPosY_32 = diskCache_heights32Buffer.at<float>(x, z, numVerticesPerSize);
 						float db_vertexPosY_32 = db_heights32Buffer.at<float>(x, z, numVerticesPerSize);
@@ -1565,6 +1580,7 @@ namespace TheWorld_MapManager
 							match = false;
 					}
 
+					if (diskCache_normalsBuffer.size() > 0 && db_normalsBuffer.size() > 0)
 					{
 						struct TheWorld_Utils::_RGB diskCache_rgbNormal = diskCache_normalsBuffer.at<TheWorld_Utils::_RGB>(x, z, numVerticesPerSize);					// 0-255
 						struct TheWorld_Utils::_RGB db_rgbNormal = db_normalsBuffer.at<TheWorld_Utils::_RGB>(x, z, numVerticesPerSize);									// 0-255
@@ -1572,6 +1588,7 @@ namespace TheWorld_MapManager
 							match = false;
 					}
 
+					if (diskCache_splatmapBuffer.size() > 0 && db_splatmapBuffer.size() > 0)
 					{
 						struct TheWorld_Utils::_RGBA diskCache_rgbaSplat = diskCache_splatmapBuffer.at<TheWorld_Utils::_RGBA>(x, z, numVerticesPerSize);					// 0-255
 						struct TheWorld_Utils::_RGBA db_rgbaSplat = db_splatmapBuffer.at<TheWorld_Utils::_RGBA>(x, z, numVerticesPerSize);									// 0-255
@@ -1579,6 +1596,7 @@ namespace TheWorld_MapManager
 							match = false;
 					}
 
+					if (diskCache_colormapBuffer.size() > 0 && db_colormapBuffer.size() > 0)
 					{
 						struct TheWorld_Utils::_RGBA diskCache_rgbaColor = diskCache_colormapBuffer.at<TheWorld_Utils::_RGBA>(x, z, numVerticesPerSize);					// 0-255
 						struct TheWorld_Utils::_RGBA db_rgbaColor = db_colormapBuffer.at<TheWorld_Utils::_RGBA>(x, z, numVerticesPerSize);									// 0-255
@@ -1586,6 +1604,7 @@ namespace TheWorld_MapManager
 							match = false;
 					}
 
+					if (diskCache_globalmapBuffer.size() > 0 && db_globalmapBuffer.size() > 0)
 					{
 						struct TheWorld_Utils::_RGB diskCache_rgbGlobal = diskCache_globalmapBuffer.at<TheWorld_Utils::_RGB>(x, z, numVerticesPerSize);					// 0-255
 						struct TheWorld_Utils::_RGB db_rgbGlobal = db_globalmapBuffer.at<TheWorld_Utils::_RGB>(x, z, numVerticesPerSize);									// 0-255
