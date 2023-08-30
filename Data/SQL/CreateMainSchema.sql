@@ -129,7 +129,7 @@ create table TerrainQuadrant(
 );
 
 create table NoiseValuesQuadrant(
-	Hash TEXT NOT NULL,
+	Hash BLOB NOT NULL,
 	NoiseType INTEGER NOT NULL,
 	RotationType INTEGER NOT NULL,
 	NoiseSeed INTEGER NOT NULL,

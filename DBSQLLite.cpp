@@ -730,18 +730,18 @@ namespace TheWorld_MapManager
 				(__int64)sqlite3_column_int64(dbOps.getStmt(), 7),							// rowid
 				sqlite3_column_type(dbOps.getStmt(), 8) == SQLITE_NULL ? 0 : (float)sqlite3_column_double(dbOps.getStmt(), 8),		// NormX
 				sqlite3_column_type(dbOps.getStmt(), 9) == SQLITE_NULL ? 0 : (float)sqlite3_column_double(dbOps.getStmt(), 9),		// NormY
-				sqlite3_column_type(dbOps.getStmt(), 10) == SQLITE_NULL ? 0 : (float)sqlite3_column_double(dbOps.getStmt(), 10),		// NormZ
-				sqlite3_column_type(dbOps.getStmt(), 11) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 11),	// ColorR
-				sqlite3_column_type(dbOps.getStmt(), 12) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 12),	// ColorG
-				sqlite3_column_type(dbOps.getStmt(), 13) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 13),	// ColorB
-				sqlite3_column_type(dbOps.getStmt(), 14) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 14),	// ColorA
-				sqlite3_column_type(dbOps.getStmt(), 15) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 15),	// LowElevationTexAmount
-				sqlite3_column_type(dbOps.getStmt(), 16) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 16),	// HighElevationTexAmount
-				sqlite3_column_type(dbOps.getStmt(), 17) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 17),	// DirtTexAmount
-				sqlite3_column_type(dbOps.getStmt(), 18) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 18),	// RocksTexAmount
-				sqlite3_column_type(dbOps.getStmt(), 19) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 19),	// GlobalMapR
-				sqlite3_column_type(dbOps.getStmt(), 20) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 20),	// GlobalMapG
-				sqlite3_column_type(dbOps.getStmt(), 21) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 21));	// GlobalMapB
+				sqlite3_column_type(dbOps.getStmt(), 10) == SQLITE_NULL ? 0 : (float)sqlite3_column_double(dbOps.getStmt(), 10),	// NormZ
+				sqlite3_column_type(dbOps.getStmt(), 11) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 11),				// ColorR
+				sqlite3_column_type(dbOps.getStmt(), 12) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 12),				// ColorG
+				sqlite3_column_type(dbOps.getStmt(), 13) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 13),				// ColorB
+				sqlite3_column_type(dbOps.getStmt(), 14) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 14),				// ColorA
+				sqlite3_column_type(dbOps.getStmt(), 15) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 15),				// LowElevationTexAmount
+				sqlite3_column_type(dbOps.getStmt(), 16) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 16),				// HighElevationTexAmount
+				sqlite3_column_type(dbOps.getStmt(), 17) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 17),				// DirtTexAmount
+				sqlite3_column_type(dbOps.getStmt(), 18) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 18),				// RocksTexAmount
+				sqlite3_column_type(dbOps.getStmt(), 19) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 19),				// GlobalMapR
+				sqlite3_column_type(dbOps.getStmt(), 20) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 20),				// GlobalMapG
+				sqlite3_column_type(dbOps.getStmt(), 21) == SQLITE_NULL ? -1 : sqlite3_column_int(dbOps.getStmt(), 21));			// GlobalMapB
 
 			vectGridVertex.push_back(gridVertex);
 
@@ -1318,8 +1318,103 @@ namespace TheWorld_MapManager
 
 				if (terrainEdit.terrainType != TheWorld_Utils::TerrainEdit::TerrainType::unknown)
 				{
-					// TODORIC
 					// Write Noise Values
+
+					beginTransaction();
+
+					string sql = "INSERT OR REPLACE INTO NoiseValuesQuadrant (Hash, NoiseType, RotationType, NoiseSeed, Frequency, FractalType, FractalOctaves, FractalLacunarity, FractalGain, FractalWeightedStrength, FractalPingPongStrength, CellularDistanceFunction, CellularReturnType, CellularJitter, WarpNoiseDomainWarpType, WarpNoiseRotationType3D, WarpNoiseSeed, WarpNoiseDomainWarpAmp, WarpNoiseFrequency, WarpNoieseFractalType, WarpNoiseFractalOctaves, WarpNoiseFractalLacunarity, WarpNoiseFractalGain, Amplitude, ScaleFactor, DesideredMinHeight, DesideredMinHeigthMandatory) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
+
+					dbOps->prepareStmt(sql.c_str());
+					rc = sqlite3_bind_blob(dbOps->getStmt(), 1, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 2, terrainEdit.noise.noiseType);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.NoiseType failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 3, terrainEdit.noise.rotationType3D);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.RotationType failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 4, terrainEdit.noise.noiseSeed);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.NoiseSeed failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_double(dbOps->getStmt(), 5, terrainEdit.noise.frequency);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.Frequency failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 6, terrainEdit.noise.fractalType);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.FractalType failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 7, terrainEdit.noise.fractalOctaves);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.FractalOctaves failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_double(dbOps->getStmt(), 8, terrainEdit.noise.fractalLacunarity);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.FractalLacunarity failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_double(dbOps->getStmt(), 9, terrainEdit.noise.fractalGain);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.FractalGain failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_double(dbOps->getStmt(), 10, terrainEdit.noise.fractalWeightedStrength);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.FractalWeightedStrength failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_double(dbOps->getStmt(), 11, terrainEdit.noise.fractalPingPongStrength);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.FractalPingPongStrength failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 12, terrainEdit.noise.cellularDistanceFunction);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.CellularDistanceFunction failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 13, terrainEdit.noise.cellularReturnType);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.CellularReturnType failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_double(dbOps->getStmt(), 14, terrainEdit.noise.cellularJitter);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.CellularJitter failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 15, terrainEdit.noise.warpNoiseDomainWarpType);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.WarpNoiseDomainWarpType failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 16, terrainEdit.noise.warpNoiseRotationType3D);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.WarpNoiseRotationType3D failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 17, terrainEdit.noise.warpNoiseSeed);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.WarpNoiseSeed failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_double(dbOps->getStmt(), 18, terrainEdit.noise.warpNoiseDomainWarpAmp);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.WarpNoiseDomainWarpAmp failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_double(dbOps->getStmt(), 19, terrainEdit.noise.warpNoiseFrequency);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.WarpNoiseFrequency failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 20, terrainEdit.noise.warpNoieseFractalType);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.WarpNoieseFractalType failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 21, terrainEdit.noise.warpNoiseFractalOctaves);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.WarpNoiseFractalOctaves failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_double(dbOps->getStmt(), 22, terrainEdit.noise.warpNoiseFractalLacunarity);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.WarpNoiseFractalLacunarity failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_double(dbOps->getStmt(), 23, terrainEdit.noise.warpNoiseFractalGain);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.WarpNoiseFractalGain failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 24, terrainEdit.noise.amplitude);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.Amplitude failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_double(dbOps->getStmt(), 25, terrainEdit.noise.scaleFactor);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.ScaleFactor failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_double(dbOps->getStmt(), 26, terrainEdit.noise.desideredMinHeight);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.DesideredMinHeight failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+					rc = sqlite3_bind_int(dbOps->getStmt(), 27, terrainEdit.noise.desideredMinHeigthMandatory);
+					if (rc != SQLITE_OK)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.DesideredMinHeigthMandatory failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+					rc = dbOps->execStmt();
+					int numInsertedUpdated = sqlite3_changes(dbOps->getConn());
+					if (rc != SQLITE_DONE)
+						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to insert/replace into NoiseValuesQuadrant table!", sqlite3_errmsg(dbOps->getConn()), rc));
+
+					dbOps->finalizeStmt();
+
+					endTransaction();
 				}
 			}
 
@@ -1442,7 +1537,10 @@ namespace TheWorld_MapManager
 						if (!normalMapEmpty)
 						{
 							struct TheWorld_Utils::_RGB rgbNormal = cacheQuadrantData.normalsBuffer->at<TheWorld_Utils::_RGB>(x, z, vertexPerSize);									// 0-255
-							Eigen::Vector3d packedNormal((const double)(double(rgbNormal.r) / 255), (const double)(double(rgbNormal.g) / 255), (const double)(double(rgbNormal.b) / 255));	// 0.0f-1.0f
+							normalX = (float)rgbNormal.r / 255;
+							normalY = (float)rgbNormal.g / 255;
+							normalZ = (float)rgbNormal.b / 255;
+							Eigen::Vector3d packedNormal((const double)normalX, (const double)normalY, (const double)normalZ);	// 0.0f-1.0f
 							Eigen::Vector3d normal = TheWorld_Utils::unpackNormal(packedNormal);
 							//float nx = (float)normal.x(), ny = (float)normal.y(), nz = (float)normal.z();
 							//normal.normalize();
@@ -1846,8 +1944,49 @@ namespace TheWorld_MapManager
 
 		if (terrainEdit.terrainType != TheWorld_Utils::TerrainEdit::TerrainType::unknown)
 		{
-			// TODORIC
 			// Read Noise Values
+
+			sql = "SELECT NoiseType, RotationType, NoiseSeed, Frequency, FractalType, FractalOctaves, FractalLacunarity, FractalGain, FractalWeightedStrength, FractalPingPongStrength, CellularDistanceFunction, CellularReturnType, CellularJitter, WarpNoiseDomainWarpType, WarpNoiseRotationType3D, WarpNoiseSeed, WarpNoiseDomainWarpAmp, WarpNoiseFrequency, WarpNoieseFractalType, WarpNoiseFractalOctaves, WarpNoiseFractalLacunarity, WarpNoiseFractalGain, Amplitude, ScaleFactor, DesideredMinHeight, DesideredMinHeigthMandatory FROM NoiseValuesQuadrant WHERE Hash = ?;";
+
+			dbOps.prepareStmt(sql.c_str());
+			rc = sqlite3_bind_blob(dbOps.getStmt(), 1, meshId.c_str(), (int)meshId.size(), SQLITE_TRANSIENT);
+			if (rc != SQLITE_OK)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.Hash failed!", sqlite3_errmsg(dbOps.getConn()), rc));
+
+			rc = dbOps.execStmt();
+			if (rc != SQLITE_ROW && rc != SQLITE_DONE)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read from NoiseValuesQuadrant table!", sqlite3_errmsg(dbOps.getConn()), rc));
+			if (rc == SQLITE_ROW)
+			{
+				terrainEdit.noise.noiseType = sqlite3_column_int(dbOps.getStmt(), 0);
+				terrainEdit.noise.rotationType3D = sqlite3_column_int(dbOps.getStmt(), 1);
+				terrainEdit.noise.noiseSeed = sqlite3_column_int(dbOps.getStmt(), 2);
+				terrainEdit.noise.frequency = (float)sqlite3_column_double(dbOps.getStmt(), 3);
+				terrainEdit.noise.fractalType = sqlite3_column_int(dbOps.getStmt(), 4);
+				terrainEdit.noise.fractalOctaves = sqlite3_column_int(dbOps.getStmt(), 5);
+				terrainEdit.noise.fractalLacunarity = (float)sqlite3_column_double(dbOps.getStmt(), 6);
+				terrainEdit.noise.fractalGain = (float)sqlite3_column_double(dbOps.getStmt(), 7);
+				terrainEdit.noise.fractalWeightedStrength = (float)sqlite3_column_double(dbOps.getStmt(), 8);
+				terrainEdit.noise.fractalPingPongStrength = (float)sqlite3_column_double(dbOps.getStmt(), 9);
+				terrainEdit.noise.cellularDistanceFunction = sqlite3_column_int(dbOps.getStmt(), 10);
+				terrainEdit.noise.cellularReturnType = sqlite3_column_int(dbOps.getStmt(), 11);
+				terrainEdit.noise.cellularJitter = (float)sqlite3_column_double(dbOps.getStmt(), 12);
+				terrainEdit.noise.warpNoiseDomainWarpType = sqlite3_column_int(dbOps.getStmt(), 13);
+				terrainEdit.noise.warpNoiseRotationType3D = sqlite3_column_int(dbOps.getStmt(), 14);
+				terrainEdit.noise.warpNoiseSeed = sqlite3_column_int(dbOps.getStmt(), 15);
+				terrainEdit.noise.warpNoiseDomainWarpAmp = (float)sqlite3_column_double(dbOps.getStmt(), 16);
+				terrainEdit.noise.warpNoiseFrequency = (float)sqlite3_column_double(dbOps.getStmt(), 17);
+				terrainEdit.noise.warpNoieseFractalType = sqlite3_column_int(dbOps.getStmt(), 18);
+				terrainEdit.noise.warpNoiseFractalOctaves = sqlite3_column_int(dbOps.getStmt(), 19);
+				terrainEdit.noise.warpNoiseFractalLacunarity = (float)sqlite3_column_double(dbOps.getStmt(), 20);
+				terrainEdit.noise.warpNoiseFractalGain = (float)sqlite3_column_double(dbOps.getStmt(), 21);
+				terrainEdit.noise.amplitude = sqlite3_column_int(dbOps.getStmt(), 22);
+				terrainEdit.noise.scaleFactor = (float)sqlite3_column_double(dbOps.getStmt(), 23);
+				terrainEdit.noise.desideredMinHeight = (float)sqlite3_column_double(dbOps.getStmt(), 24);
+				terrainEdit.noise.desideredMinHeigthMandatory = sqlite3_column_int(dbOps.getStmt(), 25);
+			}
+
+			dbOps.finalizeStmt();
 		}
 		
 		

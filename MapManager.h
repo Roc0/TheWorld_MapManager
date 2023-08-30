@@ -187,12 +187,12 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void getVertices(float anchorXInWUs, float anchorZInWUs, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) void getVertices(float& anchorXInWUs, float& anchorZInWUs, anchorType type, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) void getQuadrantVertices(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshId, std::string& meshBuffer);
-		_declspec(dllexport) int alignDiskCacheAndDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
+		_declspec(dllexport) int alignDiskCacheAndDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) void alignDiskCacheAndDB(bool isInEditor, size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void alignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(bool isInEditor);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
-		_declspec(dllexport) bool writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
+		_declspec(dllexport) bool writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) bool writeDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
 		_declspec(dllexport) void uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer);
 		_declspec(dllexport) void getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level = 0);

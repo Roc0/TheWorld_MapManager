@@ -57,6 +57,9 @@
     <ClInclude Include="sqlite3.h">
       <Filter>Header Files\sqlite</Filter>
     </ClInclude>
+    <ClInclude Include="DisusedCode.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -102,6 +105,9 @@
       <Filter>Source Files\Shapelib</Filter>
     </ClCompile>
     <ClCompile Include="..\TheWorld_GDN_Viewer\TheWorld_GDN_Viewer\Viewer_Utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DisusedCode.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
