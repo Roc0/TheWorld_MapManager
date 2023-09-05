@@ -507,6 +507,11 @@ namespace TheWorld_MapManager
 			return m_stmt; 
 		}
 
+		std::recursive_mutex& getExclusiveDBAccessMutex(void)
+		{
+			return m_conn->getExclusiveDBAccessMutex();
+		}
+
 		bool isTransactionOpened() 
 		{
 			return m_transactionOpened; 
@@ -641,6 +646,7 @@ namespace TheWorld_MapManager
 		{
 			return "DBSQLLite"; 
 		}
+		std::recursive_mutex& getExclusiveDBAccessMutex(void);
 		std::string readParam(std::string paranName);
 		void beginTransaction(void);
 		void endTransaction(bool commit = true);
@@ -673,5 +679,7 @@ namespace TheWorld_MapManager
 		DBSQLLiteOps m_dbOpsIterationModifiedVertices;
 		std::vector<__int64> m_iteratedModifiedVerticesMap;
 		DBSQLLiteOps m_dbOpsInternalTransaction;
+
+		static std::recursive_mutex m_exclusiveDBAccessMutex;
 	};
 }

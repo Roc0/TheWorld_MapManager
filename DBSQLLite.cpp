@@ -19,6 +19,8 @@ namespace TheWorld_MapManager
 	std::recursive_mutex DBSQLLiteOps::s_DBAccessMtx;
 	std::map<std::string, std::recursive_mutex*> DBSQLLiteConn::s_mutexPool;
 	std::recursive_mutex DBSQLLiteConn::s_mutexPoolMtx;
+	std::recursive_mutex DBSQLLite::m_exclusiveDBAccessMutex;
+
 		
 	DBSQLLite::DBSQLLite(DBType _dbt, const char* _dataPath, bool consoelDebugMode) : SQLInterface(_dbt, _dataPath, consoelDebugMode)
 	{
@@ -36,6 +38,14 @@ namespace TheWorld_MapManager
 	{
 		if (m_dbOpsInternalTransaction.isTransactionOpened())
 			m_dbOpsInternalTransaction.endTransaction(false);
+	}
+
+	std::recursive_mutex& DBSQLLite::getExclusiveDBAccessMutex(void)
+	{
+		//DBSQLLiteOps dbOps(dbFilePath());
+		//dbOps.init();
+		//return dbOps.getExclusiveDBAccessMutex();
+		return m_exclusiveDBAccessMutex;
 	}
 
 	std::string DBSQLLite::readParam(std::string paranName)
@@ -1063,6 +1073,8 @@ namespace TheWorld_MapManager
 		{
 			eraseOldHash = true;
 
+			hash = cacheQuadrantData.meshId;
+
 			// The quadrant was present with different hash so we have to update it and start loading
 			sql1 = "UPDATE Quadrant SET Status = ?, Hash = ? WHERE GridStepInWU = %s AND VertexPerSize = %s AND Level = %s AND PosXStart = %s AND PosZStart = %s;";
 			sql = dbOps->completeSQL(sql1.c_str(), to_string(gridStep).c_str(), to_string(vertexPerSize).c_str(), to_string(level).c_str(), to_string(quadPosX).c_str(), to_string(quadPosZ).c_str());
@@ -1142,6 +1154,28 @@ namespace TheWorld_MapManager
 					throw(MapManagerExceptionDBException(__FUNCTION__, (std::string("DB SQLite value read from QuadrantLoading.LastZIdxLoaded inconsistent!" ) + std::to_string(z)).c_str(), sqlite3_errmsg(dbOps->getConn()), rc));
 			}
 			dbOps->finalizeStmt();
+		}
+
+		// if empty quadrant erase old data
+		if (_vertexStoreType == QuadrantVertexStoreType::Compact && strBuffer.size() == 0)
+		{
+			sql = "DELETE FROM QuadrantDataCompact WHERE Hash = ?;";
+			dbOps->prepareStmt(sql.c_str());
+			rc = sqlite3_bind_blob(dbOps->getStmt(), 1, hash.c_str(), (int)hash.size(), SQLITE_TRANSIENT);
+			if (rc != SQLITE_OK)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind QuadrantDataCompact.Hash failed!", sqlite3_errmsg(dbOps->getConn()), rc));
+			rc = dbOps->execStmt();
+			size_t numDeleted = sqlite3_changes(dbOps->getConn());
+			if (rc != SQLITE_DONE)
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to delete from QuadrantDataCompact table!", sqlite3_errmsg(dbOps->getConn()), rc));
+			dbOps->finalizeStmt();
+
+		}
+
+		if (_vertexStoreType == QuadrantVertexStoreType::eXtended && cacheQuadrantData.heights32Buffer->size() == 0)
+		{
+			size_t numDeleted = eraseVertices(quadPosX, quadEndPosX, quadPosZ, quadEndPosZ, level);
+			numDeleted = 0;
 		}
 			
 		if ( (_vertexStoreType == QuadrantVertexStoreType::Compact && strBuffer.size() > 0)

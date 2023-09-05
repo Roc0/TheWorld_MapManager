@@ -10,6 +10,7 @@
 #include <..\TheWorld_GDN_Viewer\TheWorld_GDN_Viewer\Viewer_Utils.h>
 #include "Utils.h"
 #include <map>
+#include <queue>
 
 //#include "Eigen\Dense"
 //using namespace Eigen;
@@ -25,6 +26,96 @@ namespace TheWorld_MapManager
 	class MapManager
 	{
 	public:
+		class QuadrantPos
+		{
+		public:
+			QuadrantPos()
+			{
+				m_lowerXGridVertex = 0.0f;
+				m_lowerZGridVertex = 0.0f;
+				m_numVerticesPerSize = 0;
+				m_level = 0;
+				m_gridStepInWU = 0.0f;
+				m_initialized = false;
+			}
+
+			QuadrantPos(float lowerXGridVertex, float lowerZGridVertex, size_t numVerticesPerSize, int level, float gridStepInWU)
+			{
+				m_lowerXGridVertex = lowerXGridVertex;
+				m_lowerZGridVertex = lowerZGridVertex;
+				m_numVerticesPerSize = numVerticesPerSize;
+				m_level = level;
+				m_gridStepInWU = gridStepInWU;
+				m_initialized = true;
+			}
+			// needed to use an istance of QuadrantPos as a key in a map (to keep the map sorted by QuadrantPos)
+			bool operator<(const QuadrantPos& pos) const
+			{
+				if (m_gridStepInWU == pos.m_gridStepInWU)
+				{
+					if (m_numVerticesPerSize == pos.m_numVerticesPerSize)
+					{
+						if (m_level == pos.m_level)
+						{
+							if (m_lowerZGridVertex < pos.m_lowerZGridVertex)
+								return true;
+							if (m_lowerZGridVertex > pos.m_lowerZGridVertex)
+								return false;
+							else
+								return m_lowerXGridVertex < pos.m_lowerXGridVertex;
+						}
+						else
+							if (m_level < pos.m_level)
+								return true;
+							else
+								return false;
+					}
+					else
+						if (m_numVerticesPerSize < pos.m_numVerticesPerSize)
+							return true;
+						else
+							return false;
+				}
+				else
+					if (m_gridStepInWU < pos.m_gridStepInWU)
+						return true;
+					else
+						return false;
+			}
+			bool operator==(const QuadrantPos& p) const
+			{
+				if (m_initialized == p.m_initialized && m_lowerXGridVertex == p.m_lowerXGridVertex && m_lowerZGridVertex == p.m_lowerZGridVertex && m_numVerticesPerSize == p.m_numVerticesPerSize && m_level == p.m_level && m_gridStepInWU == p.m_gridStepInWU)
+					return true;
+				else
+					return false;
+			}
+			QuadrantPos operator=(const QuadrantPos& pos)
+			{
+				m_lowerXGridVertex = pos.m_lowerXGridVertex;
+				m_lowerZGridVertex = pos.m_lowerZGridVertex;
+				m_numVerticesPerSize = pos.m_numVerticesPerSize;
+				m_level = pos.m_level;
+				m_gridStepInWU = pos.m_gridStepInWU;
+				m_initialized = pos.m_initialized;
+				return *this;
+			}
+
+			bool initialized(void)
+			{
+				return m_initialized;
+			}
+
+		public:
+			float m_lowerXGridVertex = 0.0f;
+			float m_lowerZGridVertex = 0.0f;
+			size_t m_numVerticesPerSize = 0;
+			int m_level = 0;
+			float m_gridStepInWU = 0.0f;
+		
+		private:
+			bool m_initialized;
+		};
+		
 		// Grid / GridPoint are in WUs
 		class FlatGridPoint
 		{
@@ -191,6 +282,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void alignDiskCacheAndDB(bool isInEditor, size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void alignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(bool isInEditor);
+		_declspec(dllexport) void sync(bool isInEditor, size_t numVerticesPerSize, float gridStepinWU, bool& foundUpdatedQuadrant, int& level, float& lowerXGridVertex, float& lowerZGridVertex);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) bool writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) bool writeDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
@@ -236,6 +328,11 @@ namespace TheWorld_MapManager
 
 		static std::recursive_mutex s_initMapMtx;
 		static MapInitMap s_mapInitMap;
+
+		static std::map<QuadrantPos, size_t> s_mapQuadrantToUpdate;
+		static std::recursive_mutex s_mapQuadrantToUpdateMtx;
+
+		static std::recursive_mutex s_dbExclusiveAccesMtx;
 	};
 }
 
