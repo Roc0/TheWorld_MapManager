@@ -1,6 +1,6 @@
 @echo on
 set curpath=%~dp0
-cd %curpath%
+cd /D %curpath%
 del /Q TheWorldMap.db
 del /Q *.db-journal
 del /Q *.journal

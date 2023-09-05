@@ -47,11 +47,11 @@ namespace TheWorld_MapManager
 		~SQLInterface()
 		{
 		}
+		
 		virtual const char* classname()
 		{
 			return "SQLInterface"; 
 		}
-
 		std::string dataPath(void) 
 		{
 			return m_dataPath; 
@@ -315,6 +315,7 @@ namespace TheWorld_MapManager
 		};
 
 		// Pure	virtual functions
+		virtual std::recursive_mutex& getExclusiveDBAccessMutex(void) = 0;
 		virtual std::string readParam(std::string paranName) = 0;
 		virtual void beginTransaction(void) = 0;
 		virtual void endTransaction(bool commit = true) = 0;
