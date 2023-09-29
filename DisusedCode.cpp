@@ -241,7 +241,7 @@
 //			if (db_splatmapBuffer.size() > 0)
 //				cacheQuadrantData.splatmapBuffer = &db_splatmapBuffer;
 //			else
-//				db_terrainEditValues.extraValues.texturesNeedRegen = true;
+//				db_terrainEditValues.extraValues.splatmapNeedRegen = true;
 
 //			if (db_colormapBuffer.size() > 0)
 //				cacheQuadrantData.colormapBuffer = &db_colormapBuffer;

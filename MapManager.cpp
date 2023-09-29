@@ -1025,7 +1025,7 @@ namespace TheWorld_MapManager
 				if (splatmapBuffer.size() > 0)
 					cacheQuadrantData.splatmapBuffer = &splatmapBuffer;
 				else
-					terrainEdit.extraValues.texturesNeedRegen = true;
+					terrainEdit.extraValues.splatmapNeedRegen = true;
 
 				if (colormapBuffer.size() > 0)
 					cacheQuadrantData.colormapBuffer = &colormapBuffer;
