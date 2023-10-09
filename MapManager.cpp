@@ -772,7 +772,7 @@ namespace TheWorld_MapManager
 		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 		cache.writeBufferToDiskCache(meshBuffer, true);
 		bool stop = false;
-		writeDiskCacheToDB(cache, stop, writeCompactVerticesToDB);
+		//writeDiskCacheToDB(cache, stop, writeCompactVerticesToDB);
 	}
 
 	bool MapManager::writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB)
