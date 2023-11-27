@@ -1030,12 +1030,12 @@ namespace TheWorld_MapManager
 				if (colormapBuffer.size() > 0)
 					cacheQuadrantData.colormapBuffer = &colormapBuffer;
 				else
-					terrainEdit.extraValues.emptyColormap = true;
+					terrainEdit.extraValues.colormapNeedRegen = true;
 
 				if (globalmapBuffer.size() > 0)
 					cacheQuadrantData.globalmapBuffer = &globalmapBuffer;
 				else
-					terrainEdit.extraValues.emptyGlobalmap = true;
+					terrainEdit.extraValues.globalmapNeedRegen = true;
 
 				TheWorld_Utils::MemoryBuffer terrainEditValues;
 				if (terrainEdit.size > 0)
