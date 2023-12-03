@@ -770,7 +770,7 @@ namespace TheWorld_MapManager
 		std::string cacheDir = m_SqlInterface->dataPath();
 		std::string mapName = getMapName();
 		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
-		cache.writeBufferToDiskCache(meshBuffer, true);
+		//cache.writeBufferToDiskCache(meshBuffer, true);
 		bool stop = false;
 		//writeDiskCacheToDB(cache, stop, writeCompactVerticesToDB);
 	}
