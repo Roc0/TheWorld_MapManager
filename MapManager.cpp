@@ -770,7 +770,7 @@ namespace TheWorld_MapManager
 		std::string cacheDir = m_SqlInterface->dataPath();
 		std::string mapName = getMapName();
 		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
-		//cache.writeBufferToDiskCache(meshBuffer, true);
+		cache.writeBufferToDiskCache(meshBuffer, true);
 		bool stop = false;
 		//writeDiskCacheToDB(cache, stop, writeCompactVerticesToDB);
 	}
@@ -1171,45 +1171,7 @@ namespace TheWorld_MapManager
 
 		while (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 		{
-			float gridStepInWU = MapManager::gridStepInWU();
-			std::string cacheDir = m_SqlInterface->dataPath();
-			std::string mapName = getMapName();
-			std::vector<TheWorld_Utils::MeshCacheBuffer> vectDiskCache;
-			TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, vectDiskCache);
-
-			size_t progr = 0;
-			if (vectDiskCache.size() > 0)
-			{
-				for (auto& cache : vectDiskCache)
-				{
-					progr++;
-
-					if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
-						break;
-					
-					TheWorld_Utils::MsTimePoint start = std::chrono::time_point_cast<TheWorld_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
-					
-					int ret = alignDiskCacheAndDB(cache, s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit, writeCompactVerticesToDB);
-					if (ret != MAPMANAGER_NOTHING_TO_DO && ret != MAPMANAGER_STOPPED)
-					{
-						TheWorld_Utils::MsTimePoint now = std::chrono::time_point_cast<TheWorld_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
-						PLOG_DEBUG << "Align CACHE <==> DB - Aligned cache element " << progr << "/" << vectDiskCache.size() << " - Elapsed " << (now - start).count() << " ms";
-						
-						if (ret == MAPMANAGER_UPDATED_CACHE)
-						{
-							std::lock_guard<std::recursive_mutex> lock(s_mapQuadrantToUpdateMtx);
-							QuadrantPos pos(cache.getLowerXGridVertex(), cache.getLowerZGridVertex(), cache.getNumVerticesPerSize(), cache.getLevel(), cache.getGridStepInWU());
-							if (s_mapQuadrantToUpdate.contains(pos))
-								s_mapQuadrantToUpdate[pos]++;
-							else
-								s_mapQuadrantToUpdate[pos] = 1;
-						}
-						
-						//s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit = true;
-						//break;
-					}
-				}
-			}
+			//alignDiskCacheAndDBTaskInternal(numVerticesPerSize, level);
 
 			TheWorld_Viewer_Utils::MsTimePoint start = std::chrono::time_point_cast<TheWorld_Viewer_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
 			while (true)
@@ -1227,6 +1189,50 @@ namespace TheWorld_MapManager
 		}
 
 		PLOG_DEBUG << "Align CACHE <==> DB - Stop alignement thread";
+	}
+
+	void MapManager::alignDiskCacheAndDBTaskInternal(size_t numVerticesPerSize, int level)
+	{
+		float gridStepInWU = MapManager::gridStepInWU();
+		std::string cacheDir = m_SqlInterface->dataPath();
+		std::string mapName = getMapName();
+		std::vector<TheWorld_Utils::MeshCacheBuffer> vectDiskCache;
+		TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, vectDiskCache);
+
+		size_t progr = 0;
+		if (vectDiskCache.size() > 0)
+		{
+			for (auto& cache : vectDiskCache)
+			{
+				progr++;
+
+				if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
+					break;
+
+				TheWorld_Utils::MsTimePoint start = std::chrono::time_point_cast<TheWorld_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
+
+				int ret = alignDiskCacheAndDB(cache, s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit, writeCompactVerticesToDB);
+				if (ret != MAPMANAGER_NOTHING_TO_DO && ret != MAPMANAGER_STOPPED)
+				{
+					TheWorld_Utils::MsTimePoint now = std::chrono::time_point_cast<TheWorld_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
+					PLOG_DEBUG << "Align CACHE <==> DB - Aligned cache element " << progr << "/" << vectDiskCache.size() << " - Elapsed " << (now - start).count() << " ms";
+
+					if (ret == MAPMANAGER_UPDATED_CACHE)
+					{
+						std::lock_guard<std::recursive_mutex> lock(s_mapQuadrantToUpdateMtx);
+						QuadrantPos pos(cache.getLowerXGridVertex(), cache.getLowerZGridVertex(), cache.getNumVerticesPerSize(), cache.getLevel(), cache.getGridStepInWU());
+						if (s_mapQuadrantToUpdate.contains(pos))
+							s_mapQuadrantToUpdate[pos]++;
+						else
+							s_mapQuadrantToUpdate[pos] = 1;
+					}
+
+					//s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit = true;
+					//break;
+				}
+			}
+		}
+
 	}
 
 	int MapManager::alignDiskCacheAndDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB)
@@ -1413,7 +1419,7 @@ namespace TheWorld_MapManager
 				TheWorld_Utils::MemoryBuffer emptyBuffer;
 				std::string emptyBufferMeshId;
 				cache.setEmptyBuffer(numVerticesPerSize, emptyBufferMeshId, emptyBuffer);
-				cache.writeBufferToDiskCache(emptyBuffer);
+				//cache.writeBufferToDiskCache(emptyBuffer);
 				meshId = emptyBufferMeshId;
 			}
 		}

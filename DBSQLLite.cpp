@@ -1350,7 +1350,7 @@ namespace TheWorld_MapManager
 
 				endTransaction();
 
-				if (terrainEdit.terrainType != TheWorld_Utils::TerrainEdit::TerrainType::unknown)
+				if (terrainEdit.terrainType != TheWorld_Utils::TerrainEdit::TerrainType::notset)
 				{
 					// Write Noise Values
 
@@ -1976,7 +1976,7 @@ namespace TheWorld_MapManager
 
 		dbOps.finalizeStmt();
 
-		if (terrainEdit.terrainType != TheWorld_Utils::TerrainEdit::TerrainType::unknown)
+		if (terrainEdit.terrainType != TheWorld_Utils::TerrainEdit::TerrainType::notset)
 		{
 			// Read Noise Values
 
