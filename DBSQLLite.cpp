@@ -1428,10 +1428,10 @@ namespace TheWorld_MapManager
 					rc = sqlite3_bind_double(dbOps->getStmt(), 23, terrainEdit.noise.warpNoiseFractalGain);
 					if (rc != SQLITE_OK)
 						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.WarpNoiseFractalGain failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-					rc = sqlite3_bind_int(dbOps->getStmt(), 24, terrainEdit.noise.amplitude);
+					rc = sqlite3_bind_int(dbOps->getStmt(), 24, terrainEdit.noise.heightsAmplitude);
 					if (rc != SQLITE_OK)
 						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.Amplitude failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-					rc = sqlite3_bind_double(dbOps->getStmt(), 25, terrainEdit.noise.scaleFactor);
+					rc = sqlite3_bind_double(dbOps->getStmt(), 25, terrainEdit.noise.scaleFactor_JagIntensity);
 					if (rc != SQLITE_OK)
 						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.ScaleFactor failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 					rc = sqlite3_bind_double(dbOps->getStmt(), 26, terrainEdit.noise.desideredMinHeight);
@@ -2014,8 +2014,8 @@ namespace TheWorld_MapManager
 				terrainEdit.noise.warpNoiseFractalOctaves = sqlite3_column_int(dbOps.getStmt(), 19);
 				terrainEdit.noise.warpNoiseFractalLacunarity = (float)sqlite3_column_double(dbOps.getStmt(), 20);
 				terrainEdit.noise.warpNoiseFractalGain = (float)sqlite3_column_double(dbOps.getStmt(), 21);
-				terrainEdit.noise.amplitude = sqlite3_column_int(dbOps.getStmt(), 22);
-				terrainEdit.noise.scaleFactor = (float)sqlite3_column_double(dbOps.getStmt(), 23);
+				terrainEdit.noise.heightsAmplitude = sqlite3_column_int(dbOps.getStmt(), 22);
+				terrainEdit.noise.scaleFactor_JagIntensity = (float)sqlite3_column_double(dbOps.getStmt(), 23);
 				terrainEdit.noise.desideredMinHeight = (float)sqlite3_column_double(dbOps.getStmt(), 24);
 				terrainEdit.noise.desideredMinHeigthMandatory = sqlite3_column_int(dbOps.getStmt(), 25);
 			}
