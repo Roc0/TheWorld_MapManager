@@ -992,19 +992,19 @@ namespace TheWorld_MapManager
 				heights16Buffer.adjustSize(numVertices * sizeof(uint16_t));
 				heights32Buffer.adjustSize(numVertices * sizeof(float));
 				if (normalMapEmpty)
-					normalsBuffer.clear();
+					normalsBuffer.clear(__FUNCTION__);
 				else
 					normalsBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGB));
 				if (splatMapEmpty)
-					splatmapBuffer.clear();
+					splatmapBuffer.clear(__FUNCTION__);
 				else
 					splatmapBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGBA));
 				if (colorMapEmpty)
-					colormapBuffer.clear();
+					colormapBuffer.clear(__FUNCTION__);
 				else
 					colormapBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGBA));
 				if (globalMapEmpty)
-					globalmapBuffer.clear();
+					globalmapBuffer.clear(__FUNCTION__);
 				else
 					globalmapBuffer.adjustSize(numVertices * sizeof(TheWorld_Utils::_RGB));
 
