@@ -192,7 +192,7 @@ namespace TheWorld_MapManager
 		// they are spaced by a number of WU equal to gridStepInWU (MapManager::gridStepInWU())
 		calcSquareFlatGridMinMaxToExpand(minAOEX, maxAOEX, minAOEZ, maxAOEZ, minGridPosX, maxGridPosX, minGridPosZ, maxGridPosZ, gridStepInWU);
 
-		size_t gridSize = (maxGridPosX - minGridPosX + 1) * (maxGridPosZ - minGridPosZ + 1);
+		size_t gridSize = size_t(maxGridPosX - minGridPosX + 1) * size_t(maxGridPosZ - minGridPosZ + 1);
 		vector<SQLInterface::GridVertex> v;
 		v.resize(gridSize);
 		
@@ -907,7 +907,7 @@ namespace TheWorld_MapManager
 					if (stop)
 						return false;
 
-					TheWorld_Utils::FLOAT_32 f;
+					TheWorld_Utils::FLOAT_32 f(0);
 					f.f32 = gridVertex.altitude();
 
 					if (f.f32 < minHeight)
@@ -1107,7 +1107,7 @@ namespace TheWorld_MapManager
 
 		for (auto& m : s_mapInitMap)
 		{
-			for (auto m1 : m.second)
+			for (auto& m1 : m.second)
 			{
 				stopAlignDiskCacheAndDBTask(m.first, m1.first);
 			}

@@ -100,7 +100,7 @@ namespace TheWorld_MapManager
 				return *this;
 			}
 
-			bool initialized(void)
+			bool initialized(void) const
 			{
 				return m_initialized;
 			}
@@ -180,7 +180,7 @@ namespace TheWorld_MapManager
 				else
 					return false;
 			}
-			float getAltitude(void)
+			float getAltitude(void) const
 			{
 				return m_altitude; 
 			};
@@ -246,11 +246,11 @@ namespace TheWorld_MapManager
 			if (m_SqlInterface)
 				m_SqlInterface->consoleDebugMode(b);
 		};
-		bool consoleDebugMode(void)
+		bool consoleDebugMode(void) const
 		{
 			return m_consoleDebugMode; 
 		}
-		bool instrumented(void) 
+		bool instrumented(void)  const
 		{
 			return m_instrumented; 
 		};

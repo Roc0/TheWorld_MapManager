@@ -80,6 +80,8 @@ namespace TheWorld_MapManager
 			m_DBAccessMtx.lock();
 		}
 
+#pragma warning(push)
+#pragma warning(disable : 26110)
 		void releaseExclusiveAccessToDB()
 		{
 			//std::recursive_mutex& mtx = getExclusiveDBAccessMutex();
@@ -87,6 +89,7 @@ namespace TheWorld_MapManager
 			//mtx.unlock();
 			m_DBAccessMtx.unlock();
 		}
+#pragma warning(pop)
 
 		std::recursive_mutex& getExclusiveDBAccessMutex(void)
 		{
@@ -240,7 +243,7 @@ namespace TheWorld_MapManager
 			return "DBSQLLiteOps";
 		}
 
-		bool isInitialized(void) 
+		bool isInitialized(void) const
 		{ 
 			return m_initialized; 
 		}
@@ -512,7 +515,7 @@ namespace TheWorld_MapManager
 			return m_conn->getExclusiveDBAccessMutex();
 		}
 
-		bool isTransactionOpened() 
+		bool isTransactionOpened() const
 		{
 			return m_transactionOpened; 
 		}
@@ -573,6 +576,8 @@ namespace TheWorld_MapManager
 			m_lockAcquired = true;
 		}
 		
+#pragma warning(push)
+#pragma warning(disable : 26110)
 		void releaseLock(void)
 		{
 			if (!m_lockAcquired)
@@ -591,6 +596,7 @@ namespace TheWorld_MapManager
 
 			m_lockAcquired = false;
 		}
+#pragma warning(pop)
 
 		void finalizeDB(void)
 		{
