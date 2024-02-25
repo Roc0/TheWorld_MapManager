@@ -15,14 +15,14 @@ namespace TheWorld_MapManager
 {
 	DBSQLLiteConn DBSQLLiteOps::s_conn;
 	DBThreadContextPool DBSQLLiteOps::s_connPool;
-	enum class DBSQLLiteOps::ConnectionType DBSQLLiteOps::s_connType = DBSQLLiteOps::ConnectionType::SingleConn;
+	enum class DBInterface::ConnectionType DBSQLLiteOps::s_connType = DBInterface::ConnectionType::SingleConn;
 	std::recursive_mutex DBSQLLiteOps::s_DBAccessMtx;
 	std::map<std::string, std::recursive_mutex*> DBSQLLiteConn::s_mutexPool;
 	std::recursive_mutex DBSQLLiteConn::s_mutexPoolMtx;
 	std::recursive_mutex DBSQLLite::m_exclusiveDBAccessMutex;
 
 		
-	DBSQLLite::DBSQLLite(DBType _dbt, const char* _dataPath, bool consoelDebugMode) : SQLInterface(_dbt, _dataPath, consoelDebugMode)
+	DBSQLLite::DBSQLLite(DBType _dbt, const char* _dataPath, bool consoelDebugMode) : DBInterface(_dbt, _dataPath, consoelDebugMode)
 	{
 		Json::Value root;
 		std::ifstream jsonFile(dataPath() + "\\Conf\\DBSQLLite.json");
@@ -938,11 +938,11 @@ namespace TheWorld_MapManager
 		}
 	}
 
-	std::string DBSQLLite::getQuadrantHash(float gridStep, size_t vertexPerSize, size_t level, float posX, float posZ, enum class SQLInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType)
+	std::string DBSQLLite::getQuadrantHash(float gridStep, size_t vertexPerSize, size_t level, float posX, float posZ, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType)
 	{
 		std::string h = "";
-		status = SQLInterface::QuadrantStatus::NotSet;
-		vertexStoreType = SQLInterface::QuadrantVertexStoreType::NotSet;
+		status = DBInterface::QuadrantStatus::NotSet;
+		vertexStoreType = DBInterface::QuadrantVertexStoreType::NotSet;
 
 		DBSQLLiteOps dbOps(dbFilePath());
 		dbOps.init();
@@ -957,18 +957,18 @@ namespace TheWorld_MapManager
 			h = std::string((char*)sqlite3_column_blob(dbOps.getStmt(), 0), sqlite3_column_bytes(dbOps.getStmt(), 0));
 			std::string s = (char*)sqlite3_column_text(dbOps.getStmt(), 1);
 			if (s == "C")
-				status = SQLInterface::QuadrantStatus::Complete;
+				status = DBInterface::QuadrantStatus::Complete;
 			else if (s == "L")
-				status = SQLInterface::QuadrantStatus::Loading;
+				status = DBInterface::QuadrantStatus::Loading;
 			else if (s == "E")
-				status = SQLInterface::QuadrantStatus::Empty;
+				status = DBInterface::QuadrantStatus::Empty;
 			else
 				throw(MapManagerExceptionDBException(__FUNCTION__, std::string(std::string("DB SQLite unexpected status ") + s + "!").c_str(), sqlite3_errmsg(dbOps.getConn()), rc));
 			s = (const char*)sqlite3_column_text(dbOps.getStmt(), 2);
 			if (s == "X")
-				vertexStoreType = SQLInterface::QuadrantVertexStoreType::eXtended;
+				vertexStoreType = DBInterface::QuadrantVertexStoreType::eXtended;
 			else if (s == "C")
-				vertexStoreType = SQLInterface::QuadrantVertexStoreType::Compact;
+				vertexStoreType = DBInterface::QuadrantVertexStoreType::Compact;
 			else
 				throw(MapManagerExceptionDBException(__FUNCTION__, std::string(std::string("DB SQLite unexpected VertexStoreType ") + s + "!").c_str(), sqlite3_errmsg(dbOps.getConn()), rc));
 		}
@@ -999,8 +999,8 @@ namespace TheWorld_MapManager
 		if (m_dbOpsInternalTransaction.isTransactionOpened())
 			throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite cannot procede inside caller's transaction!", ""), 0);
 
-		enum class SQLInterface::QuadrantStatus status;
-		enum class SQLInterface::QuadrantVertexStoreType _vertexStoreType;
+		enum class DBInterface::QuadrantStatus status;
+		enum class DBInterface::QuadrantVertexStoreType _vertexStoreType;
 		std::string hash = getQuadrantHash(gridStep, vertexPerSize, level, quadPosX, quadPosZ, status, _vertexStoreType);
 
 		beginTransaction();
@@ -1861,7 +1861,7 @@ namespace TheWorld_MapManager
 		return true;
 	}
 
-	void DBSQLLite::readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class SQLInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit)
+	void DBSQLLite::readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("readQuadrantFromDB ") + __FUNCTION__, "ALL");
 		
@@ -1894,18 +1894,18 @@ namespace TheWorld_MapManager
 		meshId = std::string((char*)sqlite3_column_blob(dbOps.getStmt(), 0), sqlite3_column_bytes(dbOps.getStmt(), 0));
 		std::string s = (const char *)sqlite3_column_text(dbOps.getStmt(), 1);
 		if (s == "C")
-			status = SQLInterface::QuadrantStatus::Complete;
+			status = DBInterface::QuadrantStatus::Complete;
 		else if(s == "L")
-			status = SQLInterface::QuadrantStatus::Loading;
+			status = DBInterface::QuadrantStatus::Loading;
 		else if (s == "E")
-			status = SQLInterface::QuadrantStatus::Empty;
+			status = DBInterface::QuadrantStatus::Empty;
 		else
 			throw(MapManagerExceptionDBException(__FUNCTION__, std::string(std::string("DB SQLite unexpected Status ") + s + "!").c_str(), sqlite3_errmsg(dbOps.getConn()), rc));
 		s = (const char*)sqlite3_column_text(dbOps.getStmt(), 2);
 		if (s == "X")
-			vertexStoreType = SQLInterface::QuadrantVertexStoreType::eXtended;
+			vertexStoreType = DBInterface::QuadrantVertexStoreType::eXtended;
 		else if (s == "C")
-			vertexStoreType = SQLInterface::QuadrantVertexStoreType::Compact;
+			vertexStoreType = DBInterface::QuadrantVertexStoreType::Compact;
 		else
 			throw(MapManagerExceptionDBException(__FUNCTION__, std::string(std::string("DB SQLite unexpected VertexStoreType ") + s + "!").c_str(), sqlite3_errmsg(dbOps.getConn()), rc));
 
@@ -2024,7 +2024,7 @@ namespace TheWorld_MapManager
 		}
 		
 		
-		if (vertexStoreType == SQLInterface::QuadrantVertexStoreType::Compact && status == SQLInterface::QuadrantStatus::Complete)
+		if (vertexStoreType == DBInterface::QuadrantVertexStoreType::Compact && status == DBInterface::QuadrantStatus::Complete)
 		{
 			sql = "SELECT Data FROM QuadrantDataCompact WHERE Hash = ?;";
 			dbOps.prepareStmt(sql.c_str());

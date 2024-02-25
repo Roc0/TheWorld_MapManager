@@ -14,8 +14,9 @@
 #include <Rpc.h>
 
 //#include "GDN_TheWorld_Viewer.h"
+#include "Utils.h"
 #include "MapManager.h"
-#include "DBSQLLite.h"
+#include "DBFactory.h"
 #include "Profiler.h"
 
 #include "shapefil.h"
@@ -25,6 +26,9 @@
 
 namespace TheWorld_MapManager
 {
+	DBInterface::DBType MapManager::s_dbt = DBInterface::DBType::Json;
+	//DBInterface::DBType MapManager::s_dbt = DBInterface::DBType::SQLLite;
+	
 	//std::recursive_mutex MapManager::s_mtxInternalData;
 	bool MapManager::staticMapManagerInitializationDone = false;
 	std::recursive_mutex MapManager::s_staticMapManagerInitializationMtx;
@@ -36,7 +40,8 @@ namespace TheWorld_MapManager
 	//enum class DBType MapManager::s_dbType = DBType::SQLLite;
 
 	const std::string MapNameParamName = "MapName";
-	std::string g_mapName = "";
+	std::string MapManager::s_mapName = "";
+	size_t MapManager::s_numInstances = 0;
 
 	const bool writeCompactVerticesToDB = true;
 
@@ -55,14 +60,6 @@ namespace TheWorld_MapManager
 
 	MapManager::MapManager(/*const char* logPath, plog::Severity sev, plog::IAppender* appender,*/ char* configFileName, bool multiThreadEnvironment /* every thread is provided with its own DB connection associated to the thread::id*/)
 	{
-		s_staticMapManagerInitializationMtx.lock();
-		if (!staticMapManagerInitializationDone)
-		{
-			// actually empty
-			staticMapManagerInitializationDone = true;
-		}
-		s_staticMapManagerInitializationMtx.unlock();
-
 		string sModulePath = getModuleLoadPath();
 
 		string configFilePath = sModulePath;
@@ -70,6 +67,40 @@ namespace TheWorld_MapManager
 			configFilePath += "\\TheWorld_MapManager.json";
 		else
 			configFilePath += string("\\") + configFileName;
+
+		Json::Value root;
+		std::ifstream jsonFile(configFilePath);
+		jsonFile >> root;
+		m_dataPath = root["DataPath"].asString();
+
+		m_DBInterface = DBFactory::getDB(s_dbt, m_dataPath.c_str());
+		m_instrumented = false;
+		m_consoleDebugMode = false;
+
+		s_staticMapManagerInitializationMtx.lock();
+		s_numInstances++;
+		if (!staticMapManagerInitializationDone)
+		{
+			s_mapName = m_DBInterface->readParam(MapNameParamName);
+			if (s_mapName.empty())
+				throw(MapManagerException(__FUNCTION__, string("Param <" + MapNameParamName + "> not read from DB").c_str()));
+
+			std::string s = m_DBInterface->readParam(GrowingBlockVertexNumberShiftParamName);
+			if (s.empty())
+				throw(MapManagerException(__FUNCTION__, string("Param <" + GrowingBlockVertexNumberShiftParamName + "> not read from DB").c_str()));
+			g_DBGrowingBlockVertexNumberShift = stoi(s);
+			g_DBGrowingBlockVertexNumber = 1 << g_DBGrowingBlockVertexNumberShift;
+
+			s = m_DBInterface->readParam(GridStepInWUParamName);
+			if (s.empty())
+				throw(MapManagerException(__FUNCTION__, string("Param <" + GridStepInWUParamName + "> not read from DB").c_str()));
+			g_gridStepInWU = stof(s);
+
+			PLOG_INFO << "Initializing MapManager Server for map [" << s_mapName << "] gridStepInWU=" << g_gridStepInWU;
+
+			staticMapManagerInitializationDone = true;
+		}
+		s_staticMapManagerInitializationMtx.unlock();
 
 		//if (appender == nullptr)
 		//{
@@ -84,48 +115,32 @@ namespace TheWorld_MapManager
 		//{
 		//	m_utils.staticInit(nullptr, sev, appender);
 		//}
-
-		Json::Value root;
-		std::ifstream jsonFile(configFilePath);
-		jsonFile >> root;
-		m_dataPath = root["DataPath"].asString();
-
-		m_SqlInterface = new DBSQLLite(SQLInterface::DBType::SQLLite, m_dataPath.c_str());
-		m_instrumented = false;
-		m_consoleDebugMode = false;
-
-		std::recursive_mutex& exclusiveDBAccessMutex = m_SqlInterface->getExclusiveDBAccessMutex();
-
-		std::lock_guard<std::recursive_mutex> lock(exclusiveDBAccessMutex);
-
-		std::string s = m_SqlInterface->readParam(GrowingBlockVertexNumberShiftParamName);
-		if (s.empty())
-			throw(MapManagerException(__FUNCTION__, string("Param <" + GrowingBlockVertexNumberShiftParamName + "> not read from DB").c_str()));
-		g_DBGrowingBlockVertexNumberShift = stoi(s);
-		g_DBGrowingBlockVertexNumber = 1 << g_DBGrowingBlockVertexNumberShift;
-		
-		s = m_SqlInterface->readParam(GridStepInWUParamName);
-		if (s.empty())
-			throw(MapManagerException(__FUNCTION__, string("Param <" + GridStepInWUParamName + "> not read from DB").c_str()));
-		g_gridStepInWU = stof(s);
-
-		g_mapName = m_SqlInterface->readParam(MapNameParamName);
-		if (g_mapName.empty())
-			throw(MapManagerException(__FUNCTION__, string("Param <" + MapNameParamName + "> not read from DB").c_str()));
 	}
 
 	MapManager::~MapManager()
 	{
-		if (m_SqlInterface)
-			m_SqlInterface->finalizeDB();
+		if (m_DBInterface)
+			m_DBInterface->finalizeDB();
+
+		s_staticMapManagerInitializationMtx.lock();
+		s_numInstances--;
+		if (s_numInstances == 0)
+		{
+			staticMapManagerInitializationDone = false;
+			if (s_mapName.length() > 0)
+			{
+				PLOG_INFO << "Deinitializing MapManager Server for map [" << s_mapName << "] gridStepInWU=" << g_gridStepInWU;
+			}
+		}
+		s_staticMapManagerInitializationMtx.unlock();
 	}
 
 	void MapManager::staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender, bool multiThreadEnvironment /* every thread is provided with its own DB connection associated to the thread::id*/)
 	{
 		if (multiThreadEnvironment)
-			DBSQLLite::setConnectionType(DBSQLLiteOps::ConnectionType::MultiConn);
+			DBFactory::setConnectionType(DBInterface::ConnectionType::MultiConn, s_dbt);
 		else
-			DBSQLLite::setConnectionType(DBSQLLiteOps::ConnectionType::SingleConn);
+			DBFactory::setConnectionType(DBInterface::ConnectionType::SingleConn, s_dbt);
 
 		string sModulePath = getModuleLoadPath();
 
@@ -157,9 +172,9 @@ namespace TheWorld_MapManager
 
 	std::string MapManager::getMapName(void)
 	{
-		if (g_mapName.size() == 0)
+		if (s_mapName.size() == 0)
 			throw(MapManagerException(__FUNCTION__, string("MapManager not initialized!").c_str()));
-		return g_mapName;
+		return s_mapName;
 	}
 
 	float MapManager::gridStepInWU(void)
@@ -172,7 +187,7 @@ namespace TheWorld_MapManager
 	__int64 MapManager::addWD(WorldDefiner& WD)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode());
+		TimerMsMapManager clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		// we have to find all the vertices affected by AOE according to the fact that the map can grow with square map of point of g_DBGrowingBlockVertexNumber vertices
@@ -193,7 +208,7 @@ namespace TheWorld_MapManager
 		calcSquareFlatGridMinMaxToExpand(minAOEX, maxAOEX, minAOEZ, maxAOEZ, minGridPosX, maxGridPosX, minGridPosZ, maxGridPosZ, gridStepInWU);
 
 		size_t gridSize = size_t(maxGridPosX - minGridPosX + 1) * size_t(maxGridPosZ - minGridPosZ + 1);
-		vector<SQLInterface::GridVertex> v;
+		vector<DBInterface::GridVertex> v;
 		v.resize(gridSize);
 		
 		if (consoleDebugMode()) _consoleDebugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Computing affected vertices by WorldDefiner: ");
@@ -209,7 +224,7 @@ namespace TheWorld_MapManager
 					assert(numVertices <= gridSize);
 				}
 
-				SQLInterface::GridVertex gridVertex(float(x) * gridStepInWU, float(z) * gridStepInWU, WD.getLevel());
+				DBInterface::GridVertex gridVertex(float(x) * gridStepInWU, float(z) * gridStepInWU, WD.getLevel());
 				//v.push_back(gridVertex);
 				v[idx] = gridVertex;
 				idx++;
@@ -221,7 +236,7 @@ namespace TheWorld_MapManager
 		if (consoleDebugMode()) _consoleDebugUtil.printVariablePartOfLine(numVertices);
 
 		// Adding / updating WD to DB : this action will add / update all affected point
-		__int64 rowid = m_SqlInterface->addWDAndVertices(&WD, v);
+		__int64 rowid = m_DBInterface->addWDAndVertices(&WD, v);
 
 		if (instrumented()) clock.printDuration(__FUNCTION__);
 
@@ -377,7 +392,7 @@ namespace TheWorld_MapManager
 		assert(grid.size() == size_t(numPointX) * size_t(numPointZ));
 	}
 
-	void MapManager::getEmptyVertexGrid(vector<FlatGridPoint>& grid, vector<SQLInterface::GridVertex>& emptyGridVertex, int level)
+	void MapManager::getEmptyVertexGrid(vector<FlatGridPoint>& grid, vector<DBInterface::GridVertex>& emptyGridVertex, int level)
 	{
 		emptyGridVertex.clear();
 		emptyGridVertex.resize(grid.size());
@@ -385,7 +400,7 @@ namespace TheWorld_MapManager
 		size_t idx = 0;
 		for (it = grid.begin(); it != grid.end(); it++)
 		{
-			SQLInterface::GridVertex gridVertex(it->x, it->z, level);
+			DBInterface::GridVertex gridVertex(it->x, it->z, level);
 			//emptyGridVertex.push_back(gridVertex);
 			emptyGridVertex[idx] = gridVertex;
 			idx++;
@@ -395,10 +410,10 @@ namespace TheWorld_MapManager
 	bool MapManager::eraseWD(__int64 wdRowid)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode());
+		TimerMsMapManager clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
-		bool bDeleted = m_SqlInterface->eraseWD(wdRowid);
+		bool bDeleted = m_DBInterface->eraseWD(wdRowid);
 
 		if (instrumented()) clock.printDuration(__FUNCTION__);
 
@@ -410,14 +425,14 @@ namespace TheWorld_MapManager
 	bool MapManager::eraseWD(float posX, float posZ, int level, WDType type)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode());
+		TimerMsMapManager clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 		bool bDeleted = false;
 
 		WorldDefiner wd;
-		bool bFound = m_SqlInterface->getWD(posX, posZ, level, type, wd);
+		bool bFound = m_DBInterface->getWD(posX, posZ, level, type, wd);
 		if (bFound)
-			bDeleted = m_SqlInterface->eraseWD(wd.getRowid());
+			bDeleted = m_DBInterface->eraseWD(wd.getRowid());
 
 		if (instrumented()) clock.printDuration(__FUNCTION__);
 
@@ -429,7 +444,7 @@ namespace TheWorld_MapManager
 	bool MapManager::eraseWD(WorldDefiner& WD)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode());
+		TimerMsMapManager clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		bool bDeleted = eraseWD(WD.getPosX(), WD.getPosZ(), WD.getLevel(), WD.getType());
@@ -454,21 +469,21 @@ namespace TheWorld_MapManager
 	void MapManager::UpdateValues(void)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode());
+		TimerMsMapManager clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		/*
 		* Open Transaction
 		*/
-		m_SqlInterface->beginTransaction();
+		m_DBInterface->beginTransaction();
 
 		if (consoleDebugMode()) _consoleDebugUtil.printFixedPartOfLine(classname(), __FUNCTION__, "Updating vertices marked for update: ");
 		int updated = 0;
 		int idx = 0;
-		SQLInterface::GridVertex gridVertex;
+		DBInterface::GridVertex gridVertex;
 		std::vector<WorldDefiner> vectWD;
-		std::map<WorldDefiner, std::vector<SQLInterface::GridVertex>> mapOfVerticesPerWD;
-		bool bFound = m_SqlInterface->getFirstModfiedVertex(gridVertex, vectWD);
+		std::map<WorldDefiner, std::vector<DBInterface::GridVertex>> mapOfVerticesPerWD;
+		bool bFound = m_DBInterface->getFirstModfiedVertex(gridVertex, vectWD);
 		while (bFound)
 		{
 			if (gridVertex.posX() == 24 && gridVertex.posZ() == 24)
@@ -478,7 +493,7 @@ namespace TheWorld_MapManager
 
 			float altitude = computeAltitude(gridVertex, vectWD);
 			gridVertex.setAltitude(altitude);
-			m_SqlInterface->updateAltitudeOfVertex(gridVertex.rowid(), altitude);
+			m_DBInterface->updateAltitudeOfVertex(gridVertex.rowid(), altitude);
 
 			updated++;
 			if (consoleDebugMode() && fmod(idx, 1000) == 0)
@@ -493,10 +508,10 @@ namespace TheWorld_MapManager
 					mapOfVerticesPerWD[wd].push_back(gridVertex);
 			
 			vectWD.clear();
-			bFound = m_SqlInterface->getNextModfiedVertex(gridVertex, vectWD);
+			bFound = m_DBInterface->getNextModfiedVertex(gridVertex, vectWD);
 		}
 
-		std::map<SQLInterface::GridVertex, float> grideVerticesToUpdateForFlattening;
+		std::map<DBInterface::GridVertex, float> grideVerticesToUpdateForFlattening;
 		for (auto& mapItem : mapOfVerticesPerWD)
 		{
 			if (mapItem.first.getType() == WDType::flattener)
@@ -509,13 +524,13 @@ namespace TheWorld_MapManager
 				float wdAltitude = 0.0;
 
 				// looking for a vertex coincident with approximated wd pos in the array of vertices
-				SQLInterface::GridVertex v(wdX, wdZ, mapItem.first.getLevel());
-				std::vector<SQLInterface::GridVertex>::iterator it = std::find(mapItem.second.begin(), mapItem.second.end(), v);
+				DBInterface::GridVertex v(wdX, wdZ, mapItem.first.getLevel());
+				std::vector<DBInterface::GridVertex>::iterator it = std::find(mapItem.second.begin(), mapItem.second.end(), v);
 				if (it != mapItem.second.end())
 					wdAltitude = it->altitude();
 				else
 				{
-					m_SqlInterface->getVertex(v);
+					m_DBInterface->getVertex(v);
 					wdAltitude = v.altitude();
 				}
 
@@ -533,7 +548,7 @@ namespace TheWorld_MapManager
 
 		for (auto& v : grideVerticesToUpdateForFlattening)
 		{
-			m_SqlInterface->updateAltitudeOfVertex(v.first.rowid(), v.second);
+			m_DBInterface->updateAltitudeOfVertex(v.first.rowid(), v.second);
 		}
 
 		if (consoleDebugMode())
@@ -542,7 +557,7 @@ namespace TheWorld_MapManager
 			_consoleDebugUtil.printVariablePartOfLine(s.c_str());
 		}
 
-		m_SqlInterface->clearVerticesMarkedForUpdate();
+		m_DBInterface->clearVerticesMarkedForUpdate();
 			
 		if (instrumented()) clock.printDuration(__FUNCTION__);
 
@@ -551,10 +566,10 @@ namespace TheWorld_MapManager
 		/*
 		* Close Transaction
 		*/
-		m_SqlInterface->endTransaction();
+		m_DBInterface->endTransaction();
 	}
 
-	float MapManager::computeAltitude(SQLInterface::GridVertex& gridVertex, std::vector<WorldDefiner>& wdMap)
+	float MapManager::computeAltitude(DBInterface::GridVertex& gridVertex, std::vector<WorldDefiner>& wdMap)
 	{
 		float altitude = gridVertex.initialAltitude();
 		
@@ -584,7 +599,7 @@ namespace TheWorld_MapManager
 		return altitude;
 	}
 
-	float MapManager::computeAltitudeModifier(SQLInterface::GridVertex& gridVertex, const WorldDefiner& wd, float distanceFromWD, float wdAltitude)
+	float MapManager::computeAltitudeModifier(DBInterface::GridVertex& gridVertex, const WorldDefiner& wd, float distanceFromWD, float wdAltitude)
 	{
 		float altitudeModifier = 0.0;
 
@@ -637,14 +652,14 @@ namespace TheWorld_MapManager
 
 	int MapManager::getNumVertexMarkedForUpdate(void)
 	{
-		SQLInterface::GridVertex gridVertex;
+		DBInterface::GridVertex gridVertex;
 		vector<WorldDefiner> vectWD;
-		bool bFound = m_SqlInterface->getFirstModfiedVertex(gridVertex, vectWD);
+		bool bFound = m_DBInterface->getFirstModfiedVertex(gridVertex, vectWD);
 		int idx = 0;
 		while (bFound)
 		{
 			idx++;
-			bFound = m_SqlInterface->getNextModfiedVertex(gridVertex, vectWD);
+			bFound = m_DBInterface->getNextModfiedVertex(gridVertex, vectWD);
 		}
 		return idx;
 	}
@@ -669,10 +684,10 @@ namespace TheWorld_MapManager
 			return coordInWUs;
 	}
 
-	void MapManager::getVertices(float anchorXInWUs, float anchorZInWUs, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level)
+	void MapManager::getVertices(float anchorXInWUs, float anchorZInWUs, anchorType type, float size, vector<DBInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode());
+		TimerMsMapManager clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		//limiter l(2);
@@ -707,20 +722,20 @@ namespace TheWorld_MapManager
 		if (instrumented()) clock.printDuration((string(__FUNCTION__) + " - Num Vertices: " + to_string(mesh.size()) + " - (X x Z): " + to_string(numPointX) + " x " + to_string(numPointZ) + " - Found in DB: " + to_string(numFoundInDB)).c_str());
 	}
 	
-	void MapManager::internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int& numFoundInDB, int level)
+	void MapManager::internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, vector<DBInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int& numFoundInDB, int level)
 	{
 		vector<FlatGridPoint> grid;
 		getFlatGrid(min_X_OnTheGridInWUs, max_X_OnTheGridInWUs, min_Z_OnTheGridInWUs, max_Z_OnTheGridInWUs, grid, numPointX, numPointZ, gridStepInWU);
 		getEmptyVertexGrid(grid, mesh, level);
 
-		vector<SQLInterface::GridVertex> vectGridVerticesFromDB;
-		m_SqlInterface->getVertices(min_X_OnTheGridInWUs, max_X_OnTheGridInWUs, min_Z_OnTheGridInWUs, max_Z_OnTheGridInWUs, vectGridVerticesFromDB, level);
+		vector<DBInterface::GridVertex> vectGridVerticesFromDB;
+		m_DBInterface->getVertices(min_X_OnTheGridInWUs, max_X_OnTheGridInWUs, min_Z_OnTheGridInWUs, max_Z_OnTheGridInWUs, vectGridVerticesFromDB, level);
 
 		std::sort(vectGridVerticesFromDB.begin(), vectGridVerticesFromDB.end());
 		std::sort(mesh.begin(), mesh.end());
 
-		vector<SQLInterface::GridVertex>::iterator itGridFromDB = vectGridVerticesFromDB.begin();
-		vector<SQLInterface::GridVertex>::iterator itMesh = mesh.begin();
+		vector<DBInterface::GridVertex>::iterator itGridFromDB = vectGridVerticesFromDB.begin();
+		vector<DBInterface::GridVertex>::iterator itMesh = mesh.begin();
 		for (;;)
 		{
 			if (itMesh == mesh.end())
@@ -767,7 +782,7 @@ namespace TheWorld_MapManager
 		std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
 		
 		TheWorld_Utils::MeshCacheBuffer cache;
-		std::string cacheDir = m_SqlInterface->dataPath();
+		std::string cacheDir = m_DBInterface->dataPath();
 		std::string mapName = getMapName();
 		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 		cache.writeBufferToDiskCache(meshBuffer, true);
@@ -806,14 +821,14 @@ namespace TheWorld_MapManager
 		
 		bool completed;
 
-		std::recursive_mutex& exclusiveDBAccessMutex = m_SqlInterface->getExclusiveDBAccessMutex();
+		std::recursive_mutex& exclusiveDBAccessMutex = m_DBInterface->getExclusiveDBAccessMutex();
 
 		std::lock_guard<std::recursive_mutex> lock(exclusiveDBAccessMutex);
 
 		if (emptyBuffer)
 		{
-			SQLInterface::QuadrantVertexStoreType vertexStoreType = writeCompactVerticesToDB ? SQLInterface::QuadrantVertexStoreType::Compact : SQLInterface::QuadrantVertexStoreType::eXtended;
-			completed = m_SqlInterface->writeQuadrantToDB(cache, cacheQuadrantData, strBuffer, vertexStoreType, stop);
+			DBInterface::QuadrantVertexStoreType vertexStoreType = writeCompactVerticesToDB ? DBInterface::QuadrantVertexStoreType::Compact : DBInterface::QuadrantVertexStoreType::eXtended;
+			completed = m_DBInterface->writeQuadrantToDB(cache, cacheQuadrantData, strBuffer, vertexStoreType, stop);
 		}
 		else
 		{
@@ -828,8 +843,8 @@ namespace TheWorld_MapManager
 
 			cache.refreshCacheQuadrantDataFromBuffer(memoryBuffer, cacheQuadrantData, false);
 
-			SQLInterface::QuadrantVertexStoreType vertexStoreType = writeCompactVerticesToDB ? SQLInterface::QuadrantVertexStoreType::Compact : SQLInterface::QuadrantVertexStoreType::eXtended;
-			completed = m_SqlInterface->writeQuadrantToDB(cache, cacheQuadrantData, strBuffer, vertexStoreType, stop);
+			DBInterface::QuadrantVertexStoreType vertexStoreType = writeCompactVerticesToDB ? DBInterface::QuadrantVertexStoreType::Compact : DBInterface::QuadrantVertexStoreType::eXtended;
+			completed = m_DBInterface->writeQuadrantToDB(cache, cacheQuadrantData, strBuffer, vertexStoreType, stop);
 		}
 		
 		return completed;
@@ -841,18 +856,18 @@ namespace TheWorld_MapManager
 
 		std::string meshId;
 		TheWorld_Utils::TerrainEdit terrainEdit;
-		enum class SQLInterface::QuadrantStatus status;
-		enum class SQLInterface::QuadrantVertexStoreType vertexStoreType;
+		enum class DBInterface::QuadrantStatus status;
+		enum class DBInterface::QuadrantVertexStoreType vertexStoreType;
 		std::string strBuffer;
-		m_SqlInterface->readQuadrantFromDB(cache, meshId, strBuffer, status, vertexStoreType, terrainEdit);
+		m_DBInterface->readQuadrantFromDB(cache, meshId, strBuffer, status, vertexStoreType, terrainEdit);
 
-		if (status == SQLInterface::QuadrantStatus::Loading)
+		if (status == DBInterface::QuadrantStatus::Loading)
 			return false;
 
 		if (meshId.size() == 0)
 			return false;
 		
-		if (vertexStoreType == SQLInterface::QuadrantVertexStoreType::Compact)
+		if (vertexStoreType == DBInterface::QuadrantVertexStoreType::Compact)
 		{
 			cache.writeBufferToDiskCache(strBuffer);
 		}
@@ -874,7 +889,7 @@ namespace TheWorld_MapManager
 			float quadEndPosZ = quadPosZ + (vertexPerSize - 1) * gridStep;
 
 			int numFoundInDB = 0;
-			std::vector<SQLInterface::GridVertex> vectGridVertex;
+			std::vector<DBInterface::GridVertex> vectGridVertex;
 			internalGetVertices(quadPosX, quadEndPosX, quadPosZ, quadEndPosZ, (int)vertexPerSize, (int)vertexPerSize, vectGridVertex, gridStep, numFoundInDB, level);
 			size_t numVertices = vectGridVertex.size();
 			if (numVertices != 0 && numVertices != vertexPerSize * vertexPerSize)
@@ -1166,7 +1181,7 @@ namespace TheWorld_MapManager
 
 	void MapManager::alignDiskCacheAndDBTask(size_t numVerticesPerSize, int level)
 	{
-		PLOG_DEBUG << "Align CACHE <==> DB - Start alignement thread";
+		PLOG_DEBUG << "Align CACHE <==> DB - Start alignement thread - " << "map=" << s_mapName << " numVerticesPerSize=" << numVerticesPerSize << " level=" << level;
 		//return;
 
 		while (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
@@ -1188,13 +1203,13 @@ namespace TheWorld_MapManager
 			}
 		}
 
-		PLOG_DEBUG << "Align CACHE <==> DB - Stop alignement thread";
+		PLOG_DEBUG << "Align CACHE <==> DB - Stop alignement thread - " << "map=" << s_mapName << " numVerticesPerSize=" << numVerticesPerSize << " level=" << level;
 	}
 
 	void MapManager::alignDiskCacheAndDBTaskInternal(size_t numVerticesPerSize, int level)
 	{
 		float gridStepInWU = MapManager::gridStepInWU();
-		std::string cacheDir = m_SqlInterface->dataPath();
+		std::string cacheDir = m_DBInterface->dataPath();
 		std::string mapName = getMapName();
 		std::vector<TheWorld_Utils::MeshCacheBuffer> vectDiskCache;
 		TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, vectDiskCache);
@@ -1244,10 +1259,10 @@ namespace TheWorld_MapManager
 		int ret = MAPMANAGER_NOTHING_TO_DO;
 
 		std::string diskCacheMeshId = cache.getMeshIdFromDisk();
-		enum class SQLInterface::QuadrantStatus status;
-		enum class SQLInterface::QuadrantVertexStoreType vertexStoreType;
-		std::string dbMeshId = m_SqlInterface->getQuadrantHash(cache.getGridStepInWU(), cache.getNumVerticesPerSize(), cache.getLevel(), cache.getLowerXGridVertex(), cache.getLowerZGridVertex(), status, vertexStoreType);
-		if (status == SQLInterface::QuadrantStatus::Loading)
+		enum class DBInterface::QuadrantStatus status;
+		enum class DBInterface::QuadrantVertexStoreType vertexStoreType;
+		std::string dbMeshId = m_DBInterface->getQuadrantHash(cache.getGridStepInWU(), cache.getNumVerticesPerSize(), cache.getLevel(), cache.getLowerXGridVertex(), cache.getLowerZGridVertex(), status, vertexStoreType);
+		if (status == DBInterface::QuadrantStatus::Loading)
 			dbMeshId = "";
 
 		//size_t size = diskCacheMeshId.size();
@@ -1371,7 +1386,7 @@ namespace TheWorld_MapManager
 		{
 			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.1 ") + __FUNCTION__, "Get MeshId from cache");
 			gridStepInWU = MapManager::gridStepInWU();
-			std::string cacheDir = m_SqlInterface->dataPath();
+			std::string cacheDir = m_DBInterface->dataPath();
 			std::string mapName = getMapName();
 			cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 
@@ -1425,14 +1440,14 @@ namespace TheWorld_MapManager
 		}
 	}
 		
-	void MapManager::getVertices(float& anchorXInWUs, float& anchorZInWUs, anchorType type, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int level)
+	void MapManager::getVertices(float& anchorXInWUs, float& anchorZInWUs, anchorType type, int numVerticesX, int numVerticesZ, vector<DBInterface::GridVertex>& mesh, float& gridStepInWU, int level)
 	{
 		//std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 
 		//limiter l(2);
 
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode());
+		TimerMsMapManager clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		float min_X_OnTheGridInWUs, min_Z_OnTheGridInWUs;
@@ -1465,7 +1480,7 @@ namespace TheWorld_MapManager
 		if (instrumented()) clock.printDuration((string(__FUNCTION__) + " - Num Vertices: " + to_string(mesh.size()) + " - (X x Z): " + to_string(numVerticesX) + " x " + to_string(numVerticesZ) + " - Found in DB: " + to_string(numFoundInDB)).c_str());
 	}
 
-	void MapManager::internalGetVertices(float min_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level)
+	void MapManager::internalGetVertices(float min_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<DBInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("internalGetVertices1 ") + __FUNCTION__, "ALL");
 
@@ -1474,7 +1489,7 @@ namespace TheWorld_MapManager
 		internalGetVertices(min_X_OnTheGridInWUs, max_X_OnTheGridInWUs, min_Z_OnTheGridInWUs, max_Z_OnTheGridInWUs, numVerticesX, numVerticesZ, mesh, gridStepInWU, numFoundInDB, level);
 	}
 		
-	void MapManager::internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level)
+	void MapManager::internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<DBInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("internalGetVertices2 ") + __FUNCTION__, "ALL");
 		
@@ -1482,14 +1497,14 @@ namespace TheWorld_MapManager
 		getFlatGrid(min_X_OnTheGridInWUs, min_Z_OnTheGridInWUs, numVerticesX, numVerticesZ, grid, gridStepInWU);
 		getEmptyVertexGrid(grid, mesh, level);
 
-		vector<SQLInterface::GridVertex> vectGridVerticesFromDB;
-		m_SqlInterface->getVertices(min_X_OnTheGridInWUs, max_X_OnTheGridInWUs, min_Z_OnTheGridInWUs, max_Z_OnTheGridInWUs, vectGridVerticesFromDB, level);
+		vector<DBInterface::GridVertex> vectGridVerticesFromDB;
+		m_DBInterface->getVertices(min_X_OnTheGridInWUs, max_X_OnTheGridInWUs, min_Z_OnTheGridInWUs, max_Z_OnTheGridInWUs, vectGridVerticesFromDB, level);
 
 		std::sort(vectGridVerticesFromDB.begin(), vectGridVerticesFromDB.end());
 		std::sort(mesh.begin(), mesh.end());
 
-		vector<SQLInterface::GridVertex>::iterator itGridFromDB = vectGridVerticesFromDB.begin();
-		vector<SQLInterface::GridVertex>::iterator itMesh = mesh.begin();
+		vector<DBInterface::GridVertex>::iterator itGridFromDB = vectGridVerticesFromDB.begin();
+		vector<DBInterface::GridVertex>::iterator itMesh = mesh.begin();
 		for (;;)
 		{
 			//Sleep(0);
@@ -1533,13 +1548,13 @@ namespace TheWorld_MapManager
 	void MapManager::getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level)
 	{
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMs clock(true, consoleDebugMode());
+		TimerMsMapManager clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		patches.clear();
 		
 		int numPointX = 0, numPointZ = 0;
-		vector<SQLInterface::GridVertex> mesh;
+		vector<DBInterface::GridVertex> mesh;
 		getVertices(anchorX, anchorZ, type, size, mesh, numPointX, numPointZ, gridStepInWU, level);
 
 		if (mesh.size() <= 1)
@@ -1553,15 +1568,15 @@ namespace TheWorld_MapManager
 		// Collecting patches: the patch is the one wich has the current grid vertex as upper left corner
 		for (size_t idx = 0; idx < mesh.size(); idx++)
 		{
-			SQLInterface::GridVertex upperLeftGridVertex = mesh[idx];
+			DBInterface::GridVertex upperLeftGridVertex = mesh[idx];
 			assert(idx + 1 < mesh.size());
-			SQLInterface::GridVertex upperRightGridVertex = mesh[idx + 1];
+			DBInterface::GridVertex upperRightGridVertex = mesh[idx + 1];
 			if (upperLeftGridVertex.posZ() != upperRightGridVertex.posZ())
 				continue;	// the current grid vertex (p1) is the last of the row so it doesn't point to a patch
 			if (idx + numPointX >= mesh.size())
 				break;		// the current grid vertex (p1) is on the last row of the grid so it doesn't point to a patch nor any of the following: we can exit loop
-			SQLInterface::GridVertex lowerLeftGridVertex = mesh[idx + numPointX];
-			SQLInterface::GridVertex lowerRightGridVertex = mesh[idx + numPointX + 1];
+			DBInterface::GridVertex lowerLeftGridVertex = mesh[idx + numPointX];
+			DBInterface::GridVertex lowerRightGridVertex = mesh[idx + numPointX + 1];
 			GridPatch patch(upperLeftGridVertex, upperRightGridVertex, lowerLeftGridVertex, lowerRightGridVertex);
 			patches.push_back(patch);
 		}
@@ -1597,7 +1612,7 @@ namespace TheWorld_MapManager
 		// W A R N I N G : assuming coordinates in input file are in projected coordinates EPSG 3857 where the unit is metre
 		// *****************************************************************************************************************
 
-		TimerMs clock(true, consoleDebugMode());
+		TimerMsMapManager clock(true, consoleDebugMode());
 		if (instrumented()) clock.tick();
 
 		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
@@ -1798,7 +1813,7 @@ namespace TheWorld_MapManager
 			if (consoleDebugMode()) _consoleDebugUtil.printVariablePartOfLine(idxPoint);
 		}*/
 
-		vector<SQLInterface::GridVertex> vectGridVertices;
+		vector<DBInterface::GridVertex> vectGridVertices;
 
 		int maxNumGISPointsAffectingGridPoints = 0;
 
@@ -1822,7 +1837,7 @@ namespace TheWorld_MapManager
 				double LoadGISMap_interpolateAltitudeOfGridPOint(vector<FlatGridPoint>& grid, int idxGridPoint, _GISPointsAffectingGridPoints& GISPointsAffectingGridPoints, _GISPointMap& GISPointAltidues);
 				double altidue = LoadGISMap_interpolateAltitudeOfGridPOint(grid, idxGridPoint, GISPointsAffectingGridPoints, GISPointAltiduesMap);
 
-				SQLInterface::GridVertex gridVertex(grid[idxGridPoint].x, grid[idxGridPoint].z, (float)altidue, level);
+				DBInterface::GridVertex gridVertex(grid[idxGridPoint].x, grid[idxGridPoint].z, (float)altidue, level);
 				vectGridVertices.push_back(gridVertex);
 
 				if (writeReport)
@@ -1853,13 +1868,13 @@ namespace TheWorld_MapManager
 
 		if (writeReport) outFile.close();
 
-		__int64 rowid = m_SqlInterface->addWDAndVertices(NULL, vectGridVertices);
+		__int64 rowid = m_DBInterface->addWDAndVertices(NULL, vectGridVertices);
 
 		
 		if (instrumented()) clock.printDuration(__FUNCTION__);
 	}
 
-	float MapManager::interpolateAltitude(vector<SQLInterface::GridVertex>& vectGridVertex, FlatGridPoint& pos)
+	float MapManager::interpolateAltitude(vector<DBInterface::GridVertex>& vectGridVertex, FlatGridPoint& pos)
 	{
 		// I N T E R P O L A T I O N : we use the "inverse distance weighted" algorithm
 		// rapporto tra la sommatoria per ogni punto da interpolare di altitudine su distanza dal punto target e la sommatoria di 1 su distanza dal punto target

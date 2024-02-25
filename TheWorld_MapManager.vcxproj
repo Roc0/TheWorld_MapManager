@@ -164,6 +164,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="DBFactory.h" />
+    <ClInclude Include="DBJson.h" />
     <ClInclude Include="DBSQLLite.h" />
     <ClInclude Include="DisusedCode.h" />
     <ClInclude Include="framework.h" />
@@ -171,7 +173,7 @@
     <ClInclude Include="MapManagerException.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="shapefil.h" />
-    <ClInclude Include="SQLInterface.h" />
+    <ClInclude Include="DBInterface.h" />
     <ClInclude Include="sqlite3.h" />
     <ClInclude Include="MapManager_Utils.h" />
     <ClInclude Include="WorldDefiner.h" />
@@ -189,6 +191,8 @@
       <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Level2</WarningLevel>
       <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Level2</WarningLevel>
     </ClCompile>
+    <ClCompile Include="DBFactory.cpp" />
+    <ClCompile Include="DBJson.cpp" />
     <ClCompile Include="DBSQLLite.cpp" />
     <ClCompile Include="DisusedCode.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
@@ -237,7 +241,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="MapManager_Utils.cpp" />
-    <ClCompile Include="SQLInterface.cpp" />
+    <ClCompile Include="DBInterface.cpp" />
     <ClCompile Include="WorldDefiner.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

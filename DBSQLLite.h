@@ -1,12 +1,14 @@
 #pragma once
 
-#include "SQLInterface.h"
+#include "Utils.h"
+#include "DBInterface.h"
 #include "sqlite3.h"
 #include "MapManagerException.h"
 
 #include <string>
 #include <memory>
 #include <thread>
+#include <chrono>
 
 //#define MAX_TIME_RETRY_ON_DB_BUSY	1000
 #define MAX_TIME_RETRY_ON_DB_BUSY	60000
@@ -248,15 +250,9 @@ namespace TheWorld_MapManager
 			return m_initialized; 
 		}
 
-		enum class ConnectionType
+		static void setConnectionType(enum class DBInterface::ConnectionType type)
 		{
-			SingleConn = 0,
-			MultiConn = 1
-		};
-
-		static void setConnectionType(enum class ConnectionType type)
-		{
-			if (type == ConnectionType::MultiConn)
+			if (type == DBInterface::ConnectionType::MultiConn)
 			{
 				int rc = sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
 				if (rc == SQLITE_OK)
@@ -277,7 +273,7 @@ namespace TheWorld_MapManager
 			if (m_dbFilePath.empty())
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DBSQLLiteOps cannot initialize instance : file path empty!"));
 
-			if (m_connType == ConnectionType::SingleConn)
+			if (m_connType == DBInterface::ConnectionType::SingleConn)
 				m_conn = &s_conn;
 			else
 				m_conn = s_connPool.getCurrentCtx()->getConn(m_dbFilePath);
@@ -309,7 +305,7 @@ namespace TheWorld_MapManager
 
 			m_conn->acquireExclusiveAccessToDB();
 			
-			TimerMs clock(false, false);
+			TimerMsMapManager clock(false, false);
 			clock.tick();
 			while (true)
 			{
@@ -562,7 +558,7 @@ namespace TheWorld_MapManager
 			if (m_lockAcquired)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to acquire a lock recursively!"));
 
-			if (m_connType == ConnectionType::MultiConn)
+			if (m_connType == DBInterface::ConnectionType::MultiConn)
 			{
 				s_DBAccessMtx.lock();
 			}
@@ -583,7 +579,7 @@ namespace TheWorld_MapManager
 			if (!m_lockAcquired)
 				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite trying to release a lock not acquired!"));
 
-			if (m_connType == ConnectionType::MultiConn)
+			if (m_connType == DBInterface::ConnectionType::MultiConn)
 			{
 				s_DBAccessMtx.unlock();
 			}
@@ -619,11 +615,11 @@ namespace TheWorld_MapManager
 	private:
 		static DBSQLLiteConn s_conn;
 		static DBThreadContextPool s_connPool;
-		static enum class ConnectionType s_connType;
+		static enum class DBInterface::ConnectionType s_connType;
 		static std::recursive_mutex s_DBAccessMtx;
 
 		DBSQLLiteConn* m_conn;
-		enum class ConnectionType m_connType;
+		enum class DBInterface::ConnectionType m_connType;
 		bool m_initialized;
 		bool m_lockAcquired;
 		sqlite3_stmt* m_stmt;
@@ -632,13 +628,13 @@ namespace TheWorld_MapManager
 		std::string m_dbFilePath;
 	};
 
-	class DBSQLLite : public SQLInterface
+	class DBSQLLite : public DBInterface
 	{
 	public:
 		DBSQLLite(DBType dbt, const char* dataPath, bool consoleDebugMode = false);
 		~DBSQLLite();
 		
-		static void setConnectionType(enum class DBSQLLiteOps::ConnectionType type)
+		static void setConnectionType(enum class DBInterface::ConnectionType type)
 		{
 			DBSQLLiteOps::setConnectionType(type);
 		}
@@ -669,7 +665,7 @@ namespace TheWorld_MapManager
 		void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& vectWDRowId);
 		bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
 		bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
-		std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class SQLInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType);
+		std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType);
 		bool writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, std::string strBuffer, enum class QuadrantVertexStoreType vertexStoreType, bool& stop);
 		void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit);
 		void finalizeDB(void);

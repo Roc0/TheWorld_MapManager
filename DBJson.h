@@ -1,0 +1,43 @@
+#pragma once
+
+#include "DBInterface.h"
+#include "MapManagerException.h"
+
+#include <string>
+#include <memory>
+#include <thread>
+
+namespace TheWorld_MapManager
+{
+	class DBJson : public DBInterface
+	{
+	public:
+		DBJson(DBType dbt, const char* dataPath, bool consoleDebugMode = false);
+		~DBJson();
+
+		virtual std::string readParam(std::string paranName);
+		virtual void beginTransaction(void);
+		virtual void endTransaction(bool commit = true);
+		virtual __int64 addWDAndVertices(WorldDefiner* pWD, std::vector<GridVertex>& vectGridVertices);
+		virtual bool eraseWD(__int64 wdRowid);
+		virtual void updateAltitudeOfVertex(__int64 vertexRowid, float altitude);
+		virtual void clearVerticesMarkedForUpdate(void);
+		virtual void getVertex(__int64 vertexRowid, GridVertex& gridVertex, int level);
+		virtual void getVertex(GridVertex& gridVertex);
+		virtual void getVertices(float minX, float maxX, float minZ, float maxZ, std::vector<GridVertex>& vectGridVertices, int level);
+		virtual size_t eraseVertices(float minX, float maxX, float minZ, float maxZ, int level);
+		virtual bool getWD(float posX, float posZ, int level, WDType type, WorldDefiner& WD);
+		virtual bool getWD(__int64 wdRowid, WorldDefiner& WD);
+		virtual void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& vectWDRowId);
+		virtual bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
+		virtual bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
+		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType);
+		virtual bool writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, std::string strBuffer, enum class QuadrantVertexStoreType vertexStoreType, bool& stop);
+		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit);
+		virtual void finalizeDB(void);
+
+	private:
+		static std::string g_filePath;
+	};
+}
+

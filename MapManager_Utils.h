@@ -83,7 +83,7 @@ namespace TheWorld_MapManager
 		bool m_consoleOutputEnabled;
 	};
 
-#define TimerMs Timer<std::chrono::milliseconds, std::chrono::steady_clock>
+#define TimerMsMapManager TheWorld_MapManager::Timer<std::chrono::milliseconds, std::chrono::steady_clock>
 
 	class consoleDebugUtil
 	{
@@ -133,7 +133,7 @@ namespace TheWorld_MapManager
 			std::cout << i << "\n";
 		}
 
-		void printNewLine(void)
+		void printNewLine(void) const
 		{
 			if (!m_debugMode)
 				return;
@@ -141,7 +141,7 @@ namespace TheWorld_MapManager
 			std::cout << "\n";
 		}
 
-		COORD getStartPosition(void)
+		COORD getStartPosition(void) const
 		{
 			return m_startCursorPosition;
 		}

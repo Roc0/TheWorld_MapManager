@@ -3,7 +3,7 @@
 #define _USE_MATH_DEFINES // for C++
 
 #include "WorldDefiner.h"
-#include "SQLInterface.h"
+#include "DBInterface.h"
 #include "MapManagerException.h"
 #include "MapManager_Utils.h"
 #include <plog/Log.h>
@@ -143,7 +143,7 @@ namespace TheWorld_MapManager
 		class GridPatch
 		{
 		public:
-			GridPatch(SQLInterface::GridVertex& upperLeftGridVertex, SQLInterface::GridVertex& upperRightGridVertex, SQLInterface::GridVertex& lowerLeftGridVertex, SQLInterface::GridVertex& lowerRightGridVertex)
+			GridPatch(DBInterface::GridVertex& upperLeftGridVertex, DBInterface::GridVertex& upperRightGridVertex, DBInterface::GridVertex& lowerLeftGridVertex, DBInterface::GridVertex& lowerRightGridVertex)
 			{
 				if (g_gridStepInWU == 0.0f)
 					throw(MapManagerException(__FUNCTION__, string("Initialize DB!").c_str()));
@@ -191,7 +191,7 @@ namespace TheWorld_MapManager
 				lower_left = 2,		// P3	idx 2
 				lower_right = 3		// P4	idx 3
 			};
-			SQLInterface::GridVertex getVertex(vertexPos pos)
+			DBInterface::GridVertex getVertex(vertexPos pos)
 			{
 				switch (pos)
 				{
@@ -209,7 +209,7 @@ namespace TheWorld_MapManager
 			}
 
 		private:
-			vector<SQLInterface::GridVertex> gridVertex;
+			vector<DBInterface::GridVertex> gridVertex;
 			float m_altitude;
 			int m_posX;
 			int m_posZ;
@@ -243,8 +243,8 @@ namespace TheWorld_MapManager
 		void consoleDebugMode(bool b)
 		{
 			m_consoleDebugMode = b;
-			if (m_SqlInterface)
-				m_SqlInterface->consoleDebugMode(b);
+			if (m_DBInterface)
+				m_DBInterface->consoleDebugMode(b);
 		};
 		bool consoleDebugMode(void) const
 		{
@@ -265,7 +265,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void UpdateValues(void);
 		_declspec(dllexport) void finalizeDB(void)
 		{
-			if (m_SqlInterface) m_SqlInterface->finalizeDB(); 
+			if (m_DBInterface) m_DBInterface->finalizeDB();
 		}
 		_declspec(dllexport) std::string getMapName(void);
 		_declspec(dllexport) float gridStepInWU(void);
@@ -275,8 +275,8 @@ namespace TheWorld_MapManager
 			center = 0,
 			upperleftcorner = 1
 		};
-		_declspec(dllexport) void getVertices(float anchorXInWUs, float anchorZInWUs, anchorType type, float size, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level = 0);
-		_declspec(dllexport) void getVertices(float& anchorXInWUs, float& anchorZInWUs, anchorType type, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int level = 0);
+		_declspec(dllexport) void getVertices(float anchorXInWUs, float anchorZInWUs, anchorType type, float size, vector<DBInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int level = 0);
+		_declspec(dllexport) void getVertices(float& anchorXInWUs, float& anchorZInWUs, anchorType type, int numVerticesX, int numVerticesZ, vector<DBInterface::GridVertex>& mesh, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) void getQuadrantVertices(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshId, std::string& meshBuffer);
 		_declspec(dllexport) int alignDiskCacheAndDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) void alignDiskCacheAndDB(bool isInEditor, size_t numVerticesPerSize, int level);
@@ -293,32 +293,33 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) inline float calcNextCoordOnTheGridInWUs(float coordInWUs);
 
 	private:
-		float computeAltitude(SQLInterface::GridVertex& gridVertex, std::vector<WorldDefiner>& wdMap);
-		float computeAltitudeModifier(SQLInterface::GridVertex& gridVertex, const WorldDefiner& wd, float distanceFromWD = -1, float wdAltitude = -1);
+		float computeAltitude(DBInterface::GridVertex& gridVertex, std::vector<WorldDefiner>& wdMap);
+		float computeAltitudeModifier(DBInterface::GridVertex& gridVertex, const WorldDefiner& wd, float distanceFromWD = -1, float wdAltitude = -1);
 		void calcSquareFlatGridMinMaxToExpand(float minXInWUs, float maxXInWUs, float minZInWUs, float maxZInWUs, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU);
 		void getSquareFlatGridToExpand(float minXInWUs, float maxXInWUs, float minZInWUs, float maxZInWUs, vector<FlatGridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU);
 		void getFlatGrid(float minXInWUs, float maxXInWUs, float minZInWUs, float maxZInWUs, vector<FlatGridPoint>& grid, int& numPointX, int& numPointZ, float& gridStepInWU);
 		void getFlatGrid(float minXInWUs, float minZInWUs, int numPointX, int numPointZ, vector<FlatGridPoint>& grid, float& gridStepInWU);
-		void internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, vector<SQLInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int& numFoundInDB, int level = 0);
-		void internalGetVertices(float min_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level);
-		void internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<SQLInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level);
-		void getEmptyVertexGrid(vector<FlatGridPoint>& grid, vector<SQLInterface::GridVertex>& mesh, int level = 0);
+		void internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, vector<DBInterface::GridVertex>& mesh, int& numPointX, int& numPointZ, float& gridStepInWU, int& numFoundInDB, int level = 0);
+		void internalGetVertices(float min_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<DBInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level);
+		void internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<DBInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level);
+		void getEmptyVertexGrid(vector<FlatGridPoint>& grid, vector<DBInterface::GridVertex>& mesh, int level = 0);
 		float getDistance(float x1, float y1, float x2, float y2);
 		bool TransformProjectedCoordEPSG3857ToGeoCoordEPSG4326(double X, double Y, double& lon, double& lat, int& lonDegrees, int& lonMinutes, double& lonSeconds, int& latDegrees, int& latMinutes, double& latSeconds);
 		void DecimalDegreesToDegreesMinutesSeconds(double decimalDegrees, int& degrees, int& minutes, double& seconds);
 		//float getDistance(Vector3f v1, Vector3f v2);
-		static float interpolateAltitude(vector<SQLInterface::GridVertex>& vectGridVertex, FlatGridPoint& pos);
+		static float interpolateAltitude(vector<DBInterface::GridVertex>& vectGridVertex, FlatGridPoint& pos);
 		std::string getDataPath(void) 
 		{
 			return m_dataPath; 
 		}
 
 	private:
+		static DBInterface::DBType s_dbt;
+		DBInterface* m_DBInterface = nullptr;
 		static bool staticMapManagerInitializationDone;
 		static std::recursive_mutex s_staticMapManagerInitializationMtx;
 		//static enum class DBType s_dbType;
 
-		SQLInterface* m_SqlInterface;
 		bool m_instrumented;
 		bool m_consoleDebugMode;
 		std::string m_dataPath;
@@ -334,6 +335,8 @@ namespace TheWorld_MapManager
 		static std::recursive_mutex s_mapQuadrantToUpdateMtx;
 
 		static std::recursive_mutex s_dbExclusiveAccesMtx;
+		static std::string s_mapName;
+		static size_t s_numInstances;
 	};
 }
 

@@ -1,0 +1,1 @@
+A server can manage a single map in its life-cycle

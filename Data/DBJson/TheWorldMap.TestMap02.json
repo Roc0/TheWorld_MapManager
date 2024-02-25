@@ -1,0 +1,5 @@
+{
+	"MapName" : "TestMap02",
+	"GrowingBlockVertexNumberShift" : "8",
+	"GridStepInWU" : "2.0"
+}

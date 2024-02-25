@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <math.h>
+#include <mutex>
 
 #include "WorldDefiner.h"
 #include "Utils.h"
@@ -15,12 +16,20 @@ namespace TheWorld_MapManager
 #define SQL_DUPKEY	1
 #define SQL_KO		999
 
-	class SQLInterface
+	class DBInterface
 	{
 	public:
+		enum class ConnectionType
+		{
+			SingleConn = 0,
+			MultiConn = 1
+		};
+
 		enum class DBType
 		{
+			//NotSet = -1,
 			SQLLite = 0
+			, Json = 1
 		};
 
 		enum class QuadrantStatus
@@ -38,19 +47,19 @@ namespace TheWorld_MapManager
 			Compact = 1
 		};
 
-		SQLInterface(DBType dbt, const char* dataPath, bool consoleDebugMode = false)
+		DBInterface(DBType dbt, const char* dataPath, bool consoleDebugMode = false)
 		{
 			m_dbt = dbt;
 			m_dataPath = dataPath;
 			m_consoleDebugMode = consoleDebugMode;
 		}
-		~SQLInterface()
+		~DBInterface()
 		{
 		}
 		
 		virtual const char* classname()
 		{
-			return "SQLInterface"; 
+			return "DBInterface"; 
 		}
 		std::string dataPath(void) 
 		{
@@ -60,7 +69,7 @@ namespace TheWorld_MapManager
 		{
 			m_consoleDebugMode = b; 
 		};
-		bool consoleDebugMode(void)
+		bool consoleDebugMode(void) const
 		{
 			return m_consoleDebugMode; 
 		}
@@ -314,8 +323,11 @@ namespace TheWorld_MapManager
 			int m_globalMapB;				// 0/255
 		};
 
+		static std::recursive_mutex& getExclusiveDBAccessMutex(void);
+		static void acquireExclusiveAccessToDB(void);
+		static void releaseExclusiveAccessToDB(void);
+
 		// Pure	virtual functions
-		virtual std::recursive_mutex& getExclusiveDBAccessMutex(void) = 0;
 		virtual std::string readParam(std::string paranName) = 0;
 		virtual void beginTransaction(void) = 0;
 		virtual void endTransaction(bool commit = true) = 0;
@@ -332,14 +344,15 @@ namespace TheWorld_MapManager
 		virtual void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& vectWDRowId) = 0;
 		virtual bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
 		virtual bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
-		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class SQLInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType) = 0;
+		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType) = 0;
 		virtual bool writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, std::string strBuffer, enum class QuadrantVertexStoreType vertexStoreType, bool& stop) = 0;
-		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class SQLInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit) = 0;
+		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit) = 0;
 		virtual void finalizeDB(void) = 0;
 
 	private:
 		DBType m_dbt;
 		std::string m_dataPath;
 		bool m_consoleDebugMode;
+		static std::recursive_mutex s_DBAccessMtx;
 	};
 }
