@@ -364,3 +364,4 @@ FodyWeavers.xsd
 
 /Data/DBSqlite/*.db
 /Data/Cache/maps/*
+/Data/DBJson/*
