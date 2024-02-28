@@ -665,10 +665,11 @@ namespace TheWorld_MapManager
 		void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& vectWDRowId);
 		bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
 		bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
-		std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType);
+		std::string getQuadrantHash(float gridStep, size_t vertexPerSize, size_t level, float posX, float posZ, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType);
 		bool writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, std::string strBuffer, enum class QuadrantVertexStoreType vertexStoreType, bool& stop);
 		void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit);
 		void finalizeDB(void);
+		void importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level);
 
 	private:
 		float getDistance(float x1, float y1, float x2, float y2)

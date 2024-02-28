@@ -11,6 +11,8 @@
 
 using namespace std;
 
+// Warning to manage: extraValues1.heightsNeedRegen
+
 namespace TheWorld_MapManager
 {
 	DBSQLLiteConn DBSQLLiteOps::s_conn;
@@ -1873,15 +1875,15 @@ namespace TheWorld_MapManager
 		dbOps.init();
 
 		float gridStep = cache.getGridStepInWU();
-		size_t vertxePerSize = cache.getNumVerticesPerSize();
+		size_t vertexPerSize = cache.getNumVerticesPerSize();
 		int level = cache.getLevel();
 		float quadPosX = cache.getLowerXGridVertex();
 		float quadPosZ = cache.getLowerZGridVertex();
-		float quadEndPosX = quadPosX + (vertxePerSize - 1) * gridStep;
-		float quadEndPosZ = quadPosZ + (vertxePerSize - 1) * gridStep;
+		float quadEndPosX = quadPosX + (vertexPerSize - 1) * gridStep;
+		float quadEndPosZ = quadPosZ + (vertexPerSize - 1) * gridStep;
 
 		string sql1 = "SELECT Hash, Status, VertexStoreType FROM Quadrant WHERE GridStepInWU = %s AND VertexPerSize = %s AND Level = %s AND PosXStart = %s AND PosZStart = %s;";
-		string sql = dbOps.completeSQL(sql1.c_str(), to_string(gridStep).c_str(), to_string(vertxePerSize).c_str(), to_string(level).c_str(), to_string(quadPosX).c_str(), to_string(quadPosZ).c_str());
+		string sql = dbOps.completeSQL(sql1.c_str(), to_string(gridStep).c_str(), to_string(vertexPerSize).c_str(), to_string(level).c_str(), to_string(quadPosX).c_str(), to_string(quadPosZ).c_str());
 		dbOps.prepareStmt(sql.c_str());
 
 		int rc = dbOps.execStmt();
@@ -2047,5 +2049,10 @@ namespace TheWorld_MapManager
 		DBSQLLiteOps dbOps(dbFilePath());
 		dbOps.init();
 		dbOps.finalizeDB();
+	}
+
+	void DBSQLLite::importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level)
+	{
+		throw(MapManagerExceptionDBExceptionNotImpl(__FUNCTION__));
 	}
 }

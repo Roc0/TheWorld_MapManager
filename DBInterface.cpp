@@ -8,6 +8,10 @@
 
 namespace TheWorld_MapManager
 {
+	const std::string DBInterface::c_mapNameParamName = "MapName";
+	const std::string DBInterface::c_gridStepInWUParamName = "GridStepInWU";
+	const std::string DBInterface::c_growingBlockVertexNumberShiftParamName = "GrowingBlockVertexNumberShift";
+
 	std::recursive_mutex DBInterface::s_DBAccessMtx;
 	
 	std::recursive_mutex& DBInterface::getExclusiveDBAccessMutex(void)

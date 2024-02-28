@@ -16,9 +16,15 @@ namespace TheWorld_MapManager
 #define SQL_DUPKEY	1
 #define SQL_KO		999
 
+
 	class DBInterface
 	{
 	public:
+
+		static const std::string c_mapNameParamName;
+		static const std::string c_gridStepInWUParamName;
+		static const std::string c_growingBlockVertexNumberShiftParamName;
+
 		enum class ConnectionType
 		{
 			SingleConn = 0,
@@ -344,10 +350,11 @@ namespace TheWorld_MapManager
 		virtual void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& vectWDRowId) = 0;
 		virtual bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
 		virtual bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD) = 0;
-		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType) = 0;
+		virtual std::string getQuadrantHash(float gridStep, size_t vertexPerSize, size_t level, float posX, float posZ, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType) = 0;
 		virtual bool writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, std::string strBuffer, enum class QuadrantVertexStoreType vertexStoreType, bool& stop) = 0;
 		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit) = 0;
 		virtual void finalizeDB(void) = 0;
+		virtual void importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level) = 0;
 
 	private:
 		DBType m_dbt;

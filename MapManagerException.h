@@ -100,4 +100,13 @@ namespace TheWorld_MapManager
 			m_exceptionName = "MapManagerExceptionDBExceptionNotImpl";
 		};
 	};
+
+	class MapManagerExceptionDBExceptionNotInitialized : public MapManagerExceptionDBException
+	{
+	public:
+		_declspec(dllexport) MapManagerExceptionDBExceptionNotInitialized(const char* function) : MapManagerExceptionDBException(function)
+		{
+			m_exceptionName = "MapManagerExceptionDBExceptionNotInitialized";
+		};
+	};
 }

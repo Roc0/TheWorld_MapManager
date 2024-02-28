@@ -39,23 +39,23 @@ namespace TheWorld_MapManager
 	std::recursive_mutex MapManager::s_mapQuadrantToUpdateMtx;
 	//enum class DBType MapManager::s_dbType = DBType::SQLLite;
 
-	const std::string MapNameParamName = "MapName";
+	//const std::string MapNameParamName = "MapName";
 	std::string MapManager::s_mapName = "";
 	size_t MapManager::s_numInstances = 0;
 
-	const bool writeCompactVerticesToDB = true;
+	const bool c_writeCompactVerticesToDB = true;
 
 	// ************************************************************************************************************************************************
 	// size of the square grid of vertices used to expand the map (for example on new WD), this size is expressed in number of vertices so it is an int
 	// ************************************************************************************************************************************************
-	const std::string GrowingBlockVertexNumberShiftParamName = "GrowingBlockVertexNumberShift";
+	//const std::string GrowingBlockVertexNumberShiftParamName = "GrowingBlockVertexNumberShift";
 	//int g_DBGrowingBlockVertexNumberShift = 10;	// 10 ==> g_DBGrowingBlockVertexNumber = 1024;
 	//int g_DBGrowingBlockVertexNumberShift = 8;	// 8 ==> g_DBGrowingBlockVertexNumber = 256;
 	int g_DBGrowingBlockVertexNumberShift = 0;
 	int g_DBGrowingBlockVertexNumber = 1 << g_DBGrowingBlockVertexNumberShift;
 	// ************************************************************************************************************************************************
 
-	const std::string GridStepInWUParamName = "GridStepInWU";
+	//const std::string GridStepInWUParamName = "GridStepInWU";
 	float g_gridStepInWU = 0.0f;		// distance in world unit between a vertex of the grid and the next
 
 	MapManager::MapManager(/*const char* logPath, plog::Severity sev, plog::IAppender* appender,*/ char* configFileName, bool multiThreadEnvironment /* every thread is provided with its own DB connection associated to the thread::id*/)
@@ -81,19 +81,19 @@ namespace TheWorld_MapManager
 		s_numInstances++;
 		if (!staticMapManagerInitializationDone)
 		{
-			s_mapName = m_DBInterface->readParam(MapNameParamName);
+			s_mapName = m_DBInterface->readParam(DBInterface::c_mapNameParamName);
 			if (s_mapName.empty())
-				throw(MapManagerException(__FUNCTION__, string("Param <" + MapNameParamName + "> not read from DB").c_str()));
+				throw(MapManagerException(__FUNCTION__, string("Param <" + DBInterface::c_mapNameParamName + "> not read from DB").c_str()));
 
-			std::string s = m_DBInterface->readParam(GrowingBlockVertexNumberShiftParamName);
+			std::string s = m_DBInterface->readParam(DBInterface::c_growingBlockVertexNumberShiftParamName);
 			if (s.empty())
-				throw(MapManagerException(__FUNCTION__, string("Param <" + GrowingBlockVertexNumberShiftParamName + "> not read from DB").c_str()));
+				throw(MapManagerException(__FUNCTION__, string("Param <" + DBInterface::c_growingBlockVertexNumberShiftParamName + "> not read from DB").c_str()));
 			g_DBGrowingBlockVertexNumberShift = stoi(s);
 			g_DBGrowingBlockVertexNumber = 1 << g_DBGrowingBlockVertexNumberShift;
 
-			s = m_DBInterface->readParam(GridStepInWUParamName);
+			s = m_DBInterface->readParam(DBInterface::c_gridStepInWUParamName);
 			if (s.empty())
-				throw(MapManagerException(__FUNCTION__, string("Param <" + GridStepInWUParamName + "> not read from DB").c_str()));
+				throw(MapManagerException(__FUNCTION__, string("Param <" + DBInterface::c_gridStepInWUParamName + "> not read from DB").c_str()));
 			g_gridStepInWU = stof(s);
 
 			PLOG_INFO << "Initializing MapManager Server for map [" << s_mapName << "] gridStepInWU=" << g_gridStepInWU;
@@ -787,7 +787,7 @@ namespace TheWorld_MapManager
 		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 		cache.writeBufferToDiskCache(meshBuffer, true);
 		bool stop = false;
-		//writeDiskCacheToDB(cache, stop, writeCompactVerticesToDB);
+		//writeDiskCacheToDB(cache, stop, c_writeCompactVerticesToDB);
 	}
 
 	bool MapManager::writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB)
@@ -867,7 +867,11 @@ namespace TheWorld_MapManager
 		if (meshId.size() == 0)
 			return false;
 		
-		if (vertexStoreType == DBInterface::QuadrantVertexStoreType::Compact)
+		if (vertexStoreType == DBInterface::QuadrantVertexStoreType::NotSet)
+		{
+			cache.writeBufferToDiskCache(strBuffer);
+		}
+		else if (vertexStoreType == DBInterface::QuadrantVertexStoreType::Compact)
 		{
 			cache.writeBufferToDiskCache(strBuffer);
 		}
@@ -1186,7 +1190,11 @@ namespace TheWorld_MapManager
 
 		while (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 		{
-			//alignDiskCacheAndDBTaskInternal(numVerticesPerSize, level);
+			if (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
+				alignDiskCacheAndDBTaskInternal(numVerticesPerSize, level);
+
+			if (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
+				importExternalQuadrants(numVerticesPerSize, level);
 
 			TheWorld_Viewer_Utils::MsTimePoint start = std::chrono::time_point_cast<TheWorld_Viewer_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
 			while (true)
@@ -1206,13 +1214,19 @@ namespace TheWorld_MapManager
 		PLOG_DEBUG << "Align CACHE <==> DB - Stop alignement thread - " << "map=" << s_mapName << " numVerticesPerSize=" << numVerticesPerSize << " level=" << level;
 	}
 
+	void MapManager::importExternalQuadrants(size_t numVerticesPerSize, int level)
+	{
+		float gridStepInWU = MapManager::gridStepInWU();
+		m_DBInterface->importExternalQuadrants(gridStepInWU, numVerticesPerSize, level);
+	}
+		
 	void MapManager::alignDiskCacheAndDBTaskInternal(size_t numVerticesPerSize, int level)
 	{
 		float gridStepInWU = MapManager::gridStepInWU();
 		std::string cacheDir = m_DBInterface->dataPath();
 		std::string mapName = getMapName();
 		std::vector<TheWorld_Utils::MeshCacheBuffer> vectDiskCache;
-		TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, vectDiskCache);
+		TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, vectDiskCache, s_mapInitMap[numVerticesPerSize][level]->m_fromFileTimeType);
 
 		size_t progr = 0;
 		if (vectDiskCache.size() > 0)
@@ -1226,7 +1240,7 @@ namespace TheWorld_MapManager
 
 				TheWorld_Utils::MsTimePoint start = std::chrono::time_point_cast<TheWorld_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
 
-				int ret = alignDiskCacheAndDB(cache, s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit, writeCompactVerticesToDB);
+				int ret = alignDiskCacheAndDB(cache, s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit, c_writeCompactVerticesToDB);
 				if (ret != MAPMANAGER_NOTHING_TO_DO && ret != MAPMANAGER_STOPPED)
 				{
 					TheWorld_Utils::MsTimePoint now = std::chrono::time_point_cast<TheWorld_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
@@ -1418,6 +1432,7 @@ namespace TheWorld_MapManager
 			std::vector<float> vectGridHeights;
 			float minAltitude = 0, maxAltitude = 0;
 			TheWorld_Utils::MemoryBuffer terrainEditValuesBuffer;
+			// we don't call setEmptyBuffer because we need to mantain the same meshId of the client instead of generating a new meshid for empty buffer
 			cache.setBufferFromHeights(meshId, numVerticesPerSize, gridStepInWU, terrainEditValuesBuffer, vectGridHeights, meshBuffer, minAltitude, maxAltitude, false);
 		}
 		else

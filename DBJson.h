@@ -2,6 +2,7 @@
 
 #include "DBInterface.h"
 #include "MapManagerException.h"
+#include "json/json.h"
 
 #include <string>
 #include <memory>
@@ -31,13 +32,22 @@ namespace TheWorld_MapManager
 		virtual void getWDRowIdForVertex(__int64 vertexRowid, std::vector<__int64>& vectWDRowId);
 		virtual bool getFirstModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
 		virtual bool getNextModfiedVertex(GridVertex& gridVertex, std::vector<WorldDefiner>& vectWD);
-		virtual std::string getQuadrantHash(float gridStep, size_t vertxePerSize, size_t level, float posX, float posZ, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType);
+		virtual std::string getQuadrantHash(float gridStepInWU, size_t numVerticesPerSize, size_t level, float lowerXGridVertex, float lowerZGridVertex, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType);
 		virtual bool writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, std::string strBuffer, enum class QuadrantVertexStoreType vertexStoreType, bool& stop);
 		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit);
 		virtual void finalizeDB(void);
+		virtual void importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level);
 
 	private:
-		static std::string g_filePath;
+		bool completeQuadrantDataWithDefaultValues(float gridStepInWU, size_t numVerticesPerSize, int level, Json::Value& root);
+		std::string getQuadrantDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
+		std::string getQuadrantFilePath(float gridStepInWU, size_t numVerticesPerSize, size_t level, float lowerXGridVertex, float lowerZGridVertex);
+		std::string getQuadrantImportDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
+		std::string getQuadrantWorkDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
+
+	private:
+		static std::string g_DBDir;
+		static std::string g_confFilePath;
 	};
 }
 

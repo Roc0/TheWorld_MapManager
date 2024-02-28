@@ -1,0 +1,96 @@
+
+{
+	"data" : 
+	{
+		"001_terrainType" : 10,
+		"002_heightsNeedRegen" : false,
+		"003_normalsNeedRegen" : false,
+		"004_splatmapNeedRegen" : false,
+		"005_colormapNeedRegen" : true,
+		"006_globalmapNeedRegen" : false,
+		"007_needUploadToServer" : false,
+		"008_minHeight" : 689.2478027343750,
+		"009_maxHeight" : 2806.598144531250,
+		"010_lowElevationTexName_r" : "Ground003_2K",
+		"011_highElevationTexName_g" : "PaintedPlaster017_1K",
+		"012_dirtTexName_b" : "Ground049C_1K",
+		"013_rocksTexName_a" : "rocks07",
+		"014_splatmap_slopeVerticalFactor" : 4.0,
+		"015_splatmap_slopeFlatFactor" : 1.0,
+		"016_splatmap_dirtOnRocksFactor" : 2.0,
+		"017_splatmap_highElevationFactor" : 4.0,
+		"018_splatmap_lowElevationFactor" : 2.0,
+		"019_splatMapMode" : 1,
+		"020_amplitudeBlendFactor" : 1.0,
+		"021_postGenerateElevation" : 2000.0,
+		"022_ignoreDesideredMinHeight" : true,
+		"023_numBlendingCycles" : 2,
+		"024_blendingBendingFactor" : 1.0,
+		"025_minRandomBendingExtension" : 0.2000000029802322,
+		"026_maxRandomBendingExtension" : 0.50,
+		"grp_eastSideXPlus" : 
+		{
+			"maxHeight" : 2613.437011718750,
+			"minHeight" : 2071.661621093750,
+			"needBlend" : false
+		},
+		"grp_noise" : 
+		{
+			"001_noiseType" : 3,
+			"002_rotationType3D" : 0,
+			"003_noiseSeed" : 1337,
+			"004_frequency" : 0.0005000000237487257,
+			"005_fractalType" : 1,
+			"006_fractalOctaves" : 5,
+			"007_fractalLacunarity" : 2.0,
+			"008_fractalGain" : 0.50,
+			"009_fractalWeightedStrength" : 0.0,
+			"010_fractalPingPongStrength" : 2.0,
+			"011_cellularDistanceFunction" : 1,
+			"012_cellularReturnType" : 1,
+			"013_cellularJitter" : 1.0,
+			"014_warpNoiseDomainWarpType" : -1,
+			"015_warpNoiseRotationType3D" : 0,
+			"016_warpNoiseSeed" : 1337,
+			"017_warpNoiseDomainWarpAmp" : 30.0,
+			"018_warpNoiseFrequency" : 0.004999999888241291,
+			"019_warpNoieseFractalType" : 0,
+			"020_warpNoiseFractalOctaves" : 5,
+			"021_warpNoiseFractalLacunarity" : 2.0,
+			"022_warpNoiseFractalGain" : 0.50,
+			"023_heightsAmplitude" : 9000,
+			"024_scaleFactor_JagIntensity" : 0.3333329856395721,
+			"025_desideredMinHeight" : 0.0,
+			"026_desideredMinHeigthMandatory" : true
+		},
+		"grp_northSideZMinus" : 
+		{
+			"maxHeight" : 2408.982910156250,
+			"minHeight" : 1448.929443359375,
+			"needBlend" : false
+		},
+		"grp_southSideZPlus" : 
+		{
+			"maxHeight" : 2075.337402343750,
+			"minHeight" : 723.6392822265625,
+			"needBlend" : false
+		},
+		"grp_westSideXMinus" : 
+		{
+			"maxHeight" : 2647.427246093750,
+			"minHeight" : 1094.491943359375,
+			"needBlend" : true
+		},
+		"hash_binary" : "gVunnzyjPAA=",
+		"hash_text" : "892bf556-d7ec-4832-9d32-78e04dad9b3b:2024-02-01_15-32-17:"
+	},
+	"gridStepInWU" : 2.0,
+	"higherXGridVertex" : 12288.0,
+	"higherZGridVertex" : 4096.0,
+	"level" : 0,
+	"lowerXGridVertex" : 8192.0,
+	"lowerZGridVertex" : 0.0,
+	"numVerticesPerSize" : 2049,
+	"quadrantIndexX" : 2,
+	"quadrantIndexZ" : 0
+}

@@ -9,8 +9,10 @@
 #include <plog/Log.h>
 #include <..\TheWorld_GDN_Viewer\TheWorld_GDN_Viewer\Viewer_Utils.h>
 #include "Utils.h"
+
 #include <map>
 #include <queue>
+#include <filesystem>
 
 //#include "Eigen\Dense"
 //using namespace Eigen;
@@ -220,7 +222,7 @@ namespace TheWorld_MapManager
 		public:
 			std::thread m_alignCacheAndDbThread;
 			bool m_alignCacheAndDbThreadRequiredExit = true;
-
+			std::time_t m_fromFileTimeType = 0;
 		};
 
 		typedef std::map<int, InitMap*> MapInitMapPerLevel;
@@ -281,6 +283,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) int alignDiskCacheAndDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) void alignDiskCacheAndDB(bool isInEditor, size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void alignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
+		void importExternalQuadrants(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void alignDiskCacheAndDBTaskInternal(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(bool isInEditor);
 		_declspec(dllexport) void sync(bool isInEditor, size_t numVerticesPerSize, float gridStepinWU, bool& foundUpdatedQuadrant, int& level, float& lowerXGridVertex, float& lowerZGridVertex);

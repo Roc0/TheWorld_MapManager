@@ -1,3 +1,4 @@
 {
-	"DBFilePath" : "DBJson\\TheWorldMap.TestMap02.json"
+	"DBDir" : "DBJson",
+	"DBConfFileName" : "TheWorldMap.TestMap02.json"
 }
