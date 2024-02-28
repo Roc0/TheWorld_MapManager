@@ -202,6 +202,7 @@ namespace TheWorld_MapManager
 			TheWorld_Utils::TerrainEdit terrainEdit;
 			terrainEdit.deserialize(*cacheQuadrantData.terrainEditValues);
 			rootData["001_terrainType"] = int(terrainEdit.terrainType);
+			rootData["001_terrainTypeStr"] = TheWorld_Utils::TerrainEdit::terrainTypeString(terrainEdit.terrainType);
 			rootData["002_heightsNeedRegen"] = terrainEdit.extraValues1.heightsNeedRegen;
 			rootData["003_normalsNeedRegen"] = terrainEdit.normalsNeedRegen;
 			rootData["004_splatmapNeedRegen"] = terrainEdit.extraValues.splatmapNeedRegen;
@@ -605,6 +606,8 @@ namespace TheWorld_MapManager
 			}
 		}
 		
+		root["data"]["001_terrainTypeStr"] = TheWorld_Utils::TerrainEdit::terrainTypeString(type);
+
 		TheWorld_Utils::TerrainEdit terrainEdit(type);
 
 		v = root["data"]["002_heightsNeedRegen"];
