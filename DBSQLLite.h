@@ -670,6 +670,7 @@ namespace TheWorld_MapManager
 		void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit);
 		void finalizeDB(void);
 		void importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level);
+		virtual void getAllQuadrants(std::string _cacheDir, std::string mapName, float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer>& vectDiskCache, std::time_t& fromFileTimeType);
 
 	private:
 		float getDistance(float x1, float y1, float x2, float y2)

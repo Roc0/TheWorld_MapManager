@@ -223,6 +223,7 @@ namespace TheWorld_MapManager
 			std::thread m_alignCacheAndDbThread;
 			bool m_alignCacheAndDbThreadRequiredExit = true;
 			std::time_t m_fromFileTimeType = 0;
+			std::map<TheWorld_Utils::QuadrantPos, std::string> m_modifiedQuadrants;
 		};
 
 		typedef std::map<int, InitMap*> MapInitMapPerLevel;
@@ -283,14 +284,16 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) int alignDiskCacheAndDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) void alignDiskCacheAndDB(bool isInEditor, size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void alignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
-		void importExternalQuadrants(size_t numVerticesPerSize, int level);
+		void importExternalQuadrantsInDB(size_t numVerticesPerSize, int level);
+		void generateDetailDataForQuadrants(size_t numVerticesPerSize, int level);
+		void importQuadrantInWorkDir(TheWorld_Utils::QuadrantPos pos, std::string _cacheDir, std::string mapName, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*>& diskCacheMap);
 		_declspec(dllexport) void alignDiskCacheAndDBTaskInternal(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(bool isInEditor);
-		_declspec(dllexport) void sync(bool isInEditor, size_t numVerticesPerSize, float gridStepinWU, bool& foundUpdatedQuadrant, int& level, float& lowerXGridVertex, float& lowerZGridVertex);
+		_declspec(dllexport) void sync(bool isInEditor, size_t numVerticesPerSize, float gridStepinWU, std::string* clientQuadrants, std::string& replyQuadrants);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) bool writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
-		_declspec(dllexport) bool writeDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
-		_declspec(dllexport) void uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer);
+		_declspec(dllexport) bool writeWorkDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
+		_declspec(dllexport) void uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer, bool& refreshRequired);
 		_declspec(dllexport) void getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) inline float calcPreviousCoordOnTheGridInWUs(float coordInWUs);
 		_declspec(dllexport) inline float calcNextCoordOnTheGridInWUs(float coordInWUs);
@@ -333,9 +336,6 @@ namespace TheWorld_MapManager
 
 		static std::recursive_mutex s_initMapMtx;
 		static MapInitMap s_mapInitMap;
-
-		static std::map<QuadrantPos, size_t> s_mapQuadrantToUpdate;
-		static std::recursive_mutex s_mapQuadrantToUpdateMtx;
 
 		static std::recursive_mutex s_dbExclusiveAccesMtx;
 		static std::string s_mapName;

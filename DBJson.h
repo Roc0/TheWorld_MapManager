@@ -37,13 +37,14 @@ namespace TheWorld_MapManager
 		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit);
 		virtual void finalizeDB(void);
 		virtual void importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level);
+		virtual void getAllQuadrants(std::string _cacheDir, std::string mapName, float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer>& diskCacheMap, std::time_t& fromFileTimeType);
 
 	private:
 		bool completeQuadrantDataWithDefaultValues(float gridStepInWU, size_t numVerticesPerSize, int level, Json::Value& root);
 		std::string getQuadrantDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
 		std::string getQuadrantFilePath(float gridStepInWU, size_t numVerticesPerSize, size_t level, float lowerXGridVertex, float lowerZGridVertex);
 		std::string getQuadrantImportDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
-		std::string getQuadrantWorkDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
+		//std::string getQuadrantWorkDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
 
 	private:
 		static std::string g_DBDir;

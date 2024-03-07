@@ -2055,4 +2055,9 @@ namespace TheWorld_MapManager
 	{
 		throw(MapManagerExceptionDBExceptionNotImpl(__FUNCTION__));
 	}
+
+	void DBSQLLite::getAllQuadrants(std::string _cacheDir, std::string mapName, float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer>& diskCacheMap, std::time_t& fromFileTimeType)
+	{
+		throw(MapManagerExceptionDBExceptionNotImpl(__FUNCTION__));
+	}
 }
