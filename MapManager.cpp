@@ -1174,6 +1174,7 @@ namespace TheWorld_MapManager
 		TheWorld_Utils::serializeToByteStream<size_t>(numClientQuadrants, reply.ptr() + replyCursor, size);
 		replyCursor += size;
 
+		size_t numRefresh = 0;
 		for (size_t idx = 0; idx < numClientQuadrants; idx++)
 		{
 			size_t quadrantPosSize = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)clientQuadrants->c_str() + clientQuadrantsCursor, size);
@@ -1192,12 +1193,18 @@ namespace TheWorld_MapManager
 			clientQuadrantsCursor += meshIdSize;
 
 			bool quadrantRefreshNeeded = false;
-			if (s_mapInitMap[pos.getNumVerticesPerSize()][pos.getLevel()]->m_modifiedQuadrants.contains(pos))
-			{ 
-				std::string modifiedQuadrantOnServerMeshId = s_mapInitMap[pos.getNumVerticesPerSize()][pos.getLevel()]->m_modifiedQuadrants[pos];
-				if (modifiedQuadrantOnServerMeshId != clientMeshId)
-					if (TheWorld_Utils::MeshCacheBuffer::firstMeshIdMoreRecent(modifiedQuadrantOnServerMeshId, clientMeshId))
-						quadrantRefreshNeeded = true;
+			if (numRefresh < 10)
+			{
+				if (s_mapInitMap[pos.getNumVerticesPerSize()][pos.getLevel()]->m_modifiedQuadrants.contains(pos))
+				{
+					std::string modifiedQuadrantOnServerMeshId = s_mapInitMap[pos.getNumVerticesPerSize()][pos.getLevel()]->m_modifiedQuadrants[pos];
+					if (modifiedQuadrantOnServerMeshId != clientMeshId)
+						if (TheWorld_Utils::MeshCacheBuffer::firstMeshIdMoreRecent(modifiedQuadrantOnServerMeshId, clientMeshId))
+						{
+							quadrantRefreshNeeded = true;
+							numRefresh++;
+						}
+				}
 			}
 
 			reply.reserve(replyCursor + sizeof(bool));
