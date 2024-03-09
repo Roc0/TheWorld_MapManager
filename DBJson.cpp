@@ -467,100 +467,110 @@ namespace TheWorld_MapManager
 
 					if (!parseError)
 					{
-						bool importFile = completeQuadrantDataWithDefaultValues(gridStepInWU, numVerticesPerSize, level, root);
-
-						if (importFile)
+						const Json::Value quadrants = root["quadrants"];
+						for (Json::Value::UInt index = 0; index < quadrants.size(); ++index)
 						{
-							float lowerXGridVertex = float(root["lowerXGridVertex"].asDouble());
-							float lowerZGridVertex = float(root["lowerZGridVertex"].asDouble());
+							Json::Value quadrant = quadrants[index];
+							bool importFile = completeQuadrantDataWithDefaultValues(gridStepInWU, numVerticesPerSize, level, quadrant);
 
-							std::filesystem::path _quadrantFilePath = getQuadrantFilePath(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
-							//std::string quadrantFilePath = quadrantWorkDirPath + "\\" + _quadrantFilePath.filename().string();
-							std::string quadrantFilePath = _quadrantFilePath.string();
-
-							ofstream quadrantFile(quadrantFilePath, ios_base::out);
-							if (quadrantFile.fail() || !quadrantFile.is_open())
+							if (importFile)
 							{
-								PLOG_ERROR << "Could not open json quadrant file for writing " << quadrantFilePath;
+								float lowerXGridVertex = float(quadrant["lowerXGridVertex"].asDouble());
+								float lowerZGridVertex = float(quadrant["lowerZGridVertex"].asDouble());
+
+								std::filesystem::path _quadrantFilePath = getQuadrantFilePath(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
+								//std::string quadrantFilePath = quadrantWorkDirPath + "\\" + _quadrantFilePath.filename().string();
+								std::string quadrantFilePath = _quadrantFilePath.string();
+
+								ofstream quadrantFile(quadrantFilePath, ios_base::out);
+								if (quadrantFile.fail() || !quadrantFile.is_open())
+								{
+									PLOG_ERROR << "Could not open json quadrant file for writing " << quadrantFilePath;
+								}
+								else
+								{
+									quadrantFile << quadrant;
+									quadrantFile.close();
+								}
 							}
 							else
 							{
-								quadrantFile << root;
-								quadrantFile.close();
-
-								bool ret = false;
-								try
-								{
-									ret = fs::remove(path);
-								}
-								catch (std::exception ex)
-								{
-									ret = false;
-									PLOG_ERROR << "Exception deleting import quadrant file " << path << " - " << ex.what();
-								}
-								if (!ret)
-								{
-									PLOG_ERROR << "Could not open delete import quadrant file " << path;
-								}
+								PLOG_ERROR << "*** " << " cannnot import " << path;
 							}
-						}
-						else
+						}									
+						
+						bool ret = false;
+
+						try
 						{
-							PLOG_ERROR << "*** " << " cannnot import " << path;
+							ret = fs::remove(path);
+						}
+						catch (std::exception ex)
+						{
+							ret = false;
+							std::string s = "Exception deleting import quadrant file " + path + " - " + ex.what();
+							PLOG_ERROR << "Exception deleting import quadrant file " << s;
+							throw(MapManagerExceptionDBException(__FUNCTION__, s.c_str()));
+						}
+						if (!ret)
+						{
+							std::string s = "Could not delete import quadrant file " + path;
+							PLOG_ERROR << s;
+							throw(MapManagerExceptionDBException(__FUNCTION__, s.c_str()));
 						}
 					}
 				}
 			}
 	}
 
-	bool DBJson::completeQuadrantDataWithDefaultValues(float gridStepInWU, size_t numVerticesPerSize, int level, Json::Value& root)
+	bool DBJson::completeQuadrantDataWithDefaultValues(float gridStepInWU, size_t numVerticesPerSize, int level, Json::Value& quadrant)
 	{
 		float gridSizeInWU = (numVerticesPerSize - 1) * gridStepInWU;
 		float lowerXGridVertex = 0.0f, lowerZGridVertex = 0.0f ;
 		
-		if (root["lowerXGridVertex"].isNull())
+		if (quadrant["lowerXGridVertex"].isNull())
 		{
-			if (root["quadrantIndexX"].isNull())
+			if (quadrant["quadrantIndexX"].isNull())
 			{
 				PLOG_ERROR << " missing both lowerXGridVertex and quadrantIndexX";
 				return false;
 			}
 			else
 			{
-				lowerXGridVertex = float(root["quadrantIndexX"].asInt() * gridSizeInWU);
-				root["lowerXGridVertex"] = lowerXGridVertex;
+				lowerXGridVertex = float(quadrant["quadrantIndexX"].asInt() * gridSizeInWU);
+				quadrant["lowerXGridVertex"] = lowerXGridVertex;
 			}
 		}
 		else
 		{
-			lowerXGridVertex = float(root["lowerXGridVertex"].asDouble());
-			root["quadrantIndexX"] = int(floor(lowerXGridVertex / gridSizeInWU));
+			lowerXGridVertex = float(quadrant["lowerXGridVertex"].asDouble());
+			quadrant["quadrantIndexX"] = int(floor(lowerXGridVertex / gridSizeInWU));
 		}
 
-		if (root["lowerZGridVertex"].isNull())
+		if (quadrant["lowerZGridVertex"].isNull())
 		{
-			if (root["quadrantIndexZ"].isNull())
+			if (quadrant["quadrantIndexZ"].isNull())
 			{
 				PLOG_ERROR << " missing both lowerZGridVertex and quadrantIndexZ";
 				return false;
 			}
 			else
 			{
-				lowerZGridVertex = float(root["quadrantIndexZ"].asInt() * gridSizeInWU);
-				root["lowerZGridVertex"] = lowerZGridVertex;
+				lowerZGridVertex = float(quadrant["quadrantIndexZ"].asInt() * gridSizeInWU);
+				quadrant["lowerZGridVertex"] = lowerZGridVertex;
 			}
 		}
 		else
 		{
-			lowerZGridVertex = float(root["lowerZGridVertex"].asDouble());
-			root["quadrantIndexZ"] = int(floor(lowerZGridVertex / gridSizeInWU));
+			lowerZGridVertex = float(quadrant["lowerZGridVertex"].asDouble());
+			quadrant["quadrantIndexZ"] = int(floor(lowerZGridVertex / gridSizeInWU));
 		}
 
-		root["gridStepInWU"] = gridStepInWU;
-		root["numVerticesPerSize"] = int(numVerticesPerSize);
-		root["level"] = level;
-		root["higherXGridVertex"] = lowerXGridVertex + (numVerticesPerSize - 1) * gridStepInWU;
-		root["higherZGridVertex"] = lowerZGridVertex + (numVerticesPerSize - 1) * gridStepInWU;
+		quadrant["gridStepInWU"] = gridStepInWU;
+		quadrant["numVerticesPerSize"] = int(numVerticesPerSize);
+		quadrant["level"] = level;
+		quadrant["higherXGridVertex"] = lowerXGridVertex + (numVerticesPerSize - 1) * gridStepInWU;
+		quadrant["higherZGridVertex"] = lowerZGridVertex + (numVerticesPerSize - 1) * gridStepInWU;
 
 		std::string newHash = TheWorld_Utils::MeshCacheBuffer::generateNewMeshId();
 		std::string hashWithoutBinaryTime;
@@ -574,13 +584,13 @@ namespace TheWorld_MapManager
 		if (toEncode != decoded)
 			throw(MapManagerExceptionDBException(__FUNCTION__, "Decoding error"));
 
-		root["hash_text"] = hashWithoutBinaryTime;
-		root["hash_binary"] = encoded;
+		quadrant["hash_text"] = hashWithoutBinaryTime;
+		quadrant["hash_binary"] = encoded;
 
 		TheWorld_Utils::TerrainEdit::TerrainType type = TheWorld_Utils::TerrainEdit::TerrainType::empty;
-		Json::Value v = root["terrain_data"]["001_terrainType"];
+		Json::Value v = quadrant["terrain_data"]["001_terrainType"];
 		if (v.isNull())
-			root["terrain_data"]["001_terrainType"] = int(type);
+			quadrant["terrain_data"]["001_terrainType"] = int(type);
 		else
 		{
 			if (v.isString())
@@ -592,7 +602,7 @@ namespace TheWorld_MapManager
 					PLOG_ERROR << __FUNCTION__ << " unknown terrain type <" << s << ">";
 					return false;
 				}
-				root["terrain_data"]["001_terrainType"] = int(type);
+				quadrant["terrain_data"]["001_terrainType"] = int(type);
 			}
 			else if (v.isInt())
 			{
@@ -605,262 +615,262 @@ namespace TheWorld_MapManager
 			}
 		}
 		
-		root["terrain_data"]["001_terrainTypeStr"] = TheWorld_Utils::TerrainEdit::terrainTypeString(type);
+		quadrant["terrain_data"]["001_terrainTypeStr"] = TheWorld_Utils::TerrainEdit::terrainTypeString(type);
 
 		TheWorld_Utils::TerrainEdit terrainEdit(type);
 
-		v = root["terrain_data"]["002_heightsNeedRegen"];
+		v = quadrant["terrain_data"]["002_heightsNeedRegen"];
 		if (v.isNull())
-			root["terrain_data"]["002_heightsNeedRegen"] = terrainEdit.extraValues1.heightsNeedRegen;
+			quadrant["terrain_data"]["002_heightsNeedRegen"] = terrainEdit.extraValues1.heightsNeedRegen;
 		
-		v = root["terrain_data"]["003_normalsNeedRegen"];
+		v = quadrant["terrain_data"]["003_normalsNeedRegen"];
 		if (v.isNull())
-			root["terrain_data"]["003_normalsNeedRegen"] = terrainEdit.normalsNeedRegen;
+			quadrant["terrain_data"]["003_normalsNeedRegen"] = terrainEdit.normalsNeedRegen;
 
-		v = root["terrain_data"]["004_splatmapNeedRegen"];
+		v = quadrant["terrain_data"]["004_splatmapNeedRegen"];
 		if (v.isNull())
-			root["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.extraValues.splatmapNeedRegen;
+			quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.extraValues.splatmapNeedRegen;
 
-		v = root["terrain_data"]["005_colormapNeedRegen"];
+		v = quadrant["terrain_data"]["005_colormapNeedRegen"];
 		if (v.isNull())
-			root["terrain_data"]["005_colormapNeedRegen"] = terrainEdit.extraValues.colormapNeedRegen;
+			quadrant["terrain_data"]["005_colormapNeedRegen"] = terrainEdit.extraValues.colormapNeedRegen;
 
-		v = root["terrain_data"]["006_globalmapNeedRegen"];
+		v = quadrant["terrain_data"]["006_globalmapNeedRegen"];
 		if (v.isNull())
-			root["terrain_data"]["006_globalmapNeedRegen"] = terrainEdit.extraValues.globalmapNeedRegen;
+			quadrant["terrain_data"]["006_globalmapNeedRegen"] = terrainEdit.extraValues.globalmapNeedRegen;
 
-		v = root["terrain_data"]["007_needUploadToServer"];
+		v = quadrant["terrain_data"]["007_needUploadToServer"];
 		if (v.isNull())
-			root["terrain_data"]["007_needUploadToServer"] = terrainEdit.needUploadToServer;
+			quadrant["terrain_data"]["007_needUploadToServer"] = terrainEdit.needUploadToServer;
 
-		v = root["terrain_data"]["008_minHeight"];
+		v = quadrant["terrain_data"]["008_minHeight"];
 		if (v.isNull())
-			root["terrain_data"]["008_minHeight"] = terrainEdit.minHeight;
+			quadrant["terrain_data"]["008_minHeight"] = terrainEdit.minHeight;
 
-		v = root["terrain_data"]["009_maxHeight"];
+		v = quadrant["terrain_data"]["009_maxHeight"];
 		if (v.isNull())
-			root["terrain_data"]["009_maxHeight"] = terrainEdit.maxHeight;
+			quadrant["terrain_data"]["009_maxHeight"] = terrainEdit.maxHeight;
 
-		v = root["terrain_data"]["010_lowElevationTexName_r"];
+		v = quadrant["terrain_data"]["010_lowElevationTexName_r"];
 		if (v.isNull())
-			root["terrain_data"]["010_lowElevationTexName_r"] = terrainEdit.extraValues.lowElevationTexName_r;
+			quadrant["terrain_data"]["010_lowElevationTexName_r"] = terrainEdit.extraValues.lowElevationTexName_r;
 
-		v = root["terrain_data"]["011_highElevationTexName_g"];
+		v = quadrant["terrain_data"]["011_highElevationTexName_g"];
 		if (v.isNull())
-			root["terrain_data"]["011_highElevationTexName_g"] = terrainEdit.extraValues.highElevationTexName_g;
+			quadrant["terrain_data"]["011_highElevationTexName_g"] = terrainEdit.extraValues.highElevationTexName_g;
 
-		v = root["terrain_data"]["012_dirtTexName_b"];
+		v = quadrant["terrain_data"]["012_dirtTexName_b"];
 		if (v.isNull())
-			root["terrain_data"]["012_dirtTexName_b"] = terrainEdit.extraValues.dirtTexName_b;
+			quadrant["terrain_data"]["012_dirtTexName_b"] = terrainEdit.extraValues.dirtTexName_b;
 
-		v = root["terrain_data"]["013_rocksTexName_a"];
+		v = quadrant["terrain_data"]["013_rocksTexName_a"];
 		if (v.isNull())
-			root["terrain_data"]["013_rocksTexName_a"] = terrainEdit.extraValues.rocksTexName_a;
+			quadrant["terrain_data"]["013_rocksTexName_a"] = terrainEdit.extraValues.rocksTexName_a;
 
-		v = root["terrain_data"]["014_splatmap_slopeVerticalFactor"];
+		v = quadrant["terrain_data"]["014_splatmap_slopeVerticalFactor"];
 		if (v.isNull())
-			root["terrain_data"]["014_splatmap_slopeVerticalFactor"] = terrainEdit.extraValues.slopeVerticalFactor;
+			quadrant["terrain_data"]["014_splatmap_slopeVerticalFactor"] = terrainEdit.extraValues.slopeVerticalFactor;
 
-		v = root["terrain_data"]["015_splatmap_slopeFlatFactor"];
+		v = quadrant["terrain_data"]["015_splatmap_slopeFlatFactor"];
 		if (v.isNull())
-			root["terrain_data"]["015_splatmap_slopeFlatFactor"] = terrainEdit.extraValues.slopeFlatFactor;
+			quadrant["terrain_data"]["015_splatmap_slopeFlatFactor"] = terrainEdit.extraValues.slopeFlatFactor;
 
-		v = root["terrain_data"]["016_splatmap_dirtOnRocksFactor"];
+		v = quadrant["terrain_data"]["016_splatmap_dirtOnRocksFactor"];
 		if (v.isNull())
-			root["terrain_data"]["016_splatmap_dirtOnRocksFactor"] = terrainEdit.extraValues.dirtOnRocksFactor;
+			quadrant["terrain_data"]["016_splatmap_dirtOnRocksFactor"] = terrainEdit.extraValues.dirtOnRocksFactor;
 
-		v = root["terrain_data"]["017_splatmap_highElevationFactor"];
+		v = quadrant["terrain_data"]["017_splatmap_highElevationFactor"];
 		if (v.isNull())
-			root["terrain_data"]["017_splatmap_highElevationFactor"] = terrainEdit.extraValues.highElevationFactor;
+			quadrant["terrain_data"]["017_splatmap_highElevationFactor"] = terrainEdit.extraValues.highElevationFactor;
 
-		v = root["terrain_data"]["018_splatmap_lowElevationFactor"];
+		v = quadrant["terrain_data"]["018_splatmap_lowElevationFactor"];
 		if (v.isNull())
-			root["terrain_data"]["018_splatmap_lowElevationFactor"] = terrainEdit.extraValues.lowElevationFactor;
+			quadrant["terrain_data"]["018_splatmap_lowElevationFactor"] = terrainEdit.extraValues.lowElevationFactor;
 
-		v = root["terrain_data"]["019_splatMapMode"];
+		v = quadrant["terrain_data"]["019_splatMapMode"];
 		if (v.isNull())
-			root["terrain_data"]["019_splatMapMode"] = int(terrainEdit.extraValues.splatMapMode);
+			quadrant["terrain_data"]["019_splatMapMode"] = int(terrainEdit.extraValues.splatMapMode);
 
-		v = root["terrain_data"]["020_amplitudeBlendFactor"];
+		v = quadrant["terrain_data"]["020_amplitudeBlendFactor"];
 		if (v.isNull())
-			root["terrain_data"]["020_amplitudeBlendFactor"] = terrainEdit.extraValues.amplitudeBlendFactor;
+			quadrant["terrain_data"]["020_amplitudeBlendFactor"] = terrainEdit.extraValues.amplitudeBlendFactor;
 
-		v = root["terrain_data"]["021_postGenerateElevation"];
+		v = quadrant["terrain_data"]["021_postGenerateElevation"];
 		if (v.isNull())
-			root["terrain_data"]["021_postGenerateElevation"] = terrainEdit.extraValues1.postGenerateElevation;
+			quadrant["terrain_data"]["021_postGenerateElevation"] = terrainEdit.extraValues1.postGenerateElevation;
 
-		v = root["terrain_data"]["022_ignoreDesideredMinHeight"];
+		v = quadrant["terrain_data"]["022_ignoreDesideredMinHeight"];
 		if (v.isNull())
-			root["terrain_data"]["022_ignoreDesideredMinHeight"] = terrainEdit.extraValues1.ignoreDesideredMinHeight;
+			quadrant["terrain_data"]["022_ignoreDesideredMinHeight"] = terrainEdit.extraValues1.ignoreDesideredMinHeight;
 
-		v = root["terrain_data"]["023_numBlendingCycles"];
+		v = quadrant["terrain_data"]["023_numBlendingCycles"];
 		if (v.isNull())
-			root["terrain_data"]["023_numBlendingCycles"] = int(terrainEdit.extraValues1.numBlendingCycles);
+			quadrant["terrain_data"]["023_numBlendingCycles"] = int(terrainEdit.extraValues1.numBlendingCycles);
 
-		v = root["terrain_data"]["024_blendingBendingFactor"];
+		v = quadrant["terrain_data"]["024_blendingBendingFactor"];
 		if (v.isNull())
-			root["terrain_data"]["024_blendingBendingFactor"] = terrainEdit.extraValues1.blendingBendingFactor;
+			quadrant["terrain_data"]["024_blendingBendingFactor"] = terrainEdit.extraValues1.blendingBendingFactor;
 
-		v = root["terrain_data"]["025_minRandomBendingExtension"];
+		v = quadrant["terrain_data"]["025_minRandomBendingExtension"];
 		if (v.isNull())
-			root["terrain_data"]["025_minRandomBendingExtension"] = terrainEdit.extraValues1.minRandomBendingExtension;
+			quadrant["terrain_data"]["025_minRandomBendingExtension"] = terrainEdit.extraValues1.minRandomBendingExtension;
 
-		v = root["terrain_data"]["026_maxRandomBendingExtension"];
+		v = quadrant["terrain_data"]["026_maxRandomBendingExtension"];
 		if (v.isNull())
-			root["terrain_data"]["026_maxRandomBendingExtension"] = terrainEdit.extraValues1.maxRandomBendingExtension;
+			quadrant["terrain_data"]["026_maxRandomBendingExtension"] = terrainEdit.extraValues1.maxRandomBendingExtension;
 
-		v = root["terrain_data"]["grp_eastSideXPlus"]["needBlend"];
+		v = quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"];
 		if (v.isNull())
-			root["terrain_data"]["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
+			quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
 
-		v = root["terrain_data"]["grp_eastSideXPlus"]["minHeight"];
+		v = quadrant["terrain_data"]["grp_eastSideXPlus"]["minHeight"];
 		if (v.isNull())
-			root["terrain_data"]["grp_eastSideXPlus"]["minHeight"] = terrainEdit.eastSideXPlus.minHeight;
+			quadrant["terrain_data"]["grp_eastSideXPlus"]["minHeight"] = terrainEdit.eastSideXPlus.minHeight;
 
-		v = root["terrain_data"]["grp_eastSideXPlus"]["maxHeight"];
+		v = quadrant["terrain_data"]["grp_eastSideXPlus"]["maxHeight"];
 		if (v.isNull())
-			root["terrain_data"]["grp_eastSideXPlus"]["maxHeight"] = terrainEdit.eastSideXPlus.maxHeight;
+			quadrant["terrain_data"]["grp_eastSideXPlus"]["maxHeight"] = terrainEdit.eastSideXPlus.maxHeight;
 
-		v = root["terrain_data"]["grp_westSideXMinus"]["needBlend"];
+		v = quadrant["terrain_data"]["grp_westSideXMinus"]["needBlend"];
 		if (v.isNull())
-			root["terrain_data"]["grp_westSideXMinus"]["needBlend"] = terrainEdit.westSideXMinus.needBlend;
+			quadrant["terrain_data"]["grp_westSideXMinus"]["needBlend"] = terrainEdit.westSideXMinus.needBlend;
 
-		v = root["terrain_data"]["grp_westSideXMinus"]["minHeight"];
+		v = quadrant["terrain_data"]["grp_westSideXMinus"]["minHeight"];
 		if (v.isNull())
-			root["terrain_data"]["grp_westSideXMinus"]["minHeight"] = terrainEdit.westSideXMinus.minHeight;
+			quadrant["terrain_data"]["grp_westSideXMinus"]["minHeight"] = terrainEdit.westSideXMinus.minHeight;
 
-		v = root["terrain_data"]["grp_westSideXMinus"]["maxHeight"];
+		v = quadrant["terrain_data"]["grp_westSideXMinus"]["maxHeight"];
 		if (v.isNull())
-			root["terrain_data"]["grp_westSideXMinus"]["maxHeight"] = terrainEdit.westSideXMinus.maxHeight;
+			quadrant["terrain_data"]["grp_westSideXMinus"]["maxHeight"] = terrainEdit.westSideXMinus.maxHeight;
 
-		v = root["terrain_data"]["grp_southSideZPlus"]["needBlend"];
+		v = quadrant["terrain_data"]["grp_southSideZPlus"]["needBlend"];
 		if (v.isNull())
-			root["terrain_data"]["grp_southSideZPlus"]["needBlend"] = terrainEdit.southSideZPlus.needBlend;
+			quadrant["terrain_data"]["grp_southSideZPlus"]["needBlend"] = terrainEdit.southSideZPlus.needBlend;
 
-		v = root["terrain_data"]["grp_southSideZPlus"]["minHeight"];
+		v = quadrant["terrain_data"]["grp_southSideZPlus"]["minHeight"];
 		if (v.isNull())
-			root["terrain_data"]["grp_southSideZPlus"]["minHeight"] = terrainEdit.southSideZPlus.minHeight;
+			quadrant["terrain_data"]["grp_southSideZPlus"]["minHeight"] = terrainEdit.southSideZPlus.minHeight;
 
-		v = root["terrain_data"]["grp_southSideZPlus"]["maxHeight"];
+		v = quadrant["terrain_data"]["grp_southSideZPlus"]["maxHeight"];
 		if (v.isNull())
-			root["terrain_data"]["grp_southSideZPlus"]["maxHeight"] = terrainEdit.southSideZPlus.maxHeight;
+			quadrant["terrain_data"]["grp_southSideZPlus"]["maxHeight"] = terrainEdit.southSideZPlus.maxHeight;
 
-		v = root["terrain_data"]["grp_northSideZMinus"]["needBlend"];
+		v = quadrant["terrain_data"]["grp_northSideZMinus"]["needBlend"];
 		if (v.isNull())
-			root["terrain_data"]["grp_northSideZMinus"]["needBlend"] = terrainEdit.northSideZMinus.needBlend;
+			quadrant["terrain_data"]["grp_northSideZMinus"]["needBlend"] = terrainEdit.northSideZMinus.needBlend;
 
-		v = root["terrain_data"]["grp_northSideZMinus"]["minHeight"];
+		v = quadrant["terrain_data"]["grp_northSideZMinus"]["minHeight"];
 		if (v.isNull())
-			root["terrain_data"]["grp_northSideZMinus"]["minHeight"] = terrainEdit.northSideZMinus.minHeight;
+			quadrant["terrain_data"]["grp_northSideZMinus"]["minHeight"] = terrainEdit.northSideZMinus.minHeight;
 
-		v = root["terrain_data"]["grp_northSideZMinus"]["maxHeight"];
+		v = quadrant["terrain_data"]["grp_northSideZMinus"]["maxHeight"];
 		if (v.isNull())
-			root["terrain_data"]["grp_northSideZMinus"]["maxHeight"] = terrainEdit.northSideZMinus.maxHeight;
+			quadrant["terrain_data"]["grp_northSideZMinus"]["maxHeight"] = terrainEdit.northSideZMinus.maxHeight;
 
 
-		v = root["terrain_data"]["grp_noise"]["001_noiseType"];
+		v = quadrant["terrain_data"]["grp_noise"]["001_noiseType"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["001_noiseType"] = terrainEdit.noise.noiseType;
+			quadrant["terrain_data"]["grp_noise"]["001_noiseType"] = terrainEdit.noise.noiseType;
 
-		v = root["terrain_data"]["grp_noise"]["002_rotationType3D"];
+		v = quadrant["terrain_data"]["grp_noise"]["002_rotationType3D"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["002_rotationType3D"] = terrainEdit.noise.rotationType3D;
+			quadrant["terrain_data"]["grp_noise"]["002_rotationType3D"] = terrainEdit.noise.rotationType3D;
 
-		v = root["terrain_data"]["grp_noise"]["003_noiseSeed"];
+		v = quadrant["terrain_data"]["grp_noise"]["003_noiseSeed"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["003_noiseSeed"] = terrainEdit.noise.noiseSeed;
+			quadrant["terrain_data"]["grp_noise"]["003_noiseSeed"] = terrainEdit.noise.noiseSeed;
 
-		v = root["terrain_data"]["grp_noise"]["004_frequency"];
+		v = quadrant["terrain_data"]["grp_noise"]["004_frequency"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["004_frequency"] = terrainEdit.noise.frequency;
+			quadrant["terrain_data"]["grp_noise"]["004_frequency"] = terrainEdit.noise.frequency;
 
-		v = root["terrain_data"]["grp_noise"]["005_fractalType"];
+		v = quadrant["terrain_data"]["grp_noise"]["005_fractalType"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["005_fractalType"] = terrainEdit.noise.fractalType;
+			quadrant["terrain_data"]["grp_noise"]["005_fractalType"] = terrainEdit.noise.fractalType;
 
-		v = root["terrain_data"]["grp_noise"]["006_fractalOctaves"];
+		v = quadrant["terrain_data"]["grp_noise"]["006_fractalOctaves"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["006_fractalOctaves"] = terrainEdit.noise.fractalOctaves;
+			quadrant["terrain_data"]["grp_noise"]["006_fractalOctaves"] = terrainEdit.noise.fractalOctaves;
 
-		v = root["terrain_data"]["grp_noise"]["007_fractalLacunarity"];
+		v = quadrant["terrain_data"]["grp_noise"]["007_fractalLacunarity"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["007_fractalLacunarity"] = terrainEdit.noise.fractalLacunarity;
+			quadrant["terrain_data"]["grp_noise"]["007_fractalLacunarity"] = terrainEdit.noise.fractalLacunarity;
 
-		v = root["terrain_data"]["grp_noise"]["008_fractalGain"];
+		v = quadrant["terrain_data"]["grp_noise"]["008_fractalGain"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["008_fractalGain"] = terrainEdit.noise.fractalGain;
+			quadrant["terrain_data"]["grp_noise"]["008_fractalGain"] = terrainEdit.noise.fractalGain;
 
-		v = root["terrain_data"]["grp_noise"]["009_fractalWeightedStrength"];
+		v = quadrant["terrain_data"]["grp_noise"]["009_fractalWeightedStrength"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["009_fractalWeightedStrength"] = terrainEdit.noise.fractalWeightedStrength;
+			quadrant["terrain_data"]["grp_noise"]["009_fractalWeightedStrength"] = terrainEdit.noise.fractalWeightedStrength;
 
-		v = root["terrain_data"]["grp_noise"]["010_fractalPingPongStrength"];
+		v = quadrant["terrain_data"]["grp_noise"]["010_fractalPingPongStrength"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["010_fractalPingPongStrength"] = terrainEdit.noise.fractalPingPongStrength;
+			quadrant["terrain_data"]["grp_noise"]["010_fractalPingPongStrength"] = terrainEdit.noise.fractalPingPongStrength;
 
-		v = root["terrain_data"]["grp_noise"]["011_cellularDistanceFunction"];
+		v = quadrant["terrain_data"]["grp_noise"]["011_cellularDistanceFunction"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["011_cellularDistanceFunction"] = terrainEdit.noise.cellularDistanceFunction;
+			quadrant["terrain_data"]["grp_noise"]["011_cellularDistanceFunction"] = terrainEdit.noise.cellularDistanceFunction;
 
-		v = root["terrain_data"]["grp_noise"]["012_cellularReturnType"];
+		v = quadrant["terrain_data"]["grp_noise"]["012_cellularReturnType"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["012_cellularReturnType"] = terrainEdit.noise.cellularReturnType;
+			quadrant["terrain_data"]["grp_noise"]["012_cellularReturnType"] = terrainEdit.noise.cellularReturnType;
 
-		v = root["terrain_data"]["grp_noise"]["013_cellularJitter"];
+		v = quadrant["terrain_data"]["grp_noise"]["013_cellularJitter"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["013_cellularJitter"] = terrainEdit.noise.cellularJitter;
+			quadrant["terrain_data"]["grp_noise"]["013_cellularJitter"] = terrainEdit.noise.cellularJitter;
 
-		v = root["terrain_data"]["grp_noise"]["014_warpNoiseDomainWarpType"];
+		v = quadrant["terrain_data"]["grp_noise"]["014_warpNoiseDomainWarpType"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["014_warpNoiseDomainWarpType"] = terrainEdit.noise.warpNoiseDomainWarpType;
+			quadrant["terrain_data"]["grp_noise"]["014_warpNoiseDomainWarpType"] = terrainEdit.noise.warpNoiseDomainWarpType;
 
-		v = root["terrain_data"]["grp_noise"]["015_warpNoiseRotationType3D"];
+		v = quadrant["terrain_data"]["grp_noise"]["015_warpNoiseRotationType3D"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["015_warpNoiseRotationType3D"] = terrainEdit.noise.warpNoiseRotationType3D;
+			quadrant["terrain_data"]["grp_noise"]["015_warpNoiseRotationType3D"] = terrainEdit.noise.warpNoiseRotationType3D;
 
-		v = root["terrain_data"]["grp_noise"]["016_warpNoiseSeed"];
+		v = quadrant["terrain_data"]["grp_noise"]["016_warpNoiseSeed"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["016_warpNoiseSeed"] = terrainEdit.noise.warpNoiseSeed;
+			quadrant["terrain_data"]["grp_noise"]["016_warpNoiseSeed"] = terrainEdit.noise.warpNoiseSeed;
 
-		v = root["terrain_data"]["grp_noise"]["017_warpNoiseDomainWarpAmp"];
+		v = quadrant["terrain_data"]["grp_noise"]["017_warpNoiseDomainWarpAmp"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["017_warpNoiseDomainWarpAmp"] = terrainEdit.noise.warpNoiseDomainWarpAmp;
+			quadrant["terrain_data"]["grp_noise"]["017_warpNoiseDomainWarpAmp"] = terrainEdit.noise.warpNoiseDomainWarpAmp;
 
-		v = root["terrain_data"]["grp_noise"]["018_warpNoiseFrequency"];
+		v = quadrant["terrain_data"]["grp_noise"]["018_warpNoiseFrequency"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["018_warpNoiseFrequency"] = terrainEdit.noise.warpNoiseFrequency;
+			quadrant["terrain_data"]["grp_noise"]["018_warpNoiseFrequency"] = terrainEdit.noise.warpNoiseFrequency;
 
-		v = root["terrain_data"]["grp_noise"]["019_warpNoieseFractalType"];
+		v = quadrant["terrain_data"]["grp_noise"]["019_warpNoieseFractalType"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["019_warpNoieseFractalType"] = terrainEdit.noise.warpNoieseFractalType;
+			quadrant["terrain_data"]["grp_noise"]["019_warpNoieseFractalType"] = terrainEdit.noise.warpNoieseFractalType;
 
-		v = root["terrain_data"]["grp_noise"]["020_warpNoiseFractalOctaves"];
+		v = quadrant["terrain_data"]["grp_noise"]["020_warpNoiseFractalOctaves"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["020_warpNoiseFractalOctaves"] = terrainEdit.noise.warpNoiseFractalOctaves;
+			quadrant["terrain_data"]["grp_noise"]["020_warpNoiseFractalOctaves"] = terrainEdit.noise.warpNoiseFractalOctaves;
 
-		v = root["terrain_data"]["grp_noise"]["021_warpNoiseFractalLacunarity"];
+		v = quadrant["terrain_data"]["grp_noise"]["021_warpNoiseFractalLacunarity"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["021_warpNoiseFractalLacunarity"] = terrainEdit.noise.warpNoiseFractalLacunarity;
+			quadrant["terrain_data"]["grp_noise"]["021_warpNoiseFractalLacunarity"] = terrainEdit.noise.warpNoiseFractalLacunarity;
 
-		v = root["terrain_data"]["grp_noise"]["022_warpNoiseFractalGain"];
+		v = quadrant["terrain_data"]["grp_noise"]["022_warpNoiseFractalGain"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["022_warpNoiseFractalGain"] = terrainEdit.noise.warpNoiseFractalGain;
+			quadrant["terrain_data"]["grp_noise"]["022_warpNoiseFractalGain"] = terrainEdit.noise.warpNoiseFractalGain;
 
-		v = root["terrain_data"]["grp_noise"]["023_heightsAmplitude"];
+		v = quadrant["terrain_data"]["grp_noise"]["023_heightsAmplitude"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["023_heightsAmplitude"] = terrainEdit.noise.heightsAmplitude;
+			quadrant["terrain_data"]["grp_noise"]["023_heightsAmplitude"] = terrainEdit.noise.heightsAmplitude;
 
-		v = root["terrain_data"]["grp_noise"]["024_scaleFactor_JagIntensity"];
+		v = quadrant["terrain_data"]["grp_noise"]["024_scaleFactor_JagIntensity"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["024_scaleFactor_JagIntensity"] = terrainEdit.noise.scaleFactor_JagIntensity;
+			quadrant["terrain_data"]["grp_noise"]["024_scaleFactor_JagIntensity"] = terrainEdit.noise.scaleFactor_JagIntensity;
 
-		v = root["terrain_data"]["grp_noise"]["025_desideredMinHeight"];
+		v = quadrant["terrain_data"]["grp_noise"]["025_desideredMinHeight"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["025_desideredMinHeight"] = terrainEdit.noise.desideredMinHeight;
+			quadrant["terrain_data"]["grp_noise"]["025_desideredMinHeight"] = terrainEdit.noise.desideredMinHeight;
 
-		v = root["terrain_data"]["grp_noise"]["026_desideredMinHeigthMandatory"];
+		v = quadrant["terrain_data"]["grp_noise"]["026_desideredMinHeigthMandatory"];
 		if (v.isNull())
-			root["terrain_data"]["grp_noise"]["026_desideredMinHeigthMandatory"] = terrainEdit.noise.desideredMinHeigthMandatory;
+			quadrant["terrain_data"]["grp_noise"]["026_desideredMinHeigthMandatory"] = terrainEdit.noise.desideredMinHeigthMandatory;
 
 		return true;
 	}
