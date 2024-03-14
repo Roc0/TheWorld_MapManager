@@ -1154,6 +1154,9 @@ namespace TheWorld_MapManager
 
 	void MapManager::sync(bool isInEditor, size_t numVerticesPerSize, float gridStepinWU, std::string* clientQuadrants, std::string& replyQuadrants)
 	{
+		if (isInEditor)
+			return;
+		
 		replyQuadrants.clear();
 
 		if (clientQuadrants->length() == 0)
