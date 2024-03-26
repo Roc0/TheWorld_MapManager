@@ -228,6 +228,8 @@ namespace TheWorld_MapManager
 			rootTerrainData["024_blendingBendingFactor"] = terrainEdit.extraValues1.blendingBendingFactor;
 			rootTerrainData["025_minRandomBendingExtension"] = terrainEdit.extraValues1.minRandomBendingExtension;
 			rootTerrainData["026_maxRandomBendingExtension"] = terrainEdit.extraValues1.maxRandomBendingExtension;
+			rootTerrainData["027_seaInfoSet"] = terrainEdit.extraValues1.seaInfoSet;
+			rootTerrainData["028_containsSea"] = terrainEdit.extraValues1.containsSea;
 
 			rootTerrainData["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
 			rootTerrainData["grp_eastSideXPlus"]["minHeight"] = terrainEdit.eastSideXPlus.minHeight;
@@ -389,13 +391,16 @@ namespace TheWorld_MapManager
 		terrainEdit.extraValues1.minRandomBendingExtension = float(rootTerrainData["025_minRandomBendingExtension"].asDouble());
 		terrainEdit.extraValues1.maxRandomBendingExtension = float(rootTerrainData["026_maxRandomBendingExtension"].asDouble());
 		terrainEdit.extraValues1.heightsNeedRegen = rootTerrainData["002_heightsNeedRegen"].asBool();
+		terrainEdit.extraValues1.seaInfoSet = rootTerrainData["027_seaInfoSet"].asBool();
+		terrainEdit.extraValues1.containsSea = rootTerrainData["028_containsSea"].asBool();
 
-		// override
+		// override: forcing terrain [re-]generation because terrain data are not available on the DB
 		terrainEdit.extraValues1.heightsNeedRegen = true;
 		terrainEdit.normalsNeedRegen = true;
 		terrainEdit.extraValues.splatmapNeedRegen = true;
 		terrainEdit.extraValues.globalmapNeedRegen = true;
 		terrainEdit.extraValues.colormapNeedRegen = true;
+		terrainEdit.extraValues1.seaInfoSet = 0;
 
 		// strBuffer
 		TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData cacheQuadrantData;
@@ -718,6 +723,14 @@ namespace TheWorld_MapManager
 		v = quadrant["terrain_data"]["026_maxRandomBendingExtension"];
 		if (v.isNull())
 			quadrant["terrain_data"]["026_maxRandomBendingExtension"] = terrainEdit.extraValues1.maxRandomBendingExtension;
+
+		v = quadrant["terrain_data"]["027_seaInfoSet"];
+		if (v.isNull())
+			quadrant["terrain_data"]["027_seaInfoSet"] = terrainEdit.extraValues1.seaInfoSet;
+
+		v = quadrant["terrain_data"]["028_containsSea"];
+		if (v.isNull())
+			quadrant["terrain_data"]["028_containsSea"] = terrainEdit.extraValues1.containsSea;
 
 		v = quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"];
 		if (v.isNull())
