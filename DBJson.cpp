@@ -391,8 +391,8 @@ namespace TheWorld_MapManager
 		terrainEdit.extraValues1.minRandomBendingExtension = float(rootTerrainData["025_minRandomBendingExtension"].asDouble());
 		terrainEdit.extraValues1.maxRandomBendingExtension = float(rootTerrainData["026_maxRandomBendingExtension"].asDouble());
 		terrainEdit.extraValues1.heightsNeedRegen = rootTerrainData["002_heightsNeedRegen"].asBool();
-		terrainEdit.extraValues1.seaInfoSet = rootTerrainData["027_seaInfoSet"].asBool();
-		terrainEdit.extraValues1.containsSea = rootTerrainData["028_containsSea"].asBool();
+		terrainEdit.extraValues1.seaInfoSet = rootTerrainData["027_seaInfoSet"].asInt();
+		terrainEdit.extraValues1.containsSea = rootTerrainData["028_containsSea"].asInt();
 
 		// override: forcing terrain [re-]generation because terrain data are not available on the DB
 		terrainEdit.extraValues1.heightsNeedRegen = true;
