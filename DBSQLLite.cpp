@@ -1959,9 +1959,9 @@ namespace TheWorld_MapManager
 			strcpy_s(terrainEdit.extraValues.highElevationTexName_g, sizeof(terrainEdit.extraValues.highElevationTexName_g), (const char*)sqlite3_column_text(dbOps.getStmt(), 4));
 			strcpy_s(terrainEdit.extraValues.dirtTexName_b, sizeof(terrainEdit.extraValues.dirtTexName_b), (const char*)sqlite3_column_text(dbOps.getStmt(), 5));
 			strcpy_s(terrainEdit.extraValues.rocksTexName_a, sizeof(terrainEdit.extraValues.rocksTexName_a), (const char*)sqlite3_column_text(dbOps.getStmt(), 6));
-			terrainEdit.extraValues.splatmapNeedRegen = false;
-			terrainEdit.extraValues.colormapNeedRegen = false;
-			terrainEdit.extraValues.globalmapNeedRegen = false;
+			terrainEdit.splatmapNeedRegen = false;
+			terrainEdit.colormapNeedRegen = false;
+			terrainEdit.globalmapNeedRegen = false;
 			terrainEdit.eastSideXPlus.needBlend = sqlite3_column_int(dbOps.getStmt(), 7) == 1 ? true : false;
 			terrainEdit.eastSideXPlus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 8);
 			terrainEdit.eastSideXPlus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 9);

@@ -203,11 +203,11 @@ namespace TheWorld_MapManager
 			terrainEdit.deserialize(*cacheQuadrantData.terrainEditValues);
 			rootTerrainData["001_terrainType"] = int(terrainEdit.terrainType);
 			rootTerrainData["001_terrainTypeStr"] = TheWorld_Utils::TerrainEdit::terrainTypeString(terrainEdit.terrainType);
-			rootTerrainData["002_heightsNeedRegen"] = terrainEdit.extraValues1.heightsNeedRegen;
+			rootTerrainData["002_heightsNeedRegen"] = terrainEdit.heightsNeedRegen;
 			rootTerrainData["003_normalsNeedRegen"] = terrainEdit.normalsNeedRegen;
-			rootTerrainData["004_splatmapNeedRegen"] = terrainEdit.extraValues.splatmapNeedRegen;
-			rootTerrainData["005_colormapNeedRegen"] = terrainEdit.extraValues.colormapNeedRegen;
-			rootTerrainData["006_globalmapNeedRegen"] = terrainEdit.extraValues.globalmapNeedRegen;
+			rootTerrainData["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen;
+			rootTerrainData["005_colormapNeedRegen"] = terrainEdit.colormapNeedRegen;
+			rootTerrainData["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen;
 			rootTerrainData["007_needUploadToServer"] = terrainEdit.needUploadToServer;
 			rootTerrainData["008_minHeight"] = terrainEdit.minHeight;
 			rootTerrainData["009_maxHeight"] = terrainEdit.maxHeight;
@@ -222,14 +222,14 @@ namespace TheWorld_MapManager
 			rootTerrainData["018_splatmap_lowElevationFactor"] = terrainEdit.extraValues.lowElevationFactor;
 			rootTerrainData["019_splatMapMode"] = int(terrainEdit.extraValues.splatMapMode);
 			rootTerrainData["020_amplitudeBlendFactor"] = terrainEdit.extraValues.amplitudeBlendFactor;
-			rootTerrainData["021_postGenerateElevation"] = terrainEdit.extraValues1.postGenerateElevation;
-			rootTerrainData["022_ignoreDesideredMinHeight"] = terrainEdit.extraValues1.ignoreDesideredMinHeight;
-			rootTerrainData["023_numBlendingCycles"] = int(terrainEdit.extraValues1.numBlendingCycles);
-			rootTerrainData["024_blendingBendingFactor"] = terrainEdit.extraValues1.blendingBendingFactor;
-			rootTerrainData["025_minRandomBendingExtension"] = terrainEdit.extraValues1.minRandomBendingExtension;
-			rootTerrainData["026_maxRandomBendingExtension"] = terrainEdit.extraValues1.maxRandomBendingExtension;
-			rootTerrainData["027_seaInfoSet"] = terrainEdit.extraValues1.seaInfoSet;
-			rootTerrainData["028_containsSea"] = terrainEdit.extraValues1.containsSea;
+			rootTerrainData["021_postGenerateElevation"] = terrainEdit.extraValues.postGenerateElevation;
+			rootTerrainData["022_ignoreDesideredMinHeight"] = terrainEdit.extraValues.ignoreDesideredMinHeight;
+			rootTerrainData["023_numBlendingCycles"] = int(terrainEdit.extraValues.numBlendingCycles);
+			rootTerrainData["024_blendingBendingFactor"] = terrainEdit.extraValues.blendingBendingFactor;
+			rootTerrainData["025_minRandomBendingExtension"] = terrainEdit.extraValues.minRandomBendingExtension;
+			rootTerrainData["026_maxRandomBendingExtension"] = terrainEdit.extraValues.maxRandomBendingExtension;
+			rootTerrainData["027_seaInfoSet"] = terrainEdit.extraValues.seaInfoSet;
+			rootTerrainData["028_containsSea"] = terrainEdit.extraValues.containsSea;
 
 			rootTerrainData["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
 			rootTerrainData["grp_eastSideXPlus"]["minHeight"] = terrainEdit.eastSideXPlus.minHeight;
@@ -374,9 +374,9 @@ namespace TheWorld_MapManager
 		strcpy_s(terrainEdit.extraValues.highElevationTexName_g, sizeof(terrainEdit.extraValues.highElevationTexName_g), rootTerrainData["011_highElevationTexName_g"].asString().c_str());
 		strcpy_s(terrainEdit.extraValues.dirtTexName_b, sizeof(terrainEdit.extraValues.dirtTexName_b), rootTerrainData["012_dirtTexName_b"].asString().c_str());
 		strcpy_s(terrainEdit.extraValues.rocksTexName_a, sizeof(terrainEdit.extraValues.rocksTexName_a), rootTerrainData["013_rocksTexName_a"].asString().c_str());
-		terrainEdit.extraValues.splatmapNeedRegen = rootTerrainData["004_splatmapNeedRegen"].asBool();
-		terrainEdit.extraValues.colormapNeedRegen = rootTerrainData["005_colormapNeedRegen"].asBool();
-		terrainEdit.extraValues.globalmapNeedRegen = rootTerrainData["006_globalmapNeedRegen"].asBool();
+		terrainEdit.splatmapNeedRegen = rootTerrainData["004_splatmapNeedRegen"].asBool();
+		terrainEdit.colormapNeedRegen = rootTerrainData["005_colormapNeedRegen"].asBool();
+		terrainEdit.globalmapNeedRegen = rootTerrainData["006_globalmapNeedRegen"].asBool();
 		terrainEdit.extraValues.slopeVerticalFactor = float(rootTerrainData["014_splatmap_slopeVerticalFactor"].asDouble());
 		terrainEdit.extraValues.slopeFlatFactor = float(rootTerrainData["015_splatmap_slopeFlatFactor"].asDouble());
 		terrainEdit.extraValues.dirtOnRocksFactor = float(rootTerrainData["016_splatmap_dirtOnRocksFactor"].asDouble());
@@ -384,23 +384,23 @@ namespace TheWorld_MapManager
 		terrainEdit.extraValues.lowElevationFactor = float(rootTerrainData["018_splatmap_lowElevationFactor"].asDouble());
 		terrainEdit.extraValues.splatMapMode = size_t(rootTerrainData["019_splatMapMode"].asInt());
 		terrainEdit.extraValues.amplitudeBlendFactor = float(rootTerrainData["020_amplitudeBlendFactor"].asDouble());
-		terrainEdit.extraValues1.postGenerateElevation = float(rootTerrainData["021_postGenerateElevation"].asDouble());
-		terrainEdit.extraValues1.ignoreDesideredMinHeight = rootTerrainData["022_ignoreDesideredMinHeight"].asBool();
-		terrainEdit.extraValues1.numBlendingCycles = size_t(rootTerrainData["023_numBlendingCycles"].asInt());
-		terrainEdit.extraValues1.blendingBendingFactor = float(rootTerrainData["024_blendingBendingFactor"].asDouble());
-		terrainEdit.extraValues1.minRandomBendingExtension = float(rootTerrainData["025_minRandomBendingExtension"].asDouble());
-		terrainEdit.extraValues1.maxRandomBendingExtension = float(rootTerrainData["026_maxRandomBendingExtension"].asDouble());
-		terrainEdit.extraValues1.heightsNeedRegen = rootTerrainData["002_heightsNeedRegen"].asBool();
-		terrainEdit.extraValues1.seaInfoSet = rootTerrainData["027_seaInfoSet"].asInt();
-		terrainEdit.extraValues1.containsSea = rootTerrainData["028_containsSea"].asInt();
+		terrainEdit.extraValues.postGenerateElevation = float(rootTerrainData["021_postGenerateElevation"].asDouble());
+		terrainEdit.extraValues.ignoreDesideredMinHeight = rootTerrainData["022_ignoreDesideredMinHeight"].asBool();
+		terrainEdit.extraValues.numBlendingCycles = size_t(rootTerrainData["023_numBlendingCycles"].asInt());
+		terrainEdit.extraValues.blendingBendingFactor = float(rootTerrainData["024_blendingBendingFactor"].asDouble());
+		terrainEdit.extraValues.minRandomBendingExtension = float(rootTerrainData["025_minRandomBendingExtension"].asDouble());
+		terrainEdit.extraValues.maxRandomBendingExtension = float(rootTerrainData["026_maxRandomBendingExtension"].asDouble());
+		terrainEdit.heightsNeedRegen = rootTerrainData["002_heightsNeedRegen"].asBool();
+		terrainEdit.extraValues.seaInfoSet = rootTerrainData["027_seaInfoSet"].asInt();
+		terrainEdit.extraValues.containsSea = rootTerrainData["028_containsSea"].asInt();
 
 		// override: forcing terrain [re-]generation because terrain data are not available on the DB
-		terrainEdit.extraValues1.heightsNeedRegen = true;
+		terrainEdit.heightsNeedRegen = true;
 		terrainEdit.normalsNeedRegen = true;
-		terrainEdit.extraValues.splatmapNeedRegen = true;
-		terrainEdit.extraValues.globalmapNeedRegen = true;
-		terrainEdit.extraValues.colormapNeedRegen = true;
-		terrainEdit.extraValues1.seaInfoSet = 0;
+		terrainEdit.splatmapNeedRegen = true;
+		terrainEdit.globalmapNeedRegen = true;
+		terrainEdit.colormapNeedRegen = true;
+		terrainEdit.extraValues.seaInfoSet = 0;
 
 		// strBuffer
 		TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData cacheQuadrantData;
@@ -626,7 +626,7 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["002_heightsNeedRegen"];
 		if (v.isNull())
-			quadrant["terrain_data"]["002_heightsNeedRegen"] = terrainEdit.extraValues1.heightsNeedRegen;
+			quadrant["terrain_data"]["002_heightsNeedRegen"] = terrainEdit.heightsNeedRegen;
 		
 		v = quadrant["terrain_data"]["003_normalsNeedRegen"];
 		if (v.isNull())
@@ -634,15 +634,15 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["004_splatmapNeedRegen"];
 		if (v.isNull())
-			quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.extraValues.splatmapNeedRegen;
+			quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen;
 
 		v = quadrant["terrain_data"]["005_colormapNeedRegen"];
 		if (v.isNull())
-			quadrant["terrain_data"]["005_colormapNeedRegen"] = terrainEdit.extraValues.colormapNeedRegen;
+			quadrant["terrain_data"]["005_colormapNeedRegen"] = terrainEdit.colormapNeedRegen;
 
 		v = quadrant["terrain_data"]["006_globalmapNeedRegen"];
 		if (v.isNull())
-			quadrant["terrain_data"]["006_globalmapNeedRegen"] = terrainEdit.extraValues.globalmapNeedRegen;
+			quadrant["terrain_data"]["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen;
 
 		v = quadrant["terrain_data"]["007_needUploadToServer"];
 		if (v.isNull())
@@ -702,35 +702,35 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["021_postGenerateElevation"];
 		if (v.isNull())
-			quadrant["terrain_data"]["021_postGenerateElevation"] = terrainEdit.extraValues1.postGenerateElevation;
+			quadrant["terrain_data"]["021_postGenerateElevation"] = terrainEdit.extraValues.postGenerateElevation;
 
 		v = quadrant["terrain_data"]["022_ignoreDesideredMinHeight"];
 		if (v.isNull())
-			quadrant["terrain_data"]["022_ignoreDesideredMinHeight"] = terrainEdit.extraValues1.ignoreDesideredMinHeight;
+			quadrant["terrain_data"]["022_ignoreDesideredMinHeight"] = terrainEdit.extraValues.ignoreDesideredMinHeight;
 
 		v = quadrant["terrain_data"]["023_numBlendingCycles"];
 		if (v.isNull())
-			quadrant["terrain_data"]["023_numBlendingCycles"] = int(terrainEdit.extraValues1.numBlendingCycles);
+			quadrant["terrain_data"]["023_numBlendingCycles"] = int(terrainEdit.extraValues.numBlendingCycles);
 
 		v = quadrant["terrain_data"]["024_blendingBendingFactor"];
 		if (v.isNull())
-			quadrant["terrain_data"]["024_blendingBendingFactor"] = terrainEdit.extraValues1.blendingBendingFactor;
+			quadrant["terrain_data"]["024_blendingBendingFactor"] = terrainEdit.extraValues.blendingBendingFactor;
 
 		v = quadrant["terrain_data"]["025_minRandomBendingExtension"];
 		if (v.isNull())
-			quadrant["terrain_data"]["025_minRandomBendingExtension"] = terrainEdit.extraValues1.minRandomBendingExtension;
+			quadrant["terrain_data"]["025_minRandomBendingExtension"] = terrainEdit.extraValues.minRandomBendingExtension;
 
 		v = quadrant["terrain_data"]["026_maxRandomBendingExtension"];
 		if (v.isNull())
-			quadrant["terrain_data"]["026_maxRandomBendingExtension"] = terrainEdit.extraValues1.maxRandomBendingExtension;
+			quadrant["terrain_data"]["026_maxRandomBendingExtension"] = terrainEdit.extraValues.maxRandomBendingExtension;
 
 		v = quadrant["terrain_data"]["027_seaInfoSet"];
 		if (v.isNull())
-			quadrant["terrain_data"]["027_seaInfoSet"] = terrainEdit.extraValues1.seaInfoSet;
+			quadrant["terrain_data"]["027_seaInfoSet"] = terrainEdit.extraValues.seaInfoSet;
 
 		v = quadrant["terrain_data"]["028_containsSea"];
 		if (v.isNull())
-			quadrant["terrain_data"]["028_containsSea"] = terrainEdit.extraValues1.containsSea;
+			quadrant["terrain_data"]["028_containsSea"] = terrainEdit.extraValues.containsSea;
 
 		v = quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"];
 		if (v.isNull())
