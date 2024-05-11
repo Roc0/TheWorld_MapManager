@@ -796,6 +796,13 @@ namespace TheWorld_MapManager
 		TheWorld_Utils::QuadrantPos pos(cache.getLowerXGridVertex(), cache.getLowerZGridVertex(), cache.getLevel(), (int)cache.getNumVerticesPerSize(), cache.getGridStepInWU());
 		
 		std::lock_guard<std::recursive_mutex> lock1(s_initMapMtx);
+		
+		if (!s_mapInitMap.contains(numVerticesPerSize))
+			return;
+
+		if (!s_mapInitMap[numVerticesPerSize].contains(level))
+			return;
+		
 		s_mapInitMap[numVerticesPerSize][level]->m_modifiedQuadrants[pos] = writtenMeshId;
 		if (writtenTerrainEdit.normalsNeedRegen || writtenTerrainEdit.splatmapNeedRegen || writtenTerrainEdit.globalmapNeedRegen)
 			s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = writtenMeshId;
@@ -1213,7 +1220,7 @@ namespace TheWorld_MapManager
 
 		std::map<TheWorld_Utils::QuadrantPos, bool> quadrantToRefreshMap;
 
-#define MAX_NUM_QUADRANT_TO_REFRESH	10
+#define MAX_NUM_QUADRANT_TO_REFRESH	100
 		//size_t numRefresh = 0;
 		for (size_t idx = 0; idx < numClientQuadrants; idx++)
 		{
@@ -1356,6 +1363,8 @@ namespace TheWorld_MapManager
 			if (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 				generateDetailDataForQuadrants(numVerticesPerSize, level);
 
+			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_proceduralProcessingInProgress = false;
+			
 			TheWorld_Viewer_Utils::MsTimePoint start = std::chrono::time_point_cast<TheWorld_Viewer_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
 			while (true)
 			{
@@ -1382,8 +1391,8 @@ namespace TheWorld_MapManager
 		
 	void MapManager::generateDetailDataForQuadrants(size_t numVerticesPerSize, int level)
 	{
-
 		//return;
+
 		float gridStepInWU = MapManager::gridStepInWU();
 		std::string cacheDir = m_DBInterface->dataPath();
 		std::string mapName = getMapName();
@@ -1820,6 +1829,8 @@ namespace TheWorld_MapManager
 				TheWorld_Utils::MsTimePoint start = std::chrono::time_point_cast<TheWorld_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
 
 				int ret = alignDiskCacheAndDB(cache.second, s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit, c_writeCompactVerticesToDB);
+				if (ret == MAPMANAGER_UPDATED_CACHE)
+					s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_proceduralProcessingInProgress = true;
 				if (ret == MAPMANAGER_STOPPED)
 					s_mapInitMap[numVerticesPerSize][level]->m_fromFileTimeType = fromFileTimeType;		// we must retry to select these files next time because almost 1 could not be processed
 				if (ret != MAPMANAGER_NOTHING_TO_DO && ret != MAPMANAGER_STOPPED)
