@@ -224,6 +224,7 @@ namespace TheWorld_MapManager
 			bool m_alignCacheAndDbThreadRequiredExit = true;
 			std::time_t m_fromFileTimeType = 0;
 			std::map<TheWorld_Utils::QuadrantPos, std::string> m_modifiedQuadrants;
+			std::map<TheWorld_Utils::QuadrantPos, std::string> m_needingClientWorkQuadrants;
 			TheWorld_Utils::MapManagerProceduralGenerationStatus m_procGen;
 		};
 
@@ -290,7 +291,7 @@ namespace TheWorld_MapManager
 		void importQuadrantInWorkArea(TheWorld_Utils::QuadrantPos pos, std::string _cacheDir, std::string mapName, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*>& diskCacheMap);
 		_declspec(dllexport) void alignDiskCacheAndDBTaskInternal(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(bool isInEditor);
-		_declspec(dllexport) void sync(bool isInEditor, size_t numVerticesPerSize, float gridStepinWU, std::string* clientQuadrants, std::string& replyQuadrants, std::string& replyProceGenStatus);
+		_declspec(dllexport) void sync(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepinWU, std::string* clientQuadrants, std::string& replyClientQuadrants, std::string& replyProceGenStatus, std::string& replyExtraQuadrants);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) bool writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) bool writeWorkDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
