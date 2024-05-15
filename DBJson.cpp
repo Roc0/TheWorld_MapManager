@@ -229,7 +229,7 @@ namespace TheWorld_MapManager
 			rootTerrainData["025_minRandomBendingExtension"] = terrainEdit.extraValues.minRandomBendingExtension;
 			rootTerrainData["026_maxRandomBendingExtension"] = terrainEdit.extraValues.maxRandomBendingExtension;
 			rootTerrainData["027_seaInfoSet"] = terrainEdit.extraValues.seaInfoSet;
-			rootTerrainData["028_containsSea"] = terrainEdit.extraValues.containsSea;
+			rootTerrainData["028_containsSea"] = terrainEdit.extraValues.canContainSea;
 
 			rootTerrainData["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
 			rootTerrainData["grp_eastSideXPlus"]["minHeight"] = terrainEdit.eastSideXPlus.minHeight;
@@ -410,7 +410,7 @@ namespace TheWorld_MapManager
 		terrainEdit.extraValues.maxRandomBendingExtension = float(rootTerrainData["026_maxRandomBendingExtension"].asDouble());
 		terrainEdit.heightsNeedRegen = rootTerrainData["002_heightsNeedRegen"].asBool();
 		terrainEdit.extraValues.seaInfoSet = rootTerrainData["027_seaInfoSet"].asInt();
-		terrainEdit.extraValues.containsSea = rootTerrainData["028_containsSea"].asInt();
+		terrainEdit.extraValues.canContainSea = rootTerrainData["028_containsSea"].asInt();
 
 		// override: forcing terrain [re-]generation because terrain data are not available on the DB
 		terrainEdit.heightsNeedRegen = true;
@@ -418,7 +418,7 @@ namespace TheWorld_MapManager
 		terrainEdit.splatmapNeedRegen = true;
 		terrainEdit.globalmapNeedRegen = true;
 		terrainEdit.colormapNeedRegen = true;
-		terrainEdit.extraValues.seaInfoSet = 0;
+		terrainEdit.extraValues.seaInfoSet = QUADRANT_SEA_INFO_SET_FALSE;
 
 		// strBuffer
 		TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData cacheQuadrantData;
@@ -748,7 +748,7 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["028_containsSea"];
 		if (v.isNull())
-			quadrant["terrain_data"]["028_containsSea"] = terrainEdit.extraValues.containsSea;
+			quadrant["terrain_data"]["028_containsSea"] = terrainEdit.extraValues.canContainSea;
 
 		v = quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"];
 		if (v.isNull())
