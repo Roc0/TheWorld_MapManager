@@ -1872,7 +1872,7 @@ namespace TheWorld_MapManager
 								}
 							}
 
-							if (canContainSea && cacheMapItem.second->internalCacheQuadrantData()->terrainData()->minHeight <= THEWORLD_SEA_LEVEL)
+							if (canContainSea && cacheMapItem.second->internalCacheQuadrantData()->terrainData()->minHeight <= (THEWORLD_SEA_LEVEL + THEWORLD_SEA_MAX_WAVE_HEIGHT))
 								cacheMapItem.second->internalCacheQuadrantData()->terrainData()->extraValues.canContainSea = QUADRANT_SEA_INFO_SET_TRUE;
 							else
 								cacheMapItem.second->internalCacheQuadrantData()->terrainData()->extraValues.canContainSea = QUADRANT_SEA_INFO_SET_FALSE;
