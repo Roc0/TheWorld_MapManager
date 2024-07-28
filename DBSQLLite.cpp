@@ -408,7 +408,7 @@ namespace TheWorld_MapManager
 			int rc = sqlite3_step(dbOps->getStmt());
 			dbOps->releaseLock();
 			if (rc != SQLITE_ROW && rc != SQLITE_DONE)
-				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read vertices affected by WordlDefiner being deleted from GridVertex_WD table!", sqlite3_errmsg(dbOps->getConn()), rc));
+				throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite unable to read vertices affected by WorldDefiner being deleted from GridVertex_WD table!", sqlite3_errmsg(dbOps->getConn()), rc));
 			while (rc == SQLITE_ROW)
 			{
 				GridVertexAffectedByWD.push_back(sqlite3_column_int64(dbOps->getStmt(), 0));
