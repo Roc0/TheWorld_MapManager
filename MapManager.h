@@ -291,16 +291,18 @@ namespace TheWorld_MapManager
 		void importQuadrantInWorkArea(TheWorld_Utils::QuadrantPos pos, std::string _cacheDir, std::string mapName, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*>& diskCacheMap);
 		_declspec(dllexport) void alignDiskCacheAndDBTaskInternal(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(bool isInEditor);
-		_declspec(dllexport) void sync(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepinWU, std::string* clientQuadrants, std::string& replyClientQuadrants, std::string& replyProceGenStatus, std::string& replyExtraQuadrants);
+		_declspec(dllexport) void sync(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string* clientQuadrants, std::string& replyClientQuadrants, std::string& replyProceGenStatus, std::string& replyExtraQuadrants, std::string& mapTextureRects, std::string& replyMapTextureRects);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) bool writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) bool writeWorkDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
-		_declspec(dllexport) void uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer, bool& refreshRequired);
+		_declspec(dllexport) void uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer, bool& refreshRequired, int32_t numQuadrantsPerSize, float quadrantGlobalSize, float quadrantWorldSize);
 		_declspec(dllexport) void getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) inline float calcPreviousCoordOnTheGridInWUs(float coordInWUs);
 		_declspec(dllexport) inline float calcNextCoordOnTheGridInWUs(float coordInWUs);
 
 	private:
+		bool checkTextureRectRefreshNeeded(TheWorld_Utils::MapTextureRectPos& textureRectPos, std::string& fileTime, size_t numVerticesPerSize, float gridStepInWU);
+		std::time_t textureRectServerTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU);
 		float computeAltitude(DBInterface::GridVertex& gridVertex, std::vector<WorldDefiner>& wdMap);
 		float computeAltitudeModifier(DBInterface::GridVertex& gridVertex, const WorldDefiner& wd, float distanceFromWD = -1, float wdAltitude = -1);
 		void calcSquareFlatGridMinMaxToExpand(float minXInWUs, float maxXInWUs, float minZInWUs, float maxZInWUs, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU);
@@ -335,6 +337,8 @@ namespace TheWorld_MapManager
 		//static std::recursive_mutex s_mtxInternalData;
 
 		static std::recursive_mutex s_cacheMtx;
+
+		static std::map<TheWorld_Utils::MapTextureRectPos, std::time_t> m_textureRectTimeCache;
 
 		static std::recursive_mutex s_initMapMtx;
 		static MapInitMap s_mapInitMap;

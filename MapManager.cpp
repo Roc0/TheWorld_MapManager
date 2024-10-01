@@ -39,6 +39,7 @@ namespace TheWorld_MapManager
 	std::recursive_mutex MapManager::s_staticMapManagerInitializationMtx;
 	std::recursive_mutex MapManager::s_initMapMtx;
 	std::recursive_mutex MapManager::s_cacheMtx;
+	std::map<TheWorld_Utils::MapTextureRectPos, std::time_t> MapManager::m_textureRectTimeCache;
 	MapManager::MapInitMap MapManager::s_mapInitMap;
 	//enum class DBType MapManager::s_dbType = DBType::SQLLite;
 
@@ -778,7 +779,7 @@ namespace TheWorld_MapManager
 		}
 	}
 
-	void MapManager::uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer, bool& refreshRequired)
+	void MapManager::uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer, bool& refreshRequired, int32_t numQuadrantsPerSize, float quadrantGlobalSize, float quadrantWorldSize)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("UploadBuffer 1b ") + __FUNCTION__, "uploadCacheBuffer");
 
@@ -793,22 +794,35 @@ namespace TheWorld_MapManager
 		cache.writeBufferToDiskCache(meshBuffer, writtenMeshId, true, false, &writtenTerrainEdit);		// renew meshid to force all clients to donwload quadrant data again
 		refreshRequired = false;
 		//std::string writtenMeshId = cache.getMeshIdFromDisk(false);
-		TheWorld_Utils::QuadrantPos pos(cache.getLowerXGridVertex(), cache.getLowerZGridVertex(), cache.getLevel(), (int)cache.getNumVerticesPerSize(), cache.getGridStepInWU());
+		//TheWorld_Utils::QuadrantPos pos(cache.getLowerXGridVertex(), cache.getLowerZGridVertex(), cache.getLevel(), (int)cache.getNumVerticesPerSize(), cache.getGridStepInWU());
 		
-		std::lock_guard<std::recursive_mutex> lock1(s_initMapMtx);
+		TheWorld_Utils::QuadrantPos quadrantPos = cache.getQuadrantPos();
 		
-		if (!s_mapInitMap.contains(numVerticesPerSize))
-			return;
+		{
+			TheWorld_Utils::MapTextureRectPos mapTextureRectPos(quadrantPos, numQuadrantsPerSize, quadrantGlobalSize, quadrantWorldSize);
 
-		if (!s_mapInitMap[numVerticesPerSize].contains(level))
-			return;
+			std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+			if (m_textureRectTimeCache.contains(mapTextureRectPos))
+				m_textureRectTimeCache.erase(mapTextureRectPos);
+			m_DBInterface->setTextureRectTime(-1, mapTextureRectPos, numVerticesPerSize, gridStepInWU);
+		}
 		
-		s_mapInitMap[numVerticesPerSize][level]->m_modifiedQuadrants[pos] = writtenMeshId;
-		if (writtenTerrainEdit.normalsNeedRegen || writtenTerrainEdit.splatmapNeedRegen || writtenTerrainEdit.globalmapNeedRegen)
-			s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = writtenMeshId;
-		else
-			if (s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.contains(pos))
-				s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.erase(pos);
+		{
+			std::lock_guard<std::recursive_mutex> lock1(s_initMapMtx);
+
+			if (!s_mapInitMap.contains(numVerticesPerSize))
+				return;
+
+			if (!s_mapInitMap[numVerticesPerSize].contains(level))
+				return;
+
+			s_mapInitMap[numVerticesPerSize][level]->m_modifiedQuadrants[quadrantPos] = writtenMeshId;
+			if (writtenTerrainEdit.normalsNeedRegen || writtenTerrainEdit.splatmapNeedRegen || writtenTerrainEdit.globalmapNeedRegen)
+				s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[quadrantPos] = writtenMeshId;
+			else
+				if (s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.contains(quadrantPos))
+					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.erase(quadrantPos);
+		}
 
 		PLOG_DEBUG << "Uploaded Quadrant " << cache.getCacheIdStr();
 	}
@@ -1167,10 +1181,82 @@ namespace TheWorld_MapManager
 		s_mapInitMap.clear();
 	}
 
-	void MapManager::sync(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepinWU, std::string* clientQuadrants, std::string& replyClientQuadrants, std::string& replyProceGenStatus, std::string& replyExtraQuadrants)
+	std::time_t MapManager::textureRectServerTime(TheWorld_Utils::MapTextureRectPos& mapTextureRectPos, size_t numVerticesPerSize, float gridStepInWU)
 	{
-		replyClientQuadrants.clear();
+		{
+			std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+			if (m_textureRectTimeCache.contains(mapTextureRectPos))
+				return m_textureRectTimeCache[mapTextureRectPos];
+		}
+		
+		std::time_t textureRectTime = m_DBInterface->getTextureRectTime(mapTextureRectPos, numVerticesPerSize, gridStepInWU);
+
+		if (textureRectTime == -1)
+		{
+			textureRectTime = 0;
+			
+			std::vector<TheWorld_Utils::QuadrantPos> quadrantsPos;
+			mapTextureRectPos.getAllContainedQuadrantPos(quadrantsPos, mapTextureRectPos.getLevel(), (int)numVerticesPerSize, gridStepInWU);
+
+			std::string cacheDir = m_DBInterface->dataPath();
+			std::string mapName = getMapName();
+
+			for (auto& quadrantPos : quadrantsPos)
+			{
+				TheWorld_Utils::MeshCacheBuffer cache(cacheDir, mapName, quadrantPos);
+				std::string meshId = cache.getMeshIdFromDisk();
+				if (meshId.size() > 0)
+				{
+					std::string meshIdWithoutBinaryTime;
+					std::chrono::system_clock::time_point tp = cache.getTimeFromMeshId(meshId, meshIdWithoutBinaryTime);
+					std::time_t t = std::chrono::system_clock::to_time_t(tp);
+					if (t > textureRectTime)
+						textureRectTime = t;
+				}
+			}
+
+			m_DBInterface->setTextureRectTime(textureRectTime, mapTextureRectPos, numVerticesPerSize, gridStepInWU);
+		}
+
+		{
+			std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+			m_textureRectTimeCache[mapTextureRectPos] = textureRectTime;
+		}
+
+		return textureRectTime;
+	}
+
+	bool MapManager::checkTextureRectRefreshNeeded(TheWorld_Utils::MapTextureRectPos& mapTextureRectPos, std::string& fileTime /*2024-09-21 08:22:06.0288909*/, size_t numVerticesPerSize, float gridStepInWU)
+	{
+		bool refreshNeeded = false;
+
+		std::vector<std::string> v = TheWorld_Utils::Utils::split(fileTime, '.');
+		if (v.size() != 2)
+			return false;
+		
+		std::tm t = {};
+		std::istringstream ss(v[0]);
+		ss >> std::get_time(&t, "%Y-%m-%d %H:%M:%S");
+		if (ss.fail())
+			return false;
+
+		std::time_t textureRectClientTime = std::mktime(&t);
+
+		std::time_t _textureRectServerTime = textureRectServerTime(mapTextureRectPos, numVerticesPerSize, gridStepInWU);
+
+		if (_textureRectServerTime > textureRectClientTime)
+			refreshNeeded = true;
+		else
+			refreshNeeded = false;
+		
+		return refreshNeeded;
+	}
+
+	void MapManager::sync(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string* clientQuadrants, std::string& replyClientQuadrants, std::string& replyProceGenStatus, std::string& replyExtraQuadrants, std::string& mapTextureRects, std::string& replyMapTextureRects)
+	{
+		replyMapTextureRects.clear();
 		replyProceGenStatus.clear();
+		replyClientQuadrants.clear();
 		replyExtraQuadrants.clear();
 
 		if (isInEditor)
@@ -1182,6 +1268,62 @@ namespace TheWorld_MapManager
 		size_t replyCursor = 0;
 		size_t size = 0;
 
+		// *
+		// MapTextureRect status: check if map texture rects actually rendered by client need refresh (are outdated)
+		// *
+		if (mapTextureRects.size() > 0)
+		{
+			// clientQuadrants
+			reply.reserve(1000);
+			*reply.ptr() = '0';
+			replyCursor = 1;
+
+			size_t inBufferCursor = 1;	// bypassing first byte '0'
+			size_t numMapTextureRects = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
+			inBufferCursor += size;
+
+			TheWorld_Utils::serializeToByteStream<size_t>(numMapTextureRects, reply.ptr() + replyCursor, size);
+			replyCursor += size;
+
+			for (size_t idx = 0; idx < numMapTextureRects; idx++)
+			{
+				size_t mapTextureRectPosBufferSize = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
+				inBufferCursor += size;
+
+				TheWorld_Utils::MemoryBuffer tmpBuffer((BYTE*)mapTextureRects.c_str() + inBufferCursor, mapTextureRectPosBufferSize);
+				inBufferCursor += mapTextureRectPosBufferSize;
+
+				TheWorld_Utils::MapTextureRectPos mapTextureRectPos;
+				mapTextureRectPos.deserialize(tmpBuffer);
+
+				size_t fileTimeSize = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
+				inBufferCursor += size;
+
+				std::string fileTime(mapTextureRects.c_str() + inBufferCursor, fileTimeSize);
+				inBufferCursor += fileTimeSize;
+			
+				bool textureRectRefreshNeeded = false;
+				if (fileTime.size() == 0)
+				{
+					textureRectRefreshNeeded = false;
+					//throw(MapManagerException(__FUNCTION__, string("DEBUG").c_str()));
+				}
+				else
+					textureRectRefreshNeeded = checkTextureRectRefreshNeeded(mapTextureRectPos, fileTime, numVerticesPerSize, gridStepInWU);
+
+				reply.reserve(replyCursor + sizeof(bool));	// to avoid memory overflow
+				TheWorld_Utils::serializeToByteStream<bool>(textureRectRefreshNeeded, reply.ptr() + replyCursor, size);
+				replyCursor += size;
+			}
+
+			reply.adjustSize(replyCursor);
+			replyMapTextureRects = std::string((char*)reply.ptr(), reply.size());
+		}
+
+		// *
+		// MapManagerProceduralGenerationStatus: server generation status (to display in edit mode console)
+		// *
+		
 		std::vector<TheWorld_Utils::MapManagerProceduralGenerationStatus> v;
 		for (auto& item1 : s_mapInitMap)
 			for (auto& item2 : item1.second)
@@ -1190,7 +1332,7 @@ namespace TheWorld_MapManager
 				v.push_back(item2.second->m_procGen);
 			}
 
-		reply.clear();
+		//reply.clear();
 		reply.reserve(1000);
 		replyCursor = 0;
 		TheWorld_Utils::serializeToByteStream<size_t>(v.size(), reply.ptr() + replyCursor, size);
@@ -1201,19 +1343,22 @@ namespace TheWorld_MapManager
 			replyCursor += size;
 		}
 		reply.adjustSize(replyCursor);
-
 		replyProceGenStatus = std::string((char*)reply.ptr(), reply.size());
+
+		// *
+		// ClientQuadrants Status: check if client quadrants need refresh
+		// *
 
 		if (clientQuadrants->length() == 0)
 			return;
 
-		size_t clientQuadrantsCursor = 1;	// bypassing first byte '0'
-		size_t numClientQuadrants = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)clientQuadrants->c_str() + clientQuadrantsCursor, size);
-		clientQuadrantsCursor += size;
-
 		reply.reserve(1000);
 		*reply.ptr() = '0';
 		replyCursor = 1;
+
+		size_t clientQuadrantsCursor = 1;	// bypassing first byte '0'
+		size_t numClientQuadrants = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)clientQuadrants->c_str() + clientQuadrantsCursor, size);
+		clientQuadrantsCursor += size;
 
 		TheWorld_Utils::serializeToByteStream<size_t>(numClientQuadrants, reply.ptr() + replyCursor, size);
 		replyCursor += size;
@@ -1272,6 +1417,10 @@ namespace TheWorld_MapManager
 		}
 		reply.adjustSize(replyCursor);
 		replyClientQuadrants = std::string((char*)reply.ptr(), reply.size());
+
+		// *
+		// Extra ClientQuadrants Status: check if client quadrants not dispèlayed by client need client work (shader comnputational) to complete generation
+		// *
 
 		if (inGameEditMode && quadrantToRefreshMap.size() < MAX_NUM_QUADRANT_TO_REFRESH)
 		{
@@ -1347,9 +1496,9 @@ namespace TheWorld_MapManager
 		PLOG_DEBUG << "Align CACHE <==> DB - Start alignement thread - " << "map=" << s_mapName << " numVerticesPerSize=" << numVerticesPerSize << " level=" << level;
 		//return;
 
-		float gridStepInWU = MapManager::gridStepInWU();
-		std::string cacheDir = m_DBInterface->dataPath();
-		std::string mapName = getMapName();
+		//float gridStepInWU = MapManager::gridStepInWU();
+		//std::string cacheDir = m_DBInterface->dataPath();
+		//std::string mapName = getMapName();
 		//TheWorld_Utils::MeshCacheBuffer::clearWorkCacheDir(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level);
 
 		while (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
@@ -2154,7 +2303,7 @@ namespace TheWorld_MapManager
 
 				if (terrainEdit.normalsNeedRegen || terrainEdit.splatmapNeedRegen || terrainEdit.globalmapNeedRegen)
 				{
-					std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+					std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
 					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = diskCacheMeshId;
 				}
 			}
@@ -2196,12 +2345,12 @@ namespace TheWorld_MapManager
 				// looking if we need to re-populate internal memory map with current quadrant (in donwload by some client) after a server restart
 				if (terrainEdit.normalsNeedRegen || terrainEdit.splatmapNeedRegen || terrainEdit.globalmapNeedRegen)
 				{
-					std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+					std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
 					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = diskCacheMeshId;
 				}
 				//else		// should be useless 
 				//{
-				//	std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+				//	std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
 				//	if (s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.contains(pos))
 				//		s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.erase(pos);
 				//}

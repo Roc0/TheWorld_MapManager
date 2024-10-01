@@ -38,9 +38,12 @@ namespace TheWorld_MapManager
 		virtual void finalizeDB(void);
 		virtual void importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level);
 		virtual void getAllQuadrants(std::string _cacheDir, std::string mapName, float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer>& diskCacheMap, std::time_t& fromFileTimeType);
+		virtual std::time_t getTextureRectTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU);
+		virtual void setTextureRectTime(std::time_t textureRectTime, TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU);
 
 	private:
 		bool completeQuadrantDataWithDefaultValues(float gridStepInWU, size_t numVerticesPerSize, int level, Json::Value& root);
+		std::string getTextureRectDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
 		std::string getQuadrantDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
 		std::string getQuadrantFilePath(float gridStepInWU, size_t numVerticesPerSize, size_t level, float lowerXGridVertex, float lowerZGridVertex);
 		std::string getQuadrantImportDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);

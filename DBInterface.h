@@ -356,6 +356,8 @@ namespace TheWorld_MapManager
 		virtual void finalizeDB(void) = 0;
 		virtual void importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level) = 0;
 		virtual void getAllQuadrants(std::string _cacheDir, std::string mapName, float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer>& diskCacheMap, std::time_t& fromFileTimeType) = 0;
+		virtual std::time_t getTextureRectTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU) = 0;
+		virtual void setTextureRectTime(std::time_t textureRectTime, TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU) = 0;
 
 	private:
 		DBType m_dbt;

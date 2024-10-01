@@ -131,6 +131,78 @@ namespace TheWorld_MapManager
 		return false;
 	}
 
+	std::time_t DBJson::getTextureRectTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU)
+	{
+		// -1 = value not set, 0 = all quadrants contained are empty, else time_t of the most recent quadrant
+		
+		std::time_t textureRectTime = -1;
+
+		if (dataPath().length() == 0)
+			throw(MapManagerExceptionDBExceptionNotInitialized(__FUNCTION__));
+
+		std::string textureRectDirPath = getTextureRectDirPath(gridStepInWU, numVerticesPerSize, textureRectPos.getLevel());
+		if (!fs::exists(textureRectDirPath))
+			fs::create_directories(textureRectDirPath);
+
+		std::string textureRectPath = textureRectDirPath + "\\" + textureRectPos.getName() + ".json";;
+		if (!fs::exists(textureRectPath))
+			return textureRectTime;
+
+		std::ifstream jsonTextureRectFile(textureRectPath);
+		if (jsonTextureRectFile.fail() || !jsonTextureRectFile.is_open())
+			throw(MapManagerExceptionDBException(__FUNCTION__, "Could not open json texture rect file for reading", textureRectPath.c_str()));
+		Json::Value root;
+		jsonTextureRectFile >> root;
+
+		std::string s = root["Time"].asString();
+		
+		if (s == "nul")
+			return textureRectTime;
+
+		std::tm t = {};
+		std::istringstream ss(s);
+		ss >> std::get_time(&t, "%Y-%m-%d %H:%M:%S");
+		if (not ss.fail())
+			textureRectTime = std::mktime(&t);
+
+		return textureRectTime;
+	}
+
+	void DBJson::setTextureRectTime(std::time_t textureRectTime, TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU)
+	{
+		// -1 = value not set, 0 = all quadrants contained are empty, else time_t of the most recent quadrant
+
+		if (dataPath().length() == 0)
+			throw(MapManagerExceptionDBExceptionNotInitialized(__FUNCTION__));
+
+		std::string textureRectDirPath = getTextureRectDirPath(gridStepInWU, numVerticesPerSize, textureRectPos.getLevel());
+		if (!fs::exists(textureRectDirPath))
+			fs::create_directories(textureRectDirPath);
+
+		std::string textureRectPath = textureRectDirPath + "\\" + textureRectPos.getName() + ".json";;
+
+		char buffer[32];
+		if (textureRectTime == -1)
+		{
+			strcpy_s(buffer, sizeof(buffer), "nul");
+		}
+		else
+		{
+			std::tm tm;
+			localtime_s(&tm, &textureRectTime);
+			std::strftime(buffer, 32, "%Y-%m-%d %H:%M:%S", &tm);
+		}
+
+		Json::Value root;
+		root["Time"] = buffer;
+
+		ofstream jsonTextureRectFile(textureRectPath, ios_base::out);
+		if (jsonTextureRectFile.fail() || !jsonTextureRectFile.is_open())
+			throw(MapManagerExceptionDBException(__FUNCTION__, "Could not open json texture rect file for writing", textureRectPath.c_str()));
+		jsonTextureRectFile << root;
+		jsonTextureRectFile.close();
+	}
+
 	std::string DBJson::getQuadrantHash(float gridStepInWU, size_t numVerticesPerSize, size_t level, float lowerXGridVertex, float lowerZGridVertex, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType)
 	{
 		if (dataPath().length() == 0)
@@ -929,6 +1001,11 @@ namespace TheWorld_MapManager
 			quadrant["terrain_data"]["grp_noise"]["026_desideredMinHeigthMandatory"] = terrainEdit.noise.desideredMinHeigthMandatory;
 
 		return true;
+	}
+
+	std::string DBJson::getTextureRectDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level)
+	{
+		return getQuadrantDirPath(gridStepInWU, numVerticesPerSize, level) + "\\MapRects";
 	}
 
 	std::string DBJson::getQuadrantDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level)
