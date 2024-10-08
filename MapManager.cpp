@@ -1262,6 +1262,7 @@ namespace TheWorld_MapManager
 		if (isInEditor)
 			return;
 		
+		std::lock_guard<std::recursive_mutex> lock1(s_cacheMtx);
 		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
 
 		TheWorld_Utils::MemoryBuffer reply;
@@ -1419,7 +1420,7 @@ namespace TheWorld_MapManager
 		replyClientQuadrants = std::string((char*)reply.ptr(), reply.size());
 
 		// *
-		// Extra ClientQuadrants Status: check if client quadrants not dispèlayed by client need client work (shader comnputational) to complete generation
+		// Extra ClientQuadrants Status: check if client quadrants not currently displayed by client need client work (shader comnputational) to complete generation
 		// *
 
 		if (inGameEditMode && quadrantToRefreshMap.size() < MAX_NUM_QUADRANT_TO_REFRESH)
