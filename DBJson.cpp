@@ -159,11 +159,12 @@ namespace TheWorld_MapManager
 		if (s == "nul")
 			return textureRectTime;
 
-		std::tm t = {};
-		std::istringstream ss(s);
-		ss >> std::get_time(&t, "%Y-%m-%d %H:%M:%S");
-		if (not ss.fail())
-			textureRectTime = std::mktime(&t);
+		//std::tm t = {};
+		//std::istringstream ss(s);
+		//ss >> std::get_time(&t, "%Y-%m-%d %H:%M:%S");
+		//if (not ss.fail())
+		//	textureRectTime = std::mktime(&t);
+		textureRectTime = TheWorld_Utils::str_time_to_time_t(s);
 
 		return textureRectTime;
 	}
@@ -181,20 +182,22 @@ namespace TheWorld_MapManager
 
 		std::string textureRectPath = textureRectDirPath + "\\" + textureRectPos.getName() + ".json";;
 
-		char buffer[32];
+		std::string timeStr;
 		if (textureRectTime == -1)
 		{
-			strcpy_s(buffer, sizeof(buffer), "nul");
+			timeStr = "nul";
 		}
 		else
 		{
-			std::tm tm;
-			localtime_s(&tm, &textureRectTime);
-			std::strftime(buffer, 32, "%Y-%m-%d %H:%M:%S", &tm);
+			//std::tm tm;
+			//localtime_s(&tm, &textureRectTime);
+			//std::strftime(buffer, 32, "%Y-%m-%d %H:%M:%S", &tm);
+			//timeStr = buffer;
+			timeStr = TheWorld_Utils::time_t_to_str_time(textureRectTime);
 		}
 
 		Json::Value root;
-		root["Time"] = buffer;
+		root["Time"] = timeStr;
 
 		ofstream jsonTextureRectFile(textureRectPath, ios_base::out);
 		if (jsonTextureRectFile.fail() || !jsonTextureRectFile.is_open())

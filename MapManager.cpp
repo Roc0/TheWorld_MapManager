@@ -1230,17 +1230,16 @@ namespace TheWorld_MapManager
 	{
 		bool refreshNeeded = false;
 
-		std::vector<std::string> v = TheWorld_Utils::Utils::split(fileTime, '.');
-		if (v.size() != 2)
-			return false;
-		
-		std::tm t = {};
-		std::istringstream ss(v[0]);
-		ss >> std::get_time(&t, "%Y-%m-%d %H:%M:%S");
-		if (ss.fail())
-			return false;
-
-		std::time_t textureRectClientTime = std::mktime(&t);
+		//std::vector<std::string> v = TheWorld_Utils::Utils::split(fileTime, '.');
+		//if (v.size() != 2)
+		//	return false;
+		//std::tm t = {};
+		//std::istringstream ss(v[0]);
+		//ss >> std::get_time(&t, "%Y-%m-%d %H:%M:%S");
+		//if (ss.fail())
+		//	return false;
+		//std::time_t textureRectClientTime = std::mktime(&t);
+		std::time_t textureRectClientTime = TheWorld_Utils::str_time_to_time_t(fileTime);
 
 		std::time_t _textureRectServerTime = textureRectServerTime(mapTextureRectPos, numVerticesPerSize, gridStepInWU);
 
