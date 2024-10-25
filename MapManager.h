@@ -28,6 +28,23 @@ namespace TheWorld_MapManager
 	class MapManager
 	{
 	public:
+		class MapTextureRect
+		{
+		public:
+			MapTextureRect(MapManager* mapManager, TheWorld_Utils::MapTextureRectPos& mapTextureRectPos, float gridStepInWU, size_t numVerticesPerSize);
+			~MapTextureRect(void);
+
+			std::string getTextureRectDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
+			std::string getTextureRectPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
+			bool saveUploadedTexture(bool& saved, std::string& utcUploadedTextureTimeStr, TheWorld_Utils::MemoryBuffer& imageBuffer);
+
+		private:
+			MapManager* m_mapManager = nullptr;
+			TheWorld_Utils::MapTextureRectPos m_mapTextureRectPos;
+			float m_gridStepInWU;
+			size_t m_numVerticesPerSize;
+		};
+
 		class QuadrantPos
 		{
 		public:
@@ -292,7 +309,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void alignDiskCacheAndDBTaskInternal(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(bool isInEditor);
 		_declspec(dllexport) void sync(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string* clientQuadrants, std::string& replyClientQuadrants, std::string& replyProceGenStatus, std::string& replyExtraQuadrants, std::string& mapTextureRects, std::string& replyMapTextureRects);
-		_declspec(dllexport) void uploadTextureRects(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string& mapTextureRects, std::string& replyMapTextureRects);
+		_declspec(dllexport) void uploadMapTextureRects(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string& mapTextureRects, std::string& replyMapTextureRects);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) bool writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) bool writeWorkDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
@@ -300,6 +317,10 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) inline float calcPreviousCoordOnTheGridInWUs(float coordInWUs);
 		_declspec(dllexport) inline float calcNextCoordOnTheGridInWUs(float coordInWUs);
+		std::string getCacheDir(void)
+		{
+			return m_DBInterface->dataPath();
+		}
 
 	private:
 		bool checkTextureRectRefreshNeeded(TheWorld_Utils::MapTextureRectPos& textureRectPos, std::string& fileTime, size_t numVerticesPerSize, float gridStepInWU);

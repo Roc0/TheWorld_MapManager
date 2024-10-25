@@ -62,6 +62,63 @@ namespace TheWorld_MapManager
 	//const std::string GridStepInWUParamName = "GridStepInWU";
 	float g_gridStepInWU = 0.0f;		// distance in world unit between a vertex of the grid and the next
 
+	MapManager::MapTextureRect::MapTextureRect(MapManager* mapManager, TheWorld_Utils::MapTextureRectPos& mapTextureRectPos, float gridStepInWU, size_t numVerticesPerSize)
+	{
+		m_mapManager = mapManager;
+		m_mapTextureRectPos = mapTextureRectPos;
+		m_gridStepInWU = gridStepInWU;
+		m_numVerticesPerSize = numVerticesPerSize;
+	}
+	
+	MapManager::MapTextureRect::~MapTextureRect(void)
+	{
+	}
+
+	std::string MapManager::MapTextureRect::getTextureRectDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level)
+	{
+		std::string cacheDir = m_mapManager->getCacheDir();
+		std::string mapName = m_mapManager->getMapName();
+		return std::string(cacheDir) + "\\" + "Cache\\maps\\" + mapName + "\\" + "ST-" + std::to_string(gridStepInWU) + "_SZ-" + std::to_string(numVerticesPerSize) + "\\L-" + std::to_string(level) + "\\MapRects";
+	}
+
+	std::string MapManager::MapTextureRect::getTextureRectPath(float gridStepInWU, size_t numVerticesPerSize, size_t level)
+	{
+		std::string texturePath = getTextureRectDirPath(m_gridStepInWU, m_numVerticesPerSize, m_mapTextureRectPos.getLevel()) + "\\" + m_mapTextureRectPos.getName();
+		return texturePath;
+	}
+
+	bool MapManager::MapTextureRect::saveUploadedTexture(bool& saved, std::string& utcUploadedTextureTimeStr, TheWorld_Utils::MemoryBuffer& imageBuffer)
+	{
+		bool worked = true;
+		saved = false;
+
+		std::string textureDir = getTextureRectDirPath(m_gridStepInWU, m_numVerticesPerSize, m_mapTextureRectPos.getLevel());
+		if (!fs::exists(textureDir))
+			fs::create_directories(textureDir);
+		
+		std::string texturePath = getTextureRectPath(m_gridStepInWU, m_numVerticesPerSize, m_mapTextureRectPos.getLevel());
+
+		std::time_t uploadTextureTime = TheWorld_Utils::str_time_to_time_t(utcUploadedTextureTimeStr);
+		
+		std::time_t utcTextureLastWriteTime = 0;
+		if (fs::exists(texturePath))
+			std::time_t utcTextureLastWriteTime = TheWorld_Utils::last_write_time_utc(texturePath);
+
+		if (uploadTextureTime > utcTextureLastWriteTime)
+		{
+			FILE* outFile = nullptr;
+			errno_t err = fopen_s(&outFile, texturePath.c_str(), "wb");
+			if (err == 0)
+			{
+				if (fwrite(imageBuffer.ptr(), imageBuffer.size(), 1, outFile) == 1)
+					saved = true;
+				fclose(outFile);
+			}
+		}
+
+		return worked;
+	}
+
 	MapManager::MapManager(/*const char* logPath, plog::Severity sev, plog::IAppender* appender,*/ char* configFileName, bool multiThreadEnvironment /* every thread is provided with its own DB connection associated to the thread::id*/)
 	{
 		string sModulePath = getModuleLoadPath();
@@ -1251,7 +1308,7 @@ namespace TheWorld_MapManager
 		return refreshNeeded;
 	}
 
-	void MapManager::uploadTextureRects(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string& mapTextureRects, std::string& replyMapTextureRects)
+	void MapManager::uploadMapTextureRects(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string& mapTextureRects, std::string& replyMapTextureRects)
 	{
 		replyMapTextureRects.clear();
 
@@ -1309,7 +1366,10 @@ namespace TheWorld_MapManager
 			TheWorld_Utils::MemoryBuffer imageBuffer(mapTextureRectsBuffer.ptr() + inBufferCursor, imageBufferSize);
 			inBufferCursor += imageBufferSize;
 
-			bool workedRect = false;
+			MapTextureRect mapTextureRect(this, mapTextureRectPos, gridStepInWU, numVerticesPerSize);
+			
+			bool saved = false;
+			bool workedRect = mapTextureRect.saveUploadedTexture(saved, utcFileTimeStr, imageBuffer);
 
 			if (workedRect)
 			{
@@ -1317,36 +1377,47 @@ namespace TheWorld_MapManager
 
 				workedRectsBuffer.reserve(workedRectsBufferCursor + sizeof(size_t));		// to avoid memory overflow
 				TheWorld_Utils::serializeToByteStream<size_t>(mapTextureRectPosBuffer.size(), workedRectsBuffer.ptr() + workedRectsBufferCursor, size);
-				workedRectsBufferCursor += size;
+				//workedRectsBufferCursor += size;
+				//workedRectsBuffer.adjustSize(workedRectsBufferCursor);
+				workedRectsBuffer.adjustCursorAndSize(workedRectsBufferCursor, size);
 
 				workedRectsBuffer.reserve(workedRectsBufferCursor + mapTextureRectPosBuffer.size());		// to avoid memory overflow
 				memcpy(workedRectsBuffer.ptr() + workedRectsBufferCursor, mapTextureRectPosBuffer.ptr(), mapTextureRectPosBuffer.size());
-				workedRectsBufferCursor += mapTextureRectPosBuffer.size();
+				//workedRectsBufferCursor += mapTextureRectPosBuffer.size();
+				//workedRectsBuffer.adjustSize(workedRectsBufferCursor);
+				workedRectsBuffer.adjustCursorAndSize(workedRectsBufferCursor, mapTextureRectPosBuffer.size());
 			}
 		}
-		workedRectsBuffer.adjustSize(workedRectsBufferCursor);
 		std::string workedRects = std::string((char*)workedRectsBuffer.ptr(), workedRectsBuffer.size());
 
 		reply.reserve(10000);	// Memory allocation optimization
+		replyCursor = 0;
 		*reply.ptr() = '0';
-		replyCursor = 1;
+		//replyCursor = 1;
+		//reply.adjustSize(replyCursor);
+		reply.adjustCursorAndSize(replyCursor, 1);
 
 		reply.reserve(replyCursor + sizeof(size_t));		// to avoid memory overflow
 		TheWorld_Utils::serializeToByteStream<size_t>(numWorkedRects, reply.ptr() + replyCursor, size);
-		replyCursor += size;
+		//replyCursor += size;
+		//reply.adjustSize(replyCursor);
+		reply.adjustCursorAndSize(replyCursor, size);
 
 		if (numWorkedRects > 0)
 		{
 			reply.reserve(replyCursor + sizeof(size_t));		// to avoid memory overflow
 			TheWorld_Utils::serializeToByteStream<size_t>(workedRects.size(), reply.ptr() + replyCursor, size);
-			replyCursor += size;
+			//replyCursor += size;
+			//reply.adjustSize(replyCursor);
+			reply.adjustCursorAndSize(replyCursor, size);
 
 			reply.reserve(replyCursor + workedRects.size());		// to avoid memory overflow
 			memcpy(reply.ptr() + replyCursor, workedRects.c_str(), workedRects.size());
-			replyCursor += workedRects.size();
+			//replyCursor += workedRects.size();
+			//reply.adjustSize(replyCursor);
+			reply.adjustCursorAndSize(replyCursor, workedRects.size());
 		}
 
-		reply.adjustSize(replyCursor);
 		replyMapTextureRects = std::string((char*)reply.ptr(), reply.size());
 	}
 
@@ -1376,6 +1447,7 @@ namespace TheWorld_MapManager
 			reply.reserve(1000);	// Memory allocation optimization
 			*reply.ptr() = '0';
 			replyCursor = 1;
+			reply.adjustSize(replyCursor);
 
 			size_t inBufferCursor = 1;	// bypassing first byte '0'
 			size_t numMapTextureRects = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
@@ -1383,6 +1455,7 @@ namespace TheWorld_MapManager
 
 			TheWorld_Utils::serializeToByteStream<size_t>(numMapTextureRects, reply.ptr() + replyCursor, size);
 			replyCursor += size;
+			reply.adjustSize(replyCursor);
 
 			for (size_t idx = 0; idx < numMapTextureRects; idx++)
 			{
@@ -1413,9 +1486,9 @@ namespace TheWorld_MapManager
 				reply.reserve(replyCursor + sizeof(bool));	// to avoid memory overflow
 				TheWorld_Utils::serializeToByteStream<bool>(textureRectRefreshNeeded, reply.ptr() + replyCursor, size);
 				replyCursor += size;
+				reply.adjustSize(replyCursor);
 			}
 
-			reply.adjustSize(replyCursor);
 			replyMapTextureRects = std::string((char*)reply.ptr(), reply.size());
 		}
 
@@ -1436,12 +1509,13 @@ namespace TheWorld_MapManager
 		replyCursor = 0;
 		TheWorld_Utils::serializeToByteStream<size_t>(v.size(), reply.ptr() + replyCursor, size);
 		replyCursor += size;
+		reply.adjustSize(replyCursor);
 		for (auto& item : v)
 		{
 			TheWorld_Utils::serializeToByteStream<TheWorld_Utils::MapManagerProceduralGenerationStatus>(item, reply.ptr() + replyCursor, size);
 			replyCursor += size;
+			reply.adjustSize(replyCursor);
 		}
-		reply.adjustSize(replyCursor);
 		replyProceGenStatus = std::string((char*)reply.ptr(), reply.size());
 
 		// *
@@ -1461,6 +1535,7 @@ namespace TheWorld_MapManager
 
 		TheWorld_Utils::serializeToByteStream<size_t>(numClientQuadrants, reply.ptr() + replyCursor, size);
 		replyCursor += size;
+		reply.adjustSize(replyCursor);
 
 		std::map<TheWorld_Utils::QuadrantPos, bool> quadrantToRefreshMap;
 
@@ -1513,8 +1588,9 @@ namespace TheWorld_MapManager
 			reply.reserve(replyCursor + sizeof(bool));	// to avoid memory overflow
 			TheWorld_Utils::serializeToByteStream<bool>(quadrantRefreshNeeded, reply.ptr() + replyCursor, size);
 			replyCursor += size;
+			reply.adjustSize(replyCursor);
+
 		}
-		reply.adjustSize(replyCursor);
 		replyClientQuadrants = std::string((char*)reply.ptr(), reply.size());
 
 		// *
@@ -1548,6 +1624,7 @@ namespace TheWorld_MapManager
 				replyCursor = 0;
 				TheWorld_Utils::serializeToByteStream<size_t>(replyExtraQuadrantsVect.size(), reply.ptr() + replyCursor, size);
 				replyCursor += size;
+				reply.adjustSize(replyCursor);
 
 				for (auto& pos : replyExtraQuadrantsVect)
 				{
@@ -1557,10 +1634,13 @@ namespace TheWorld_MapManager
 					reply.reserve(replyCursor + sizeof(size_t));		// to avoid memory overflow
 					TheWorld_Utils::serializeToByteStream<size_t>(tmpBuffer.size(), reply.ptr() + replyCursor, size);
 					replyCursor += size;
+					reply.adjustSize(replyCursor);
 
 					reply.reserve(replyCursor + tmpBuffer.size());		// to avoid memory overflow
 					memcpy(reply.ptr() + replyCursor, tmpBuffer.ptr(), tmpBuffer.size());
 					replyCursor += tmpBuffer.size();
+					reply.adjustSize(replyCursor);
+
 				}
 
 				reply.adjustSize(replyCursor);

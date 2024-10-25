@@ -133,7 +133,7 @@ namespace TheWorld_MapManager
 
 	std::time_t DBJson::getTextureRectTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU)
 	{
-		// -1 = value not set, 0 = all quadrants contained are empty, else time_t of the most recent quadrant
+		// return value: -1 = value not set, 0 = all quadrants contained are empty, else time_t of the most recent quadrant
 		
 		std::time_t textureRectTime = -1;
 
@@ -171,7 +171,7 @@ namespace TheWorld_MapManager
 
 	void DBJson::setTextureRectTime(std::time_t textureRectTime, TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU)
 	{
-		// -1 = value not set, 0 = all quadrants contained are empty, else time_t of the most recent quadrant
+		// textureRectTime: -1 = value not set, 0 = all quadrants contained are empty, else time_t of the most recent quadrant
 
 		if (dataPath().length() == 0)
 			throw(MapManagerExceptionDBExceptionNotInitialized(__FUNCTION__));
