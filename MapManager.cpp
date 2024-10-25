@@ -1251,6 +1251,105 @@ namespace TheWorld_MapManager
 		return refreshNeeded;
 	}
 
+	void MapManager::uploadTextureRects(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string& mapTextureRects, std::string& replyMapTextureRects)
+	{
+		replyMapTextureRects.clear();
+
+		if (mapTextureRects.size() == 0)
+			return;
+
+		if (isInEditor)
+			return;
+
+		TheWorld_Utils::MemoryBuffer reply;
+		size_t replyCursor = 0;
+		size_t size = 0;
+
+		std::lock_guard<std::recursive_mutex> lock1(s_cacheMtx);
+		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+
+		size_t inBufferCursor = 1;	// bypassing first byte '0'
+		size_t numMapTextureRects = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
+		inBufferCursor += size;
+
+		if (numMapTextureRects == 0)
+			return;
+
+		size_t mapTextureRectsBufferSize = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
+		inBufferCursor += size;
+
+		TheWorld_Utils::MemoryBuffer mapTextureRectsBuffer((BYTE*)mapTextureRects.c_str() + inBufferCursor, mapTextureRectsBufferSize);
+		inBufferCursor += mapTextureRectsBufferSize;
+
+		size_t numWorkedRects = 0;
+		TheWorld_Utils::MemoryBuffer workedRectsBuffer;
+		workedRectsBuffer.reserve(10000);	// Memory allocation optimization
+		size_t workedRectsBufferCursor = 0;
+
+		inBufferCursor = 0;
+		for (int32_t idx = 0; idx < numMapTextureRects; idx++)
+		{
+			size_t mapTextureRectPosBufferSize = TheWorld_Utils::deserializeFromByteStream<size_t>(mapTextureRectsBuffer.ptr() + inBufferCursor, size);
+			inBufferCursor += size;
+
+			TheWorld_Utils::MemoryBuffer mapTextureRectPosBuffer(mapTextureRectsBuffer.ptr() + inBufferCursor, mapTextureRectPosBufferSize);
+			inBufferCursor += mapTextureRectPosBufferSize;
+			TheWorld_Utils::MapTextureRectPos mapTextureRectPos;
+			mapTextureRectPos.deserialize(mapTextureRectPosBuffer);
+
+			size_t fileTimeSize = TheWorld_Utils::deserializeFromByteStream<size_t>(mapTextureRectsBuffer.ptr() + inBufferCursor, size);
+			inBufferCursor += size;
+
+			std::string utcFileTimeStr((char*)mapTextureRectsBuffer.ptr() + inBufferCursor, fileTimeSize);
+			inBufferCursor += fileTimeSize;
+
+			size_t imageBufferSize = TheWorld_Utils::deserializeFromByteStream<size_t>(mapTextureRectsBuffer.ptr() + inBufferCursor, size);
+			inBufferCursor += size;
+
+			TheWorld_Utils::MemoryBuffer imageBuffer(mapTextureRectsBuffer.ptr() + inBufferCursor, imageBufferSize);
+			inBufferCursor += imageBufferSize;
+
+			bool workedRect = false;
+
+			if (workedRect)
+			{
+				numWorkedRects++;
+
+				workedRectsBuffer.reserve(workedRectsBufferCursor + sizeof(size_t));		// to avoid memory overflow
+				TheWorld_Utils::serializeToByteStream<size_t>(mapTextureRectPosBuffer.size(), workedRectsBuffer.ptr() + workedRectsBufferCursor, size);
+				workedRectsBufferCursor += size;
+
+				workedRectsBuffer.reserve(workedRectsBufferCursor + mapTextureRectPosBuffer.size());		// to avoid memory overflow
+				memcpy(workedRectsBuffer.ptr() + workedRectsBufferCursor, mapTextureRectPosBuffer.ptr(), mapTextureRectPosBuffer.size());
+				workedRectsBufferCursor += mapTextureRectPosBuffer.size();
+			}
+		}
+		workedRectsBuffer.adjustSize(workedRectsBufferCursor);
+		std::string workedRects = std::string((char*)workedRectsBuffer.ptr(), workedRectsBuffer.size());
+
+		reply.reserve(10000);	// Memory allocation optimization
+		*reply.ptr() = '0';
+		replyCursor = 1;
+
+		reply.reserve(replyCursor + sizeof(size_t));		// to avoid memory overflow
+		TheWorld_Utils::serializeToByteStream<size_t>(numWorkedRects, reply.ptr() + replyCursor, size);
+		replyCursor += size;
+
+		if (numWorkedRects > 0)
+		{
+			reply.reserve(replyCursor + sizeof(size_t));		// to avoid memory overflow
+			TheWorld_Utils::serializeToByteStream<size_t>(workedRects.size(), reply.ptr() + replyCursor, size);
+			replyCursor += size;
+
+			reply.reserve(replyCursor + workedRects.size());		// to avoid memory overflow
+			memcpy(reply.ptr() + replyCursor, workedRects.c_str(), workedRects.size());
+			replyCursor += workedRects.size();
+		}
+
+		reply.adjustSize(replyCursor);
+		replyMapTextureRects = std::string((char*)reply.ptr(), reply.size());
+	}
+
 	void MapManager::sync(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string* clientQuadrants, std::string& replyClientQuadrants, std::string& replyProceGenStatus, std::string& replyExtraQuadrants, std::string& mapTextureRects, std::string& replyMapTextureRects)
 	{
 		replyMapTextureRects.clear();
@@ -1274,7 +1373,7 @@ namespace TheWorld_MapManager
 		if (mapTextureRects.size() > 0)
 		{
 			// clientQuadrants
-			reply.reserve(1000);
+			reply.reserve(1000);	// Memory allocation optimization
 			*reply.ptr() = '0';
 			replyCursor = 1;
 

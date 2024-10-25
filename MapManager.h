@@ -292,6 +292,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void alignDiskCacheAndDBTaskInternal(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(bool isInEditor);
 		_declspec(dllexport) void sync(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string* clientQuadrants, std::string& replyClientQuadrants, std::string& replyProceGenStatus, std::string& replyExtraQuadrants, std::string& mapTextureRects, std::string& replyMapTextureRects);
+		_declspec(dllexport) void uploadTextureRects(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string& mapTextureRects, std::string& replyMapTextureRects);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) bool writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) bool writeWorkDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
