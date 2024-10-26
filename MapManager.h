@@ -34,8 +34,8 @@ namespace TheWorld_MapManager
 			MapTextureRect(MapManager* mapManager, TheWorld_Utils::MapTextureRectPos& mapTextureRectPos, float gridStepInWU, size_t numVerticesPerSize);
 			~MapTextureRect(void);
 
-			std::string getTextureRectDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
-			std::string getTextureRectPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
+			std::string getTextureRectDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level, bool createDir = true);
+			std::string getTextureRectPath(float gridStepInWU, size_t numVerticesPerSize, size_t level, bool createDir = true);
 			bool saveUploadedTexture(bool& saved, std::string& utcUploadedTextureTimeStr, TheWorld_Utils::MemoryBuffer& imageBuffer);
 
 		private:

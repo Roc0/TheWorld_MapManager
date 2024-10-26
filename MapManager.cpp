@@ -74,16 +74,21 @@ namespace TheWorld_MapManager
 	{
 	}
 
-	std::string MapManager::MapTextureRect::getTextureRectDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level)
+	std::string MapManager::MapTextureRect::getTextureRectDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level, bool createDir)
 	{
 		std::string cacheDir = m_mapManager->getCacheDir();
 		std::string mapName = m_mapManager->getMapName();
-		return std::string(cacheDir) + "\\" + "Cache\\maps\\" + mapName + "\\" + "ST-" + std::to_string(gridStepInWU) + "_SZ-" + std::to_string(numVerticesPerSize) + "\\L-" + std::to_string(level) + "\\MapRects";
+		std::string textureDir = std::string(cacheDir) + "\\" + "Cache\\maps\\" + mapName + "\\" + "ST-" + std::to_string(gridStepInWU) + "_SZ-" + std::to_string(numVerticesPerSize) + "\\L-" + std::to_string(level) + "\\MapRects";
+
+		if (createDir and !fs::exists(textureDir))
+			fs::create_directories(textureDir);
+
+		return textureDir;
 	}
 
-	std::string MapManager::MapTextureRect::getTextureRectPath(float gridStepInWU, size_t numVerticesPerSize, size_t level)
+	std::string MapManager::MapTextureRect::getTextureRectPath(float gridStepInWU, size_t numVerticesPerSize, size_t level, bool createDir)
 	{
-		std::string texturePath = getTextureRectDirPath(m_gridStepInWU, m_numVerticesPerSize, m_mapTextureRectPos.getLevel()) + "\\" + m_mapTextureRectPos.getName();
+		std::string texturePath = getTextureRectDirPath(m_gridStepInWU, m_numVerticesPerSize, m_mapTextureRectPos.getLevel(), createDir) + "\\" + m_mapTextureRectPos.getName();
 		return texturePath;
 	}
 
@@ -92,17 +97,16 @@ namespace TheWorld_MapManager
 		bool worked = true;
 		saved = false;
 
-		std::string textureDir = getTextureRectDirPath(m_gridStepInWU, m_numVerticesPerSize, m_mapTextureRectPos.getLevel());
-		if (!fs::exists(textureDir))
-			fs::create_directories(textureDir);
-		
 		std::string texturePath = getTextureRectPath(m_gridStepInWU, m_numVerticesPerSize, m_mapTextureRectPos.getLevel());
 
-		std::time_t uploadTextureTime = TheWorld_Utils::str_time_to_time_t(utcUploadedTextureTimeStr);
-		
-		std::time_t utcTextureLastWriteTime = 0;
+		//std::time_t uploadTextureTime = TheWorld_Utils::str_time_to_time_t(utcUploadedTextureTimeStr);
+		//std::time_t utcTextureLastWriteTime = 0;
+		//if (fs::exists(texturePath))
+		//	utcTextureLastWriteTime = TheWorld_Utils::last_write_time_t_utc(texturePath);
+		const std::chrono::system_clock::time_point uploadTextureTime = TheWorld_Utils::str_time_to_time_point(utcUploadedTextureTimeStr);
+		std::chrono::system_clock::time_point utcTextureLastWriteTime;
 		if (fs::exists(texturePath))
-			std::time_t utcTextureLastWriteTime = TheWorld_Utils::last_write_time_utc(texturePath);
+			utcTextureLastWriteTime = TheWorld_Utils::last_write_time_point_utc(texturePath);
 
 		if (uploadTextureTime > utcTextureLastWriteTime)
 		{
@@ -113,6 +117,9 @@ namespace TheWorld_MapManager
 				if (fwrite(imageBuffer.ptr(), imageBuffer.size(), 1, outFile) == 1)
 					saved = true;
 				fclose(outFile);
+				TheWorld_Utils::last_write_time_point_utc(texturePath, uploadTextureTime);
+				//std::string textureFileTimeStr = TheWorld_Utils::last_write_time_utc_str(texturePath);	// DEBUG
+				//assert(utcUploadedTextureTimeStr == textureFileTimeStr);								// DEBUG
 			}
 		}
 
