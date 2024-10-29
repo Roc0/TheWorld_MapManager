@@ -28,15 +28,46 @@ namespace TheWorld_MapManager
 	class MapManager
 	{
 	public:
+		class TextureRectTimeCache
+		{
+		public:
+			TextureRectTimeCache()
+			{
+			}
+			TextureRectTimeCache(std::chrono::system_clock::time_point tp, bool timeFromTexture)
+			{
+				m_tp = tp;
+				m_timeFromTexture = timeFromTexture;
+			}
+			~TextureRectTimeCache(void) {}
+
+			std::chrono::system_clock::time_point time_point(void)
+			{
+				return m_tp;
+			}
+			bool timeFromTexture()
+			{
+				return m_timeFromTexture;
+			}
+
+		private:
+			bool m_timeFromTexture = true;
+			std::chrono::system_clock::time_point m_tp;
+		};
+
 		class MapTextureRect
 		{
 		public:
 			MapTextureRect(MapManager* mapManager, TheWorld_Utils::MapTextureRectPos& mapTextureRectPos, float gridStepInWU, size_t numVerticesPerSize);
 			~MapTextureRect(void);
 
+			bool saveUploadedTexture(bool& saved, std::string& utcUploadedTextureTimeStr, TheWorld_Utils::MemoryBuffer& imageBuffer);
+			bool checkMapTextureRect(TheWorld_Utils::MemoryBuffer& imageBuffer);
+			std::chrono::system_clock::time_point getUploadedTextureTime(void);
+
+		private:
 			std::string getTextureRectDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level, bool createDir = true);
 			std::string getTextureRectPath(float gridStepInWU, size_t numVerticesPerSize, size_t level, bool createDir = true);
-			bool saveUploadedTexture(bool& saved, std::string& utcUploadedTextureTimeStr, TheWorld_Utils::MemoryBuffer& imageBuffer);
 
 		private:
 			MapManager* m_mapManager = nullptr;
@@ -310,6 +341,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(bool isInEditor);
 		_declspec(dllexport) void sync(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string* clientQuadrants, std::string& replyClientQuadrants, std::string& replyProceGenStatus, std::string& replyExtraQuadrants, std::string& mapTextureRects, std::string& replyMapTextureRects);
 		_declspec(dllexport) void uploadMapTextureRects(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string& mapTextureRects, std::string& replyMapTextureRects);
+		_declspec(dllexport) void checkMapTextureRects(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string& mapTextureRects, std::string& replyMapTextureRects);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) bool writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) bool writeWorkDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
@@ -324,7 +356,7 @@ namespace TheWorld_MapManager
 
 	private:
 		bool checkTextureRectRefreshNeeded(TheWorld_Utils::MapTextureRectPos& textureRectPos, std::string& fileTime, size_t numVerticesPerSize, float gridStepInWU);
-		std::time_t textureRectServerTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU);
+		std::chrono::system_clock::time_point textureRectServerTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU, bool& timeFromTexture);
 		float computeAltitude(DBInterface::GridVertex& gridVertex, std::vector<WorldDefiner>& wdMap);
 		float computeAltitudeModifier(DBInterface::GridVertex& gridVertex, const WorldDefiner& wd, float distanceFromWD = -1, float wdAltitude = -1);
 		void calcSquareFlatGridMinMaxToExpand(float minXInWUs, float maxXInWUs, float minZInWUs, float maxZInWUs, int& minGridPosX, int& maxGridPosX, int& minGridPosZ, int& maxGridPosZ, float& gridStepInWU);
@@ -360,7 +392,7 @@ namespace TheWorld_MapManager
 
 		static std::recursive_mutex s_cacheMtx;
 
-		static std::map<TheWorld_Utils::MapTextureRectPos, std::time_t> m_textureRectTimeCache;
+		static std::map<TheWorld_Utils::MapTextureRectPos, TextureRectTimeCache> m_textureRectTimeCache;
 
 		static std::recursive_mutex s_initMapMtx;
 		static MapInitMap s_mapInitMap;

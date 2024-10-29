@@ -131,11 +131,11 @@ namespace TheWorld_MapManager
 		return false;
 	}
 
-	std::time_t DBJson::getTextureRectTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU)
+	std::chrono::system_clock::time_point DBJson::getTextureRectTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU)
 	{
 		// return value: -1 = value not set, 0 = all quadrants contained are empty, else time_t of the most recent quadrant
 		
-		std::time_t textureRectTime = -1;
+		std::chrono::system_clock::time_point textureRectTime;
 
 		if (dataPath().length() == 0)
 			throw(MapManagerExceptionDBExceptionNotInitialized(__FUNCTION__));
@@ -164,12 +164,12 @@ namespace TheWorld_MapManager
 		//ss >> std::get_time(&t, "%Y-%m-%d %H:%M:%S");
 		//if (not ss.fail())
 		//	textureRectTime = std::mktime(&t);
-		textureRectTime = TheWorld_Utils::str_time_to_time_t(s);
+		textureRectTime = TheWorld_Utils::str_time_to_time_point(s);
 
 		return textureRectTime;
 	}
 
-	void DBJson::setTextureRectTime(std::time_t textureRectTime, TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU)
+	void DBJson::setTextureRectTime(std::chrono::system_clock::time_point textureRectTime, TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU)
 	{
 		// textureRectTime: -1 = value not set, 0 = all quadrants contained are empty, else time_t of the most recent quadrant
 
@@ -183,7 +183,7 @@ namespace TheWorld_MapManager
 		std::string textureRectPath = textureRectDirPath + "\\" + textureRectPos.getName() + ".json";;
 
 		std::string timeStr;
-		if (textureRectTime == -1)
+		if (TheWorld_Utils::time_point_zero(textureRectTime))
 		{
 			timeStr = "nul";
 		}
@@ -193,7 +193,7 @@ namespace TheWorld_MapManager
 			//localtime_s(&tm, &textureRectTime);
 			//std::strftime(buffer, 32, "%Y-%m-%d %H:%M:%S", &tm);
 			//timeStr = buffer;
-			timeStr = TheWorld_Utils::time_t_to_str_time(textureRectTime);
+			timeStr = TheWorld_Utils::time_point_to_str_time(textureRectTime);
 		}
 
 		Json::Value root;

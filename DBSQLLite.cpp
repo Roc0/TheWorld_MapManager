@@ -2061,12 +2061,12 @@ namespace TheWorld_MapManager
 		throw(MapManagerExceptionDBExceptionNotImpl(__FUNCTION__));
 	}
 
-	std::time_t DBSQLLite::getTextureRectTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU)
+	std::chrono::system_clock::time_point DBSQLLite::getTextureRectTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU)
 	{
 		throw(MapManagerExceptionDBExceptionNotImpl(__FUNCTION__));
 	}
 
-	void DBSQLLite::setTextureRectTime(std::time_t textureRectTime, TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU)
+	void DBSQLLite::setTextureRectTime(std::chrono::system_clock::time_point textureRectTime, TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU)
 	{
 		throw(MapManagerExceptionDBExceptionNotImpl(__FUNCTION__));
 	}

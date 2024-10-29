@@ -671,8 +671,8 @@ namespace TheWorld_MapManager
 		void finalizeDB(void);
 		void importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level);
 		virtual void getAllQuadrants(std::string _cacheDir, std::string mapName, float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer>& vectDiskCache, std::time_t& fromFileTimeType);
-		virtual std::time_t getTextureRectTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU);
-		virtual void setTextureRectTime(std::time_t textureRectTime, TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU);
+		virtual std::chrono::system_clock::time_point getTextureRectTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU);
+		virtual void setTextureRectTime(std::chrono::system_clock::time_point textureRectTime, TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU);
 
 	private:
 		float getDistance(float x1, float y1, float x2, float y2)

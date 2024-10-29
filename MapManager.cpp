@@ -39,7 +39,7 @@ namespace TheWorld_MapManager
 	std::recursive_mutex MapManager::s_staticMapManagerInitializationMtx;
 	std::recursive_mutex MapManager::s_initMapMtx;
 	std::recursive_mutex MapManager::s_cacheMtx;
-	std::map<TheWorld_Utils::MapTextureRectPos, std::time_t> MapManager::m_textureRectTimeCache;
+	std::map<TheWorld_Utils::MapTextureRectPos, MapManager::TextureRectTimeCache> MapManager::m_textureRectTimeCache;
 	MapManager::MapInitMap MapManager::s_mapInitMap;
 	//enum class DBType MapManager::s_dbType = DBType::SQLLite;
 
@@ -124,6 +124,45 @@ namespace TheWorld_MapManager
 		}
 
 		return worked;
+	}
+
+	bool MapManager::MapTextureRect::checkMapTextureRect(TheWorld_Utils::MemoryBuffer& imageBuffer)
+	{
+		bool worked = true;
+		imageBuffer.clear();
+
+		std::string texturePath = getTextureRectPath(m_gridStepInWU, m_numVerticesPerSize, m_mapTextureRectPos.getLevel());
+
+		if (not fs::exists(texturePath))
+			return worked;
+
+		uintmax_t fileSize = fs::file_size(texturePath);
+		imageBuffer.reserve(fileSize);
+
+		// read image buffer
+		FILE* inFile = nullptr;
+		errno_t err = fopen_s(&inFile, texturePath.c_str(), "rb");
+		if (err == 0)
+		{
+			if (fread(imageBuffer.ptr(), fileSize, 1, inFile) == 1)
+			{
+				imageBuffer.adjustSize(fileSize);
+			}
+			else
+				imageBuffer.clear();
+			fclose(inFile);
+		}
+
+		return worked;
+	}
+
+	std::chrono::system_clock::time_point MapManager::MapTextureRect::getUploadedTextureTime(void)
+	{
+		std::chrono::system_clock::time_point utcTextureLastWriteTime;
+		std::string texturePath = getTextureRectPath(m_gridStepInWU, m_numVerticesPerSize, m_mapTextureRectPos.getLevel());
+		if (fs::exists(texturePath))
+			utcTextureLastWriteTime = TheWorld_Utils::last_write_time_point_utc(texturePath);
+		return utcTextureLastWriteTime;
 	}
 
 	MapManager::MapManager(/*const char* logPath, plog::Severity sev, plog::IAppender* appender,*/ char* configFileName, bool multiThreadEnvironment /* every thread is provided with its own DB connection associated to the thread::id*/)
@@ -868,7 +907,8 @@ namespace TheWorld_MapManager
 			std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
 			if (m_textureRectTimeCache.contains(mapTextureRectPos))
 				m_textureRectTimeCache.erase(mapTextureRectPos);
-			m_DBInterface->setTextureRectTime(-1, mapTextureRectPos, numVerticesPerSize, gridStepInWU);
+			std::chrono::system_clock::time_point tpNull;	// Epoch time
+			m_DBInterface->setTextureRectTime(tpNull, mapTextureRectPos, numVerticesPerSize, gridStepInWU);
 		}
 		
 		{
@@ -1245,20 +1285,21 @@ namespace TheWorld_MapManager
 		s_mapInitMap.clear();
 	}
 
-	std::time_t MapManager::textureRectServerTime(TheWorld_Utils::MapTextureRectPos& mapTextureRectPos, size_t numVerticesPerSize, float gridStepInWU)
+	std::chrono::system_clock::time_point MapManager::textureRectServerTime(TheWorld_Utils::MapTextureRectPos& mapTextureRectPos, size_t numVerticesPerSize, float gridStepInWU, bool& timeFromTexture)
 	{
 		{
 			std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
 			if (m_textureRectTimeCache.contains(mapTextureRectPos))
-				return m_textureRectTimeCache[mapTextureRectPos];
+			{
+				timeFromTexture = m_textureRectTimeCache[mapTextureRectPos].timeFromTexture();
+				return m_textureRectTimeCache[mapTextureRectPos].time_point();
+			}
 		}
 		
-		std::time_t textureRectTime = m_DBInterface->getTextureRectTime(mapTextureRectPos, numVerticesPerSize, gridStepInWU);
+		std::chrono::system_clock::time_point textureRectTimeFromQuadrants = m_DBInterface->getTextureRectTime(mapTextureRectPos, numVerticesPerSize, gridStepInWU);
 
-		if (textureRectTime == -1)
+		if (TheWorld_Utils::time_point_zero(textureRectTimeFromQuadrants))
 		{
-			textureRectTime = 0;
-			
 			std::vector<TheWorld_Utils::QuadrantPos> quadrantsPos;
 			mapTextureRectPos.getAllContainedQuadrantPos(quadrantsPos, mapTextureRectPos.getLevel(), (int)numVerticesPerSize, gridStepInWU);
 
@@ -1273,18 +1314,27 @@ namespace TheWorld_MapManager
 				{
 					std::string meshIdWithoutBinaryTime;
 					std::chrono::system_clock::time_point tp = cache.getTimeFromMeshId(meshId, meshIdWithoutBinaryTime);
-					std::time_t t = std::chrono::system_clock::to_time_t(tp);
-					if (t > textureRectTime)
-						textureRectTime = t;
+					if (tp > textureRectTimeFromQuadrants)
+						textureRectTimeFromQuadrants = tp;
 				}
 			}
 
-			m_DBInterface->setTextureRectTime(textureRectTime, mapTextureRectPos, numVerticesPerSize, gridStepInWU);
+			m_DBInterface->setTextureRectTime(textureRectTimeFromQuadrants, mapTextureRectPos, numVerticesPerSize, gridStepInWU);
+		}
+
+		MapTextureRect mapTextureRect(this, mapTextureRectPos, gridStepInWU, numVerticesPerSize);
+		std::chrono::system_clock::time_point textureRectTime = mapTextureRect.getUploadedTextureTime();
+
+		timeFromTexture = true;
+		if (textureRectTimeFromQuadrants > textureRectTime)
+		{
+			timeFromTexture = false;
+			textureRectTime = textureRectTimeFromQuadrants;
 		}
 
 		{
 			std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
-			m_textureRectTimeCache[mapTextureRectPos] = textureRectTime;
+			m_textureRectTimeCache[mapTextureRectPos] = TextureRectTimeCache(textureRectTime, timeFromTexture);
 		}
 
 		return textureRectTime;
@@ -1303,9 +1353,10 @@ namespace TheWorld_MapManager
 		//if (ss.fail())
 		//	return false;
 		//std::time_t textureRectClientTime = std::mktime(&t);
-		std::time_t textureRectClientTime = TheWorld_Utils::str_time_to_time_t(fileTime);
+		std::chrono::system_clock::time_point textureRectClientTime = TheWorld_Utils::str_time_to_time_point(fileTime);
 
-		std::time_t _textureRectServerTime = textureRectServerTime(mapTextureRectPos, numVerticesPerSize, gridStepInWU);
+		bool timeFromTexture;
+		std::chrono::system_clock::time_point _textureRectServerTime = textureRectServerTime(mapTextureRectPos, numVerticesPerSize, gridStepInWU, timeFromTexture);
 
 		if (_textureRectServerTime > textureRectClientTime)
 			refreshNeeded = true;
@@ -1353,45 +1404,43 @@ namespace TheWorld_MapManager
 		inBufferCursor = 0;
 		for (int32_t idx = 0; idx < numMapTextureRects; idx++)
 		{
+			// TheWorld_Utils::MapTextureRectPos
 			size_t mapTextureRectPosBufferSize = TheWorld_Utils::deserializeFromByteStream<size_t>(mapTextureRectsBuffer.ptr() + inBufferCursor, size);
 			inBufferCursor += size;
-
 			TheWorld_Utils::MemoryBuffer mapTextureRectPosBuffer(mapTextureRectsBuffer.ptr() + inBufferCursor, mapTextureRectPosBufferSize);
 			inBufferCursor += mapTextureRectPosBufferSize;
 			TheWorld_Utils::MapTextureRectPos mapTextureRectPos;
 			mapTextureRectPos.deserialize(mapTextureRectPosBuffer);
 
+			// FielTime
 			size_t fileTimeSize = TheWorld_Utils::deserializeFromByteStream<size_t>(mapTextureRectsBuffer.ptr() + inBufferCursor, size);
 			inBufferCursor += size;
-
 			std::string utcFileTimeStr((char*)mapTextureRectsBuffer.ptr() + inBufferCursor, fileTimeSize);
 			inBufferCursor += fileTimeSize;
 
+			// Image Buffer
 			size_t imageBufferSize = TheWorld_Utils::deserializeFromByteStream<size_t>(mapTextureRectsBuffer.ptr() + inBufferCursor, size);
 			inBufferCursor += size;
-
 			TheWorld_Utils::MemoryBuffer imageBuffer(mapTextureRectsBuffer.ptr() + inBufferCursor, imageBufferSize);
 			inBufferCursor += imageBufferSize;
 
 			MapTextureRect mapTextureRect(this, mapTextureRectPos, gridStepInWU, numVerticesPerSize);
-			
 			bool saved = false;
 			bool workedRect = mapTextureRect.saveUploadedTexture(saved, utcFileTimeStr, imageBuffer);
+
+			if (saved and m_textureRectTimeCache.contains(mapTextureRectPos))
+				m_textureRectTimeCache.erase(mapTextureRectPos);
 
 			if (workedRect)
 			{
 				numWorkedRects++;
 
+				// TheWorld_Utils::MapTextureRectPos
 				workedRectsBuffer.reserve(workedRectsBufferCursor + sizeof(size_t));		// to avoid memory overflow
 				TheWorld_Utils::serializeToByteStream<size_t>(mapTextureRectPosBuffer.size(), workedRectsBuffer.ptr() + workedRectsBufferCursor, size);
-				//workedRectsBufferCursor += size;
-				//workedRectsBuffer.adjustSize(workedRectsBufferCursor);
 				workedRectsBuffer.adjustCursorAndSize(workedRectsBufferCursor, size);
-
 				workedRectsBuffer.reserve(workedRectsBufferCursor + mapTextureRectPosBuffer.size());		// to avoid memory overflow
 				memcpy(workedRectsBuffer.ptr() + workedRectsBufferCursor, mapTextureRectPosBuffer.ptr(), mapTextureRectPosBuffer.size());
-				//workedRectsBufferCursor += mapTextureRectPosBuffer.size();
-				//workedRectsBuffer.adjustSize(workedRectsBufferCursor);
 				workedRectsBuffer.adjustCursorAndSize(workedRectsBufferCursor, mapTextureRectPosBuffer.size());
 			}
 		}
@@ -1400,28 +1449,127 @@ namespace TheWorld_MapManager
 		reply.reserve(10000);	// Memory allocation optimization
 		replyCursor = 0;
 		*reply.ptr() = '0';
-		//replyCursor = 1;
-		//reply.adjustSize(replyCursor);
 		reply.adjustCursorAndSize(replyCursor, 1);
 
+		// numWorkedRects
 		reply.reserve(replyCursor + sizeof(size_t));		// to avoid memory overflow
 		TheWorld_Utils::serializeToByteStream<size_t>(numWorkedRects, reply.ptr() + replyCursor, size);
-		//replyCursor += size;
-		//reply.adjustSize(replyCursor);
 		reply.adjustCursorAndSize(replyCursor, size);
 
 		if (numWorkedRects > 0)
 		{
+			// Worked Rects
 			reply.reserve(replyCursor + sizeof(size_t));		// to avoid memory overflow
 			TheWorld_Utils::serializeToByteStream<size_t>(workedRects.size(), reply.ptr() + replyCursor, size);
-			//replyCursor += size;
-			//reply.adjustSize(replyCursor);
 			reply.adjustCursorAndSize(replyCursor, size);
-
 			reply.reserve(replyCursor + workedRects.size());		// to avoid memory overflow
 			memcpy(reply.ptr() + replyCursor, workedRects.c_str(), workedRects.size());
-			//replyCursor += workedRects.size();
-			//reply.adjustSize(replyCursor);
+			reply.adjustCursorAndSize(replyCursor, workedRects.size());
+		}
+
+		replyMapTextureRects = std::string((char*)reply.ptr(), reply.size());
+	}
+
+	void MapManager::checkMapTextureRects(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string& mapTextureRects, std::string& replyMapTextureRects)
+	{
+		replyMapTextureRects.clear();
+
+		if (mapTextureRects.size() == 0)
+			return;
+
+		if (isInEditor)
+			return;
+
+		TheWorld_Utils::MemoryBuffer reply;
+		size_t replyCursor = 0;
+		size_t size = 0;
+
+		std::lock_guard<std::recursive_mutex> lock1(s_cacheMtx);
+		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+
+		size_t inBufferCursor = 1;	// bypassing first byte '0'
+		size_t numMapTextureRects = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
+		inBufferCursor += size;
+
+		if (numMapTextureRects == 0)
+			return;
+
+		size_t mapTextureRectsBufferSize = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
+		inBufferCursor += size;
+
+		TheWorld_Utils::MemoryBuffer mapTextureRectsBuffer((BYTE*)mapTextureRects.c_str() + inBufferCursor, mapTextureRectsBufferSize);
+		inBufferCursor += mapTextureRectsBufferSize;
+
+		size_t numWorkedRects = 0;
+		TheWorld_Utils::MemoryBuffer workedRectsBuffer;
+		workedRectsBuffer.reserve(10000);	// Memory allocation optimization
+		size_t workedRectsBufferCursor = 0;
+
+		inBufferCursor = 0;
+		for (int32_t idx = 0; idx < numMapTextureRects; idx++)
+		{
+			// TheWorld_Utils::MapTextureRectPos
+			size_t mapTextureRectPosBufferSize = TheWorld_Utils::deserializeFromByteStream<size_t>(mapTextureRectsBuffer.ptr() + inBufferCursor, size);
+			inBufferCursor += size;
+			TheWorld_Utils::MemoryBuffer mapTextureRectPosBuffer(mapTextureRectsBuffer.ptr() + inBufferCursor, mapTextureRectPosBufferSize);
+			inBufferCursor += mapTextureRectPosBufferSize;
+			TheWorld_Utils::MapTextureRectPos mapTextureRectPos;
+			mapTextureRectPos.deserialize(mapTextureRectPosBuffer);
+
+			bool timeFromTexture;
+			std::chrono::system_clock::time_point _textureRectServerTime = textureRectServerTime(mapTextureRectPos, numVerticesPerSize, gridStepInWU, timeFromTexture);
+
+			MapTextureRect mapTextureRect(this, mapTextureRectPos, gridStepInWU, numVerticesPerSize);
+			TheWorld_Utils::MemoryBuffer imageBuffer;
+			bool workedRect = true;
+			if (timeFromTexture)	// if time from quadrants we cannot reply with texture image as the rect must be constructed from quadrants
+				workedRect = mapTextureRect.checkMapTextureRect(imageBuffer);
+
+			if (workedRect)
+			{
+				numWorkedRects++;
+
+				// TheWorld_Utils::MapTextureRectPos
+				workedRectsBuffer.reserve(workedRectsBufferCursor + sizeof(size_t));		// to avoid memory overflow
+				TheWorld_Utils::serializeToByteStream<size_t>(mapTextureRectPosBuffer.size(), workedRectsBuffer.ptr() + workedRectsBufferCursor, size);
+				workedRectsBuffer.adjustCursorAndSize(workedRectsBufferCursor, size);
+				workedRectsBuffer.reserve(workedRectsBufferCursor + mapTextureRectPosBuffer.size());		// to avoid memory overflow
+				memcpy(workedRectsBuffer.ptr() + workedRectsBufferCursor, mapTextureRectPosBuffer.ptr(), mapTextureRectPosBuffer.size());
+				workedRectsBuffer.adjustCursorAndSize(workedRectsBufferCursor, mapTextureRectPosBuffer.size());
+
+				// Image Buffer
+				workedRectsBuffer.reserve(workedRectsBufferCursor + sizeof(size_t));		// to avoid memory overflow
+				TheWorld_Utils::serializeToByteStream<size_t>(imageBuffer.size(), workedRectsBuffer.ptr() + workedRectsBufferCursor, size);
+				workedRectsBuffer.adjustCursorAndSize(workedRectsBufferCursor, size);
+				if (imageBuffer.size() > 0)
+				{
+					workedRectsBuffer.reserve(workedRectsBufferCursor + imageBuffer.size());		// to avoid memory overflow
+					memcpy(workedRectsBuffer.ptr() + workedRectsBufferCursor, (char*)imageBuffer.ptr(), imageBuffer.size());
+					workedRectsBuffer.adjustCursorAndSize(workedRectsBufferCursor, imageBuffer.size());
+				}
+
+			}
+		}
+		std::string workedRects = std::string((char*)workedRectsBuffer.ptr(), workedRectsBuffer.size());
+
+		reply.reserve(10000);	// Memory allocation optimization
+		replyCursor = 0;
+		*reply.ptr() = '0';
+		reply.adjustCursorAndSize(replyCursor, 1);
+
+		// numWorkedRects
+		reply.reserve(replyCursor + sizeof(size_t));		// to avoid memory overflow
+		TheWorld_Utils::serializeToByteStream<size_t>(numWorkedRects, reply.ptr() + replyCursor, size);
+		reply.adjustCursorAndSize(replyCursor, size);
+
+		if (numWorkedRects > 0)
+		{
+			// Worked Rects
+			reply.reserve(replyCursor + sizeof(size_t));		// to avoid memory overflow
+			TheWorld_Utils::serializeToByteStream<size_t>(workedRects.size(), reply.ptr() + replyCursor, size);
+			reply.adjustCursorAndSize(replyCursor, size);
+			reply.reserve(replyCursor + workedRects.size());		// to avoid memory overflow
+			memcpy(reply.ptr() + replyCursor, workedRects.c_str(), workedRects.size());
 			reply.adjustCursorAndSize(replyCursor, workedRects.size());
 		}
 
@@ -1474,6 +1622,7 @@ namespace TheWorld_MapManager
 
 				TheWorld_Utils::MapTextureRectPos mapTextureRectPos;
 				mapTextureRectPos.deserialize(tmpBuffer);
+				assert(mapTextureRectPos.initialized());	// DEBUG
 
 				size_t fileTimeSize = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
 				inBufferCursor += size;
