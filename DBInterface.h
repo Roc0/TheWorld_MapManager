@@ -355,6 +355,7 @@ namespace TheWorld_MapManager
 		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit) = 0;
 		virtual void finalizeDB(void) = 0;
 		virtual void importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level) = 0;
+		virtual void writeExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::TerrainEdit>& externalQuadrants) = 0;
 		virtual void getAllQuadrants(std::string _cacheDir, std::string mapName, float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer>& diskCacheMap, std::time_t& fromFileTimeType) = 0;
 		virtual std::chrono::system_clock::time_point getTextureRectTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU) = 0;
 		virtual void setTextureRectTime(std::chrono::system_clock::time_point textureRectTime, TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU) = 0;

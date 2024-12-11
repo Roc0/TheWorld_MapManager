@@ -37,12 +37,14 @@ namespace TheWorld_MapManager
 		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit);
 		virtual void finalizeDB(void);
 		virtual void importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level);
+		virtual void writeExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::TerrainEdit>& externalQuadrants);
 		virtual void getAllQuadrants(std::string _cacheDir, std::string mapName, float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer>& diskCacheMap, std::time_t& fromFileTimeType);
 		virtual std::chrono::system_clock::time_point getTextureRectTime(TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU);
 		virtual void setTextureRectTime(std::chrono::system_clock::time_point textureRectTime, TheWorld_Utils::MapTextureRectPos& textureRectPos, size_t numVerticesPerSize, float gridStepInWU);
 
 	private:
 		bool completeQuadrantDataWithDefaultValues(float gridStepInWU, size_t numVerticesPerSize, int level, Json::Value& root);
+		void terrainDataToQuadrant(Json::Value& quadrant, const TheWorld_Utils::QuadrantPos& pos, const TheWorld_Utils::TerrainEdit& terrainEdit);
 		std::string getTextureRectDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
 		std::string getQuadrantDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level);
 		std::string getQuadrantFilePath(float gridStepInWU, size_t numVerticesPerSize, size_t level, float lowerXGridVertex, float lowerZGridVertex);

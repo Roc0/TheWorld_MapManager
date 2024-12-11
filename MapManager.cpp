@@ -872,6 +872,7 @@ namespace TheWorld_MapManager
 					break;
 
 				if (*itMesh == *itGridFromDB)
+
 				{
 					*itMesh = *itGridFromDB;
 					itGridFromDB++;
@@ -879,6 +880,48 @@ namespace TheWorld_MapManager
 					numFoundInDB++;
 				}
 			}
+		}
+	}
+
+	void MapManager::uploadMapQuadrantOverrides(bool isInEditor, int numVerticesPerSize, float& gridStepInWU, int level, std::string& buffer)
+	{
+		size_t cursor = 1;	// bypassing first byte '0'
+		size_t size = 0;
+
+		std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::TerrainEdit> mapQuadrantOverrides;
+		
+		size_t numQuadrantOverrides = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)buffer.c_str() + cursor, size);
+		cursor += size;
+
+		for (int32_t idx = 0; idx < numQuadrantOverrides; idx++)
+		{
+			TheWorld_Utils::QuadrantPos mapQuadrantOverridePos;
+			{
+				// TheWorld_Utils::QuadrantPos
+				size_t mapQuadrantOverridePosBufferSize = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)buffer.c_str() + cursor, size);
+				cursor += size;
+				TheWorld_Utils::MemoryBuffer mapQuadrantOverridePosBuffer((BYTE*)buffer.c_str() + cursor, mapQuadrantOverridePosBufferSize);
+				cursor += mapQuadrantOverridePosBufferSize;
+				mapQuadrantOverridePos.deserialize(mapQuadrantOverridePosBuffer);
+			}
+
+			TheWorld_Utils::TerrainEdit mapQuadrantOverrideTerrainEdit;
+			{
+				//TheWorld_Utils::TerrainEdit
+				size_t mapQuadrantOverrideTerrainEditBufferSize = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)buffer.c_str() + cursor, size);
+				cursor += size;
+				TheWorld_Utils::MemoryBuffer mapQuadrantOverrideTerrainEditBuffer((BYTE*)buffer.c_str() + cursor, mapQuadrantOverrideTerrainEditBufferSize);
+				cursor += mapQuadrantOverrideTerrainEditBufferSize;
+				mapQuadrantOverrideTerrainEdit.deserialize(mapQuadrantOverrideTerrainEditBuffer);
+			}
+
+			mapQuadrantOverrides[mapQuadrantOverridePos] = mapQuadrantOverrideTerrainEdit;
+		}
+
+		{
+			std::lock_guard<std::recursive_mutex> lock1(s_cacheMtx);
+			std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+			m_DBInterface->writeExternalQuadrants(gridStepInWU, numVerticesPerSize, level, mapQuadrantOverrides);
 		}
 	}
 
@@ -1412,7 +1455,7 @@ namespace TheWorld_MapManager
 			TheWorld_Utils::MapTextureRectPos mapTextureRectPos;
 			mapTextureRectPos.deserialize(mapTextureRectPosBuffer);
 
-			// FielTime
+			// FileTime
 			size_t fileTimeSize = TheWorld_Utils::deserializeFromByteStream<size_t>(mapTextureRectsBuffer.ptr() + inBufferCursor, size);
 			inBufferCursor += size;
 			std::string utcFileTimeStr((char*)mapTextureRectsBuffer.ptr() + inBufferCursor, fileTimeSize);

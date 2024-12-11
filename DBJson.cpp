@@ -199,7 +199,7 @@ namespace TheWorld_MapManager
 		Json::Value root;
 		root["Time"] = timeStr;
 
-		ofstream jsonTextureRectFile(textureRectPath, ios_base::out);
+		std::ofstream jsonTextureRectFile(textureRectPath, ios_base::out);
 		if (jsonTextureRectFile.fail() || !jsonTextureRectFile.is_open())
 			throw(MapManagerExceptionDBException(__FUNCTION__, "Could not open json texture rect file for writing", textureRectPath.c_str()));
 		jsonTextureRectFile << root;
@@ -363,7 +363,7 @@ namespace TheWorld_MapManager
 			fs::create_directories(quadrantDirPath);
 
 		std::string quadrantFilePath = getQuadrantFilePath(gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
-		ofstream quadrantFile(quadrantFilePath, ios_base::out);
+		std::ofstream quadrantFile(quadrantFilePath, ios_base::out);
 		if (quadrantFile.fail() || !quadrantFile.is_open())
 			throw(MapManagerExceptionDBException(__FUNCTION__, "Could not open json quadrant file for writing", quadrantFilePath.c_str()));
 		quadrantFile << root;
@@ -524,6 +524,53 @@ namespace TheWorld_MapManager
 	{
 	}
 
+	void DBJson::writeExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::TerrainEdit>& externalQuadrants)
+	{
+		std::string quadrantImportDirPath = getQuadrantImportDirPath(gridStepInWU, numVerticesPerSize, level);
+		std::string fileName = "Editor_" + TheWorld_Utils::time_point_to_str_time(TheWorld_Utils::current_utc_time_point());
+		std::replace(fileName.begin(), fileName.end(), ' ', '_');
+		std::replace(fileName.begin(), fileName.end(), '.', '_');
+		std::replace(fileName.begin(), fileName.end(), ':', '-');
+		std::string quadrantImportFilePath = quadrantImportDirPath + "\\" + fileName + ".json";
+
+		Json::Value quadrants;
+		//int index = 0;
+		for (auto& item : externalQuadrants)
+		{
+			Json::Value quadrant;
+			terrainDataToQuadrant(quadrant, item.first, item.second);
+			bool ok = completeQuadrantDataWithDefaultValues(gridStepInWU, numVerticesPerSize, level, quadrant);
+			if (not ok)
+			{
+				std::string s = "Could not set terrain data for quadrant " + item.first.getIdStr();
+				PLOG_ERROR << s;
+				throw(MapManagerExceptionDBException(__FUNCTION__, s.c_str()));
+			}
+			//quadrants[index++] = quadrant;
+			quadrants.append(quadrant);
+		}
+
+		Json::Value root;
+		root["quadrants"] = quadrants;
+		std::ofstream quadrantImportFile(quadrantImportFilePath, ios_base::out);
+		if (quadrantImportFile.fail() || !quadrantImportFile.is_open())
+		{
+			char errMsg[512];
+			int err = errno;
+			strerror_s(errMsg, sizeof(errMsg), err);
+			std::string s = "Could not open json import quadrants file for writing " + quadrantImportFilePath + " - " + errMsg + "(" + std::to_string(err) + ")";
+			PLOG_ERROR << s;
+			throw(MapManagerExceptionDBException(__FUNCTION__, s.c_str()));
+		}
+		else
+		{
+
+			quadrantImportFile << root;
+			quadrantImportFile.close();
+		}
+
+	}
+
 	void DBJson::importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level)
 	{
 		std::string quadrantImportDirPath = getQuadrantImportDirPath(gridStepInWU, numVerticesPerSize, level);
@@ -539,13 +586,14 @@ namespace TheWorld_MapManager
 		//	fs::create_directories(quadrantWorkDirPath);
 
 		for (const auto& entry : fs::directory_iterator(quadrantImportDirPath))
+		{
 			if (entry.is_regular_file() && entry.path().extension() == ".json")
 			{
-				std::string path = entry.path().string();
-				std::ifstream jsonQuadrantFile(path);
+				std::string importingFilePath = entry.path().string();
+				std::ifstream jsonQuadrantFile(importingFilePath);
 				if (jsonQuadrantFile.fail() || !jsonQuadrantFile.is_open())
 				{
-					PLOG_ERROR << "*** " << " cannnot open " << path;
+					PLOG_ERROR << "*** " << " cannnot open " << importingFilePath;
 				}
 				else
 				{
@@ -557,10 +605,10 @@ namespace TheWorld_MapManager
 					}
 					catch (std::exception)
 					{
-						PLOG_ERROR << "*** " << " error parsing " << path;
+						PLOG_ERROR << "*** " << " error parsing " << importingFilePath;
 						parseError = true;
 					}
-					
+
 					jsonQuadrantFile.close();
 
 					if (!parseError)
@@ -580,7 +628,7 @@ namespace TheWorld_MapManager
 								//std::string quadrantFilePath = quadrantWorkDirPath + "\\" + _quadrantFilePath.filename().string();
 								std::string quadrantFilePath = _quadrantFilePath.string();
 
-								ofstream quadrantFile(quadrantFilePath, ios_base::out);
+								std::ofstream quadrantFile(quadrantFilePath, ios_base::out);
 								if (quadrantFile.fail() || !quadrantFile.is_open())
 								{
 									PLOG_ERROR << "Could not open json quadrant file for writing " << quadrantFilePath;
@@ -593,34 +641,123 @@ namespace TheWorld_MapManager
 							}
 							else
 							{
-								PLOG_ERROR << "*** " << " cannnot import " << path;
+								PLOG_ERROR << "*** " << " cannnot import " << importingFilePath;
 							}
-						}									
-						
+						}
+
 						bool ret = false;
 
 						try
 						{
-							ret = fs::remove(path);
+							std::string importedFilePath = importingFilePath + ".imported";
+							ret = fs::remove(importedFilePath);
+							fs::rename(importingFilePath.c_str(), importedFilePath.c_str());
+							ret = true;
 						}
 						catch (std::exception ex)
 						{
 							ret = false;
-							std::string s = "Exception deleting import quadrant file " + path + " - " + ex.what();
+							std::string s = "Exception deleting import quadrant file " + importingFilePath + " - " + ex.what();
 							PLOG_ERROR << "Exception deleting import quadrant file " << s;
 							throw(MapManagerExceptionDBException(__FUNCTION__, s.c_str()));
 						}
 						if (!ret)
 						{
-							std::string s = "Could not delete import quadrant file " + path;
+							std::string s = "Could not delete import quadrant file " + importingFilePath;
 							PLOG_ERROR << s;
 							throw(MapManagerExceptionDBException(__FUNCTION__, s.c_str()));
 						}
 					}
 				}
 			}
+		}
 	}
 
+	void DBJson::terrainDataToQuadrant(Json::Value& quadrant, const TheWorld_Utils::QuadrantPos& pos, const TheWorld_Utils::TerrainEdit& terrainEdit)
+	{
+		quadrant["gridStepInWU"] = pos.getGridStepInWU();
+		quadrant["numVerticesPerSize"] = int(pos.getNumVerticesPerSize());
+		quadrant["level"] = pos.getLevel();
+		quadrant["lowerXGridVertex"] = pos.getLowerXGridVertex();
+		quadrant["lowerZGridVertex"] = pos.getLowerZGridVertex();
+		quadrant["quadrantIndexX"] = pos.getIndexPosX();
+		quadrant["quadrantIndexZ"] = pos.getIndexPosZ();
+		quadrant["terrain_data"]["001_terrainType"] = int(terrainEdit.terrainType);
+		quadrant["terrain_data"]["002_heightsNeedRegen"] = terrainEdit.heightsNeedRegen;
+		quadrant["terrain_data"]["003_normalsNeedRegen"] = terrainEdit.normalsNeedRegen;
+		quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen;
+		quadrant["terrain_data"]["005_colormapNeedRegen"] = terrainEdit.colormapNeedRegen;
+		quadrant["terrain_data"]["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen;
+		quadrant["terrain_data"]["007_needUploadToServer"] = terrainEdit.needUploadToServer;
+		quadrant["terrain_data"]["008_minHeight"] = terrainEdit.minHeight;
+		quadrant["terrain_data"]["009_maxHeight"] = terrainEdit.maxHeight;
+		quadrant["terrain_data"]["010_lowElevationTexName_r"] = terrainEdit.extraValues.lowElevationTexName_r;
+		quadrant["terrain_data"]["011_highElevationTexName_g"] = terrainEdit.extraValues.highElevationTexName_g;
+		quadrant["terrain_data"]["012_dirtTexName_b"] = terrainEdit.extraValues.dirtTexName_b;
+		quadrant["terrain_data"]["013_rocksTexName_a"] = terrainEdit.extraValues.rocksTexName_a;
+		quadrant["terrain_data"]["014_splatmap_slopeVerticalFactor"] = terrainEdit.extraValues.slopeVerticalFactor;
+		quadrant["terrain_data"]["015_splatmap_slopeFlatFactor"] = terrainEdit.extraValues.slopeFlatFactor;
+		quadrant["terrain_data"]["016_splatmap_dirtOnRocksFactor"] = terrainEdit.extraValues.dirtOnRocksFactor;
+		quadrant["terrain_data"]["017_splatmap_highElevationFactor"] = terrainEdit.extraValues.highElevationFactor;
+		quadrant["terrain_data"]["018_splatmap_lowElevationFactor"] = terrainEdit.extraValues.lowElevationFactor;
+		quadrant["terrain_data"]["019_splatMapMode"] = int(terrainEdit.extraValues.splatMapMode);
+		quadrant["terrain_data"]["020_amplitudeBlendFactor"] = terrainEdit.extraValues.amplitudeBlendFactor;
+		quadrant["terrain_data"]["021_postGenerateElevation"] = terrainEdit.extraValues.postGenerateElevation;
+		quadrant["terrain_data"]["022_ignoreDesideredMinHeight"] = terrainEdit.extraValues.ignoreDesideredMinHeight;
+		quadrant["terrain_data"]["023_numBlendingCycles"] = int(terrainEdit.extraValues.numBlendingCycles);
+		quadrant["terrain_data"]["024_blendingBendingFactor"] = terrainEdit.extraValues.blendingBendingFactor;
+		quadrant["terrain_data"]["025_minRandomBendingExtension"] = terrainEdit.extraValues.minRandomBendingExtension;
+		quadrant["terrain_data"]["026_maxRandomBendingExtension"] = terrainEdit.extraValues.maxRandomBendingExtension;
+		quadrant["terrain_data"]["027_seaInfoSet"] = terrainEdit.extraValues.seaInfoSet;
+		quadrant["terrain_data"]["028_containsSea"] = terrainEdit.extraValues.canContainSea;
+		quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
+		quadrant["terrain_data"]["grp_eastSideXPlus"]["minHeight"] = terrainEdit.eastSideXPlus.minHeight;
+		quadrant["terrain_data"]["grp_eastSideXPlus"]["maxHeight"] = terrainEdit.eastSideXPlus.maxHeight;
+		quadrant["terrain_data"]["grp_westSideXMinus"]["needBlend"] = terrainEdit.westSideXMinus.needBlend;
+		quadrant["terrain_data"]["grp_westSideXMinus"]["minHeight"] = terrainEdit.westSideXMinus.minHeight;
+		quadrant["terrain_data"]["grp_westSideXMinus"]["maxHeight"] = terrainEdit.westSideXMinus.maxHeight;
+		quadrant["terrain_data"]["grp_southSideZPlus"]["needBlend"] = terrainEdit.southSideZPlus.needBlend;
+		quadrant["terrain_data"]["grp_southSideZPlus"]["minHeight"] = terrainEdit.southSideZPlus.minHeight;
+		quadrant["terrain_data"]["grp_southSideZPlus"]["maxHeight"] = terrainEdit.southSideZPlus.maxHeight;
+		quadrant["terrain_data"]["grp_northSideZMinus"]["needBlend"] = terrainEdit.northSideZMinus.needBlend;
+		quadrant["terrain_data"]["grp_northSideZMinus"]["minHeight"] = terrainEdit.northSideZMinus.minHeight;
+		quadrant["terrain_data"]["grp_northSideZMinus"]["maxHeight"] = terrainEdit.northSideZMinus.maxHeight;
+		quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["minHeight"] = terrainEdit.eastNeighbourXPlus.minHeight();
+		quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["maxHeight"] = terrainEdit.eastNeighbourXPlus.maxHeight();
+		quadrant["terrain_data"]["grp_westNeighbourXMinus"]["minHeight"] = terrainEdit.westNeighbourXMinus.minHeight();
+		quadrant["terrain_data"]["grp_westNeighbourXMinus"]["maxHeight"] = terrainEdit.westNeighbourXMinus.maxHeight();
+		quadrant["terrain_data"]["grp_southNeighbourZPlus"]["minHeight"] = terrainEdit.southNeighbourZPlus.minHeight();
+		quadrant["terrain_data"]["grp_southNeighbourZPlus"]["maxHeight"] = terrainEdit.southNeighbourZPlus.maxHeight();
+		quadrant["terrain_data"]["grp_northNeighbourZMinus"]["minHeight"] = terrainEdit.northNeighbourZMinus.minHeight();
+		quadrant["terrain_data"]["grp_northNeighbourZMinus"]["maxHeight"] = terrainEdit.northNeighbourZMinus.maxHeight();
+		quadrant["terrain_data"]["grp_noise"]["001_noiseType"] = terrainEdit.noise.noiseType;
+		quadrant["terrain_data"]["grp_noise"]["002_rotationType3D"] = terrainEdit.noise.rotationType3D;
+		quadrant["terrain_data"]["grp_noise"]["003_noiseSeed"] = terrainEdit.noise.noiseSeed;
+		quadrant["terrain_data"]["grp_noise"]["004_frequency"] = terrainEdit.noise.frequency;
+		quadrant["terrain_data"]["grp_noise"]["005_fractalType"] = terrainEdit.noise.fractalType;
+		quadrant["terrain_data"]["grp_noise"]["006_fractalOctaves"] = terrainEdit.noise.fractalOctaves;
+		quadrant["terrain_data"]["grp_noise"]["007_fractalLacunarity"] = terrainEdit.noise.fractalLacunarity;
+		quadrant["terrain_data"]["grp_noise"]["008_fractalGain"] = terrainEdit.noise.fractalGain;
+		quadrant["terrain_data"]["grp_noise"]["009_fractalWeightedStrength"] = terrainEdit.noise.fractalWeightedStrength;
+		quadrant["terrain_data"]["grp_noise"]["010_fractalPingPongStrength"] = terrainEdit.noise.fractalPingPongStrength;
+		quadrant["terrain_data"]["grp_noise"]["011_cellularDistanceFunction"] = terrainEdit.noise.cellularDistanceFunction;
+		quadrant["terrain_data"]["grp_noise"]["012_cellularReturnType"] = terrainEdit.noise.cellularReturnType;
+		quadrant["terrain_data"]["grp_noise"]["013_cellularJitter"] = terrainEdit.noise.cellularJitter;
+		quadrant["terrain_data"]["grp_noise"]["014_warpNoiseDomainWarpType"] = terrainEdit.noise.warpNoiseDomainWarpType;
+		quadrant["terrain_data"]["grp_noise"]["015_warpNoiseRotationType3D"] = terrainEdit.noise.warpNoiseRotationType3D;
+		quadrant["terrain_data"]["grp_noise"]["016_warpNoiseSeed"] = terrainEdit.noise.warpNoiseSeed;
+		quadrant["terrain_data"]["grp_noise"]["017_warpNoiseDomainWarpAmp"] = terrainEdit.noise.warpNoiseDomainWarpAmp;
+		quadrant["terrain_data"]["grp_noise"]["018_warpNoiseFrequency"] = terrainEdit.noise.warpNoiseFrequency;
+		quadrant["terrain_data"]["grp_noise"]["019_warpNoieseFractalType"] = terrainEdit.noise.warpNoieseFractalType;
+		quadrant["terrain_data"]["grp_noise"]["020_warpNoiseFractalOctaves"] = terrainEdit.noise.warpNoiseFractalOctaves;
+		quadrant["terrain_data"]["grp_noise"]["021_warpNoiseFractalLacunarity"] = terrainEdit.noise.warpNoiseFractalLacunarity;
+		quadrant["terrain_data"]["grp_noise"]["022_warpNoiseFractalGain"] = terrainEdit.noise.warpNoiseFractalGain;
+		quadrant["terrain_data"]["grp_noise"]["023_heightsAmplitude"] = terrainEdit.noise.heightsAmplitude;
+		quadrant["terrain_data"]["grp_noise"]["024_scaleFactor_JagIntensity"] = terrainEdit.noise.scaleFactor_JagIntensity;
+		quadrant["terrain_data"]["grp_noise"]["025_desideredMinHeight"] = terrainEdit.noise.desideredMinHeight;
+		quadrant["terrain_data"]["grp_noise"]["026_desideredMinHeigthMandatory"] = terrainEdit.noise.desideredMinHeigthMandatory;
+	}
+		
 	bool DBJson::completeQuadrantDataWithDefaultValues(float gridStepInWU, size_t numVerticesPerSize, int level, Json::Value& quadrant)
 	{
 		float gridSizeInWU = (numVerticesPerSize - 1) * gridStepInWU;
@@ -873,28 +1010,34 @@ namespace TheWorld_MapManager
 		if (v.isNull())
 			quadrant["terrain_data"]["grp_northSideZMinus"]["maxHeight"] = terrainEdit.northSideZMinus.maxHeight;
 
-
 		v = quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["minHeight"];
 		if (v.isNull())
 			quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["minHeight"] = terrainEdit.eastNeighbourXPlus.minHeight();
+
 		v = quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["maxHeight"];
 		if (v.isNull())
 			quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["maxHeight"] = terrainEdit.eastNeighbourXPlus.maxHeight();
+
 		v = quadrant["terrain_data"]["grp_westNeighbourXMinus"]["minHeight"];
 		if (v.isNull())
 			quadrant["terrain_data"]["grp_westNeighbourXMinus"]["minHeight"] = terrainEdit.westNeighbourXMinus.minHeight();
+
 		v = quadrant["terrain_data"]["grp_westNeighbourXMinus"]["maxHeight"];
 		if (v.isNull())
 			quadrant["terrain_data"]["grp_westNeighbourXMinus"]["maxHeight"] = terrainEdit.westNeighbourXMinus.maxHeight();
+
 		v = quadrant["terrain_data"]["grp_southNeighbourZPlus"]["minHeight"];
 		if (v.isNull())
 			quadrant["terrain_data"]["grp_southNeighbourZPlus"]["minHeight"] = terrainEdit.southNeighbourZPlus.minHeight();
+
 		v = quadrant["terrain_data"]["grp_southNeighbourZPlus"]["maxHeight"];
 		if (v.isNull())
 			quadrant["terrain_data"]["grp_southNeighbourZPlus"]["maxHeight"] = terrainEdit.southNeighbourZPlus.maxHeight();
+
 		v = quadrant["terrain_data"]["grp_northNeighbourZMinus"]["minHeight"];
 		if (v.isNull())
 			quadrant["terrain_data"]["grp_northNeighbourZMinus"]["minHeight"] = terrainEdit.northNeighbourZMinus.minHeight();
+
 		v = quadrant["terrain_data"]["grp_northNeighbourZMinus"]["maxHeight"];
 		if (v.isNull())
 			quadrant["terrain_data"]["grp_northNeighbourZMinus"]["maxHeight"] = terrainEdit.northNeighbourZMinus.maxHeight();
@@ -1008,7 +1151,10 @@ namespace TheWorld_MapManager
 
 	std::string DBJson::getTextureRectDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level)
 	{
-		return getQuadrantDirPath(gridStepInWU, numVerticesPerSize, level) + "\\MapRects";
+		std::string textureRectDirPath = getQuadrantDirPath(gridStepInWU, numVerticesPerSize, level) + "\\MapRects";
+		if (!fs::exists(textureRectDirPath))
+			fs::create_directories(textureRectDirPath);
+		return textureRectDirPath;
 	}
 
 	std::string DBJson::getQuadrantDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level)
@@ -1018,7 +1164,10 @@ namespace TheWorld_MapManager
 
 	std::string DBJson::getQuadrantImportDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level)
 	{
-		return getQuadrantDirPath(gridStepInWU, numVerticesPerSize, level) + "\\Import";
+		std::string quadrantImportDirPath = getQuadrantDirPath(gridStepInWU, numVerticesPerSize, level) + "\\Import";
+		if (!fs::exists(quadrantImportDirPath))
+			fs::create_directories(quadrantImportDirPath);
+		return quadrantImportDirPath;
 	}
 
 	//std::string DBJson::getQuadrantWorkDirPath(float gridStepInWU, size_t numVerticesPerSize, size_t level)
@@ -1028,7 +1177,8 @@ namespace TheWorld_MapManager
 
 	std::string DBJson::getQuadrantFilePath(float gridStepInWU, size_t numVerticesPerSize, size_t level, float lowerXGridVertex, float lowerZGridVertex)
 	{
-		return getQuadrantDirPath(gridStepInWU, numVerticesPerSize, level) + "\\X-" + std::to_string(lowerXGridVertex) + "_Z-" + std::to_string(lowerZGridVertex) + ".json";
+		std::string quadrantDirPath =getQuadrantDirPath(gridStepInWU, numVerticesPerSize, level) + "\\X-" + std::to_string(lowerXGridVertex) + "_Z-" + std::to_string(lowerZGridVertex) + ".json";
+		return quadrantDirPath;
 	}
 
 	void DBJson::getAllQuadrants(std::string _cacheDir, std::string mapName, float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer>& diskCacheMap, std::time_t& fromFileTimeType)

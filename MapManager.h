@@ -346,6 +346,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) bool writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) bool writeWorkDiskCacheFromDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop);
 		_declspec(dllexport) void uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer, bool& refreshRequired, int32_t numQuadrantsPerSize, float quadrantGlobalSize, float quadrantWorldSize);
+		_declspec(dllexport) void uploadMapQuadrantOverrides(bool isInEditor, int numVerticesPerSize, float& gridStepInWU, int level, std::string& buffer);
 		_declspec(dllexport) void getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level = 0);
 		_declspec(dllexport) inline float calcPreviousCoordOnTheGridInWUs(float coordInWUs);
 		_declspec(dllexport) inline float calcNextCoordOnTheGridInWUs(float coordInWUs);

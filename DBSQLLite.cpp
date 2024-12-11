@@ -2051,6 +2051,11 @@ namespace TheWorld_MapManager
 		dbOps.finalizeDB();
 	}
 
+	void DBSQLLite::writeExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::TerrainEdit>& externalQuadrants)
+	{
+		throw(MapManagerExceptionDBExceptionNotImpl(__FUNCTION__));
+	}
+
 	void DBSQLLite::importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level)
 	{
 		throw(MapManagerExceptionDBExceptionNotImpl(__FUNCTION__));
