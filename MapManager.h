@@ -62,7 +62,7 @@ namespace TheWorld_MapManager
 			~MapTextureRect(void);
 
 			bool saveUploadedTexture(bool& saved, std::string& utcUploadedTextureTimeStr, TheWorld_Utils::MemoryBuffer& imageBuffer);
-			bool checkMapTextureRect(TheWorld_Utils::MemoryBuffer& imageBuffer);
+			bool checkMapTextureRect(TheWorld_Utils::MemoryBuffer& imageBuffer, std::chrono::system_clock::time_point& imageTime);
 			std::chrono::system_clock::time_point getUploadedTextureTime(void);
 
 		private:

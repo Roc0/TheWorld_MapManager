@@ -105,10 +105,14 @@ namespace TheWorld_MapManager
 		//	utcTextureLastWriteTime = TheWorld_Utils::last_write_time_t_utc(texturePath);
 		const std::chrono::system_clock::time_point uploadTextureTime = TheWorld_Utils::str_time_to_time_point(utcUploadedTextureTimeStr);
 		std::chrono::system_clock::time_point utcTextureLastWriteTime;
+		bool fileExist = false;
 		if (fs::exists(texturePath))
+		{
 			utcTextureLastWriteTime = TheWorld_Utils::last_write_time_point_utc(texturePath);
+			fileExist = true;
+		}
 
-		if (uploadTextureTime > utcTextureLastWriteTime)
+		if (not fileExist or uploadTextureTime > utcTextureLastWriteTime)
 		{
 			FILE* outFile = nullptr;
 			errno_t err = fopen_s(&outFile, texturePath.c_str(), "wb");
@@ -126,7 +130,7 @@ namespace TheWorld_MapManager
 		return worked;
 	}
 
-	bool MapManager::MapTextureRect::checkMapTextureRect(TheWorld_Utils::MemoryBuffer& imageBuffer)
+	bool MapManager::MapTextureRect::checkMapTextureRect(TheWorld_Utils::MemoryBuffer& imageBuffer, std::chrono::system_clock::time_point& imageTime)
 	{
 		bool worked = true;
 		imageBuffer.clear();
@@ -1398,6 +1402,9 @@ namespace TheWorld_MapManager
 		//std::time_t textureRectClientTime = std::mktime(&t);
 		std::chrono::system_clock::time_point textureRectClientTime = TheWorld_Utils::str_time_to_time_point(fileTime);
 
+		if (TheWorld_Utils::is_time_point_null(textureRectClientTime))
+			assert(TheWorld_Utils::is_time_point_null(textureRectClientTime));
+
 		bool timeFromTexture;
 		std::chrono::system_clock::time_point _textureRectServerTime = textureRectServerTime(mapTextureRectPos, numVerticesPerSize, gridStepInWU, timeFromTexture);
 
@@ -1565,8 +1572,9 @@ namespace TheWorld_MapManager
 			MapTextureRect mapTextureRect(this, mapTextureRectPos, gridStepInWU, numVerticesPerSize);
 			TheWorld_Utils::MemoryBuffer imageBuffer;
 			bool workedRect = true;
+			std::chrono::system_clock::time_point imageTime = std::chrono::system_clock::time_point();
 			if (timeFromTexture)	// if time from quadrants we cannot reply with texture image as the rect must be constructed from quadrants
-				workedRect = mapTextureRect.checkMapTextureRect(imageBuffer);
+				workedRect = mapTextureRect.checkMapTextureRect(imageBuffer, imageTime);
 
 			if (workedRect)
 			{
@@ -1591,6 +1599,10 @@ namespace TheWorld_MapManager
 					workedRectsBuffer.adjustCursorAndSize(workedRectsBufferCursor, imageBuffer.size());
 				}
 
+				// Image Time
+				workedRectsBuffer.reserve(workedRectsBufferCursor + sizeof(std::chrono::system_clock::time_point));
+				TheWorld_Utils::serializeToByteStream<std::chrono::system_clock::time_point>(imageTime, workedRectsBuffer.ptr() + workedRectsBufferCursor, size);
+				workedRectsBuffer.adjustCursorAndSize(workedRectsBufferCursor, size);
 			}
 		}
 		std::string workedRects = std::string((char*)workedRectsBuffer.ptr(), workedRectsBuffer.size());
@@ -1657,19 +1669,18 @@ namespace TheWorld_MapManager
 
 			for (size_t idx = 0; idx < numMapTextureRects; idx++)
 			{
+				// TheWorld_Utils::MapTextureRectPos
 				size_t mapTextureRectPosBufferSize = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
 				inBufferCursor += size;
-
 				TheWorld_Utils::MemoryBuffer tmpBuffer((BYTE*)mapTextureRects.c_str() + inBufferCursor, mapTextureRectPosBufferSize);
 				inBufferCursor += mapTextureRectPosBufferSize;
-
 				TheWorld_Utils::MapTextureRectPos mapTextureRectPos;
 				mapTextureRectPos.deserialize(tmpBuffer);
 				assert(mapTextureRectPos.initialized());	// DEBUG
 
+				// File Time Str
 				size_t fileTimeSize = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
 				inBufferCursor += size;
-
 				std::string fileTime(mapTextureRects.c_str() + inBufferCursor, fileTimeSize);
 				inBufferCursor += fileTimeSize;
 			
