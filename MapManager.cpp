@@ -34,11 +34,9 @@ namespace TheWorld_MapManager
 	DBInterface::DBType MapManager::s_dbt = DBInterface::DBType::Json;
 	//DBInterface::DBType MapManager::s_dbt = DBInterface::DBType::SQLLite;
 	
-	//std::recursive_mutex MapManager::s_mtxInternalData;
+	std::recursive_mutex MapManager::s_mtxInternalData;
 	bool MapManager::staticMapManagerInitializationDone = false;
 	std::recursive_mutex MapManager::s_staticMapManagerInitializationMtx;
-	std::recursive_mutex MapManager::s_initMapMtx;
-	std::recursive_mutex MapManager::s_cacheMtx;
 	std::map<TheWorld_Utils::MapTextureRectPos, MapManager::TextureRectTimeCache> MapManager::m_textureRectTimeCache;
 	MapManager::MapInitMap MapManager::s_mapInitMap;
 	//enum class DBType MapManager::s_dbType = DBType::SQLLite;
@@ -923,8 +921,7 @@ namespace TheWorld_MapManager
 		}
 
 		{
-			std::lock_guard<std::recursive_mutex> lock1(s_cacheMtx);
-			std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+			std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 			m_DBInterface->writeExternalQuadrants(gridStepInWU, numVerticesPerSize, level, mapQuadrantOverrides);
 		}
 	}
@@ -933,7 +930,7 @@ namespace TheWorld_MapManager
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("UploadBuffer 1b ") + __FUNCTION__, "uploadCacheBuffer");
 
-		std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 		
 		TheWorld_Utils::MeshCacheBuffer cache;
 		std::string cacheDir = m_DBInterface->dataPath();
@@ -951,7 +948,7 @@ namespace TheWorld_MapManager
 		{
 			TheWorld_Utils::MapTextureRectPos mapTextureRectPos(quadrantPos, numQuadrantsPerSize, quadrantGlobalSize, quadrantWorldSize);
 
-			std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+			std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 			if (m_textureRectTimeCache.contains(mapTextureRectPos))
 				m_textureRectTimeCache.erase(mapTextureRectPos);
 			std::chrono::system_clock::time_point tpNull;	// Epoch time
@@ -959,8 +956,6 @@ namespace TheWorld_MapManager
 		}
 		
 		{
-			std::lock_guard<std::recursive_mutex> lock1(s_initMapMtx);
-
 			if (!s_mapInitMap.contains(numVerticesPerSize))
 				return;
 
@@ -1298,7 +1293,7 @@ namespace TheWorld_MapManager
 		if (isInEditor)
 			return;
 		
-		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 
 		if (!s_mapInitMap.contains(numVerticesPerSize))
 		{
@@ -1319,7 +1314,7 @@ namespace TheWorld_MapManager
 		if (isInEditor)
 			return;
 
-		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 
 		for (auto& m : s_mapInitMap)
 		{
@@ -1334,8 +1329,12 @@ namespace TheWorld_MapManager
 
 	std::chrono::system_clock::time_point MapManager::textureRectServerTime(TheWorld_Utils::MapTextureRectPos& mapTextureRectPos, size_t numVerticesPerSize, float gridStepInWU, bool& timeFromTexture)
 	{
+		//// ####################
+		//if (mapTextureRectPos.getGlobalLowerPosX() == -4480 and mapTextureRectPos.getGlobalLowerPosY() == 1920)
+		//	assert(mapTextureRectPos.getGlobalLowerPosX() == -4480);
+
 		{
-			std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+			std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 			if (m_textureRectTimeCache.contains(mapTextureRectPos))
 			{
 				timeFromTexture = m_textureRectTimeCache[mapTextureRectPos].timeFromTexture();
@@ -1343,7 +1342,8 @@ namespace TheWorld_MapManager
 			}
 		}
 		
-		std::chrono::system_clock::time_point textureRectTimeFromQuadrants = m_DBInterface->getTextureRectTime(mapTextureRectPos, numVerticesPerSize, gridStepInWU);
+		std::chrono::system_clock::time_point textureRectTimeFromQuadrants;
+		//textureRectTimeFromQuadrants = m_DBInterface->getTextureRectTime(mapTextureRectPos, numVerticesPerSize, gridStepInWU);
 
 		if (TheWorld_Utils::time_point_zero(textureRectTimeFromQuadrants))
 		{
@@ -1366,6 +1366,13 @@ namespace TheWorld_MapManager
 				}
 			}
 
+			//// ####################
+			//if (mapTextureRectPos.getGlobalLowerPosX() == -4480 and mapTextureRectPos.getGlobalLowerPosY() == 1920)
+			//{
+			//	std::string s = TheWorld_Utils::time_point_to_str_time(textureRectTimeFromQuadrants);
+			//	assert(mapTextureRectPos.getGlobalLowerPosX() == -4480);
+			//}
+
 			m_DBInterface->setTextureRectTime(textureRectTimeFromQuadrants, mapTextureRectPos, numVerticesPerSize, gridStepInWU);
 		}
 
@@ -1380,7 +1387,7 @@ namespace TheWorld_MapManager
 		}
 
 		{
-			std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+			std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 			m_textureRectTimeCache[mapTextureRectPos] = TextureRectTimeCache(textureRectTime, timeFromTexture);
 		}
 
@@ -1430,8 +1437,7 @@ namespace TheWorld_MapManager
 		size_t replyCursor = 0;
 		size_t size = 0;
 
-		std::lock_guard<std::recursive_mutex> lock1(s_cacheMtx);
-		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 
 		size_t inBufferCursor = 1;	// bypassing first byte '0'
 		size_t numMapTextureRects = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
@@ -1534,8 +1540,7 @@ namespace TheWorld_MapManager
 		size_t replyCursor = 0;
 		size_t size = 0;
 
-		std::lock_guard<std::recursive_mutex> lock1(s_cacheMtx);
-		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 
 		size_t inBufferCursor = 1;	// bypassing first byte '0'
 		size_t numMapTextureRects = TheWorld_Utils::deserializeFromByteStream<size_t>((BYTE*)mapTextureRects.c_str() + inBufferCursor, size);
@@ -1641,8 +1646,7 @@ namespace TheWorld_MapManager
 		if (isInEditor)
 			return;
 		
-		std::lock_guard<std::recursive_mutex> lock1(s_cacheMtx);
-		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 
 		TheWorld_Utils::MemoryBuffer reply;
 		size_t replyCursor = 0;
@@ -1861,7 +1865,7 @@ namespace TheWorld_MapManager
 
 	void MapManager::stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level)
 	{
-		std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 
 		if (!s_mapInitMap.contains(numVerticesPerSize))
 			return;
@@ -2064,7 +2068,7 @@ namespace TheWorld_MapManager
 
 			if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 			{
-				//std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);		// locked by joining thread which is stuck waiting current thread to exit
+				//std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);		// locked by joining thread which is stuck waiting current thread to exit
 				for (auto& cacheMapItem : cacheMap)
 				{
 					// save work done until now in work cache to restart next time
@@ -2255,7 +2259,7 @@ namespace TheWorld_MapManager
 
 			if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 			{
-				//std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);		// locked by joining thread which is stuck waiting current thread to exit
+				//std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);		// locked by joining thread which is stuck waiting current thread to exit
 				for (auto& cacheMapItem : cacheMap)
 				{
 					// save work done until now in work cache to restart next time
@@ -2426,8 +2430,8 @@ namespace TheWorld_MapManager
 			{
 				while (true)
 				{
-					//std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
-					std::unique_lock<std::recursive_mutex> lock(s_initMapMtx, std::try_to_lock);
+					//std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
+					std::unique_lock<std::recursive_mutex> lock(s_mtxInternalData, std::try_to_lock);
 					if (lock.owns_lock() || s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 					{
 						for (auto& cacheMapItem : cacheMap)
@@ -2531,7 +2535,7 @@ namespace TheWorld_MapManager
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("alignCacheAndDB ") + __FUNCTION__, "Single CACHE");
 
-		std::lock_guard<std::recursive_mutex> lock(s_cacheMtx);
+		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 
 		int ret = MAPMANAGER_NOTHING_TO_DO;
 
@@ -2692,7 +2696,7 @@ namespace TheWorld_MapManager
 
 				if (terrainEdit.normalsNeedRegen || terrainEdit.splatmapNeedRegen || terrainEdit.globalmapNeedRegen)
 				{
-					std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+					std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = diskCacheMeshId;
 				}
 			}
@@ -2734,12 +2738,12 @@ namespace TheWorld_MapManager
 				// looking if we need to re-populate internal memory map with current quadrant (in donwload by some client) after a server restart
 				if (terrainEdit.normalsNeedRegen || terrainEdit.splatmapNeedRegen || terrainEdit.globalmapNeedRegen)
 				{
-					std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+					std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = diskCacheMeshId;
 				}
 				//else		// should be useless 
 				//{
-				//	std::lock_guard<std::recursive_mutex> lock(s_initMapMtx);
+				//	std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 				//	if (s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.contains(pos))
 				//		s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.erase(pos);
 				//}

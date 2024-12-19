@@ -389,16 +389,13 @@ namespace TheWorld_MapManager
 		bool m_consoleDebugMode;
 		std::string m_dataPath;
 		MapManagerUtils m_utils;
-		//static std::recursive_mutex s_mtxInternalData;
+		static std::recursive_mutex s_mtxInternalData;
 
-		static std::recursive_mutex s_cacheMtx;
 
 		static std::map<TheWorld_Utils::MapTextureRectPos, TextureRectTimeCache> m_textureRectTimeCache;
 
-		static std::recursive_mutex s_initMapMtx;
 		static MapInitMap s_mapInitMap;
 
-		static std::recursive_mutex s_dbExclusiveAccesMtx;
 		static std::string s_mapName;
 		static size_t s_numInstances;
 	};
