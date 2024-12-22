@@ -1314,9 +1314,21 @@ namespace TheWorld_MapManager
 		if (isInEditor)
 			return;
 
-		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
+		MapManager::MapInitMap mapInitMap;;
+
+		s_mtxInternalData.lock();
 
 		for (auto& m : s_mapInitMap)
+		{
+			for (auto& m1 : m.second)
+			{
+				mapInitMap[m.first][m1.first] = nullptr;
+			}
+		}
+
+		s_mtxInternalData.unlock();
+
+		for (auto& m : mapInitMap)
 		{
 			for (auto& m1 : m.second)
 			{
@@ -1324,7 +1336,9 @@ namespace TheWorld_MapManager
 			}
 		}
 
+		s_mtxInternalData.lock();
 		s_mapInitMap.clear();
+		s_mtxInternalData.unlock();
 	}
 
 	std::chrono::system_clock::time_point MapManager::textureRectServerTime(TheWorld_Utils::MapTextureRectPos& mapTextureRectPos, size_t numVerticesPerSize, float gridStepInWU, bool& timeFromTexture)
@@ -1865,21 +1879,27 @@ namespace TheWorld_MapManager
 
 	void MapManager::stopAlignDiskCacheAndDBTask(size_t numVerticesPerSize, int level)
 	{
-		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
+		{
+			std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 
-		if (!s_mapInitMap.contains(numVerticesPerSize))
-			return;
+			if (!s_mapInitMap.contains(numVerticesPerSize))
+				return;
 
-		if (!s_mapInitMap[numVerticesPerSize].contains(level))
-			return;
+			if (!s_mapInitMap[numVerticesPerSize].contains(level))
+				return;
+		}
 
+		s_mtxInternalData.lock();
 		if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThread.joinable())
 		{
 			s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit = true;
+			s_mtxInternalData.unlock();
 			s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThread.join();
+			s_mtxInternalData.lock();
 			delete s_mapInitMap[numVerticesPerSize][level];
 			s_mapInitMap[numVerticesPerSize][level] = nullptr;
 		}
+		s_mtxInternalData.unlock();
 	}
 
 #define WAIT_TIME_BEFORE_NEW_SCAN	30000
