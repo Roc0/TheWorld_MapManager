@@ -280,7 +280,7 @@ namespace TheWorld_MapManager
 			rootTerrainData["001_terrainTypeStr"] = TheWorld_Utils::TerrainEdit::terrainTypeString(terrainEdit.terrainType);
 			rootTerrainData["002_heightsNeedRegen"] = terrainEdit.heightsNeedRegen;
 			rootTerrainData["003_normalsNeedRegen"] = terrainEdit.normalsNeedRegen;
-			rootTerrainData["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen;
+			rootTerrainData["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen();
 			rootTerrainData["005_colormapNeedRegen"] = terrainEdit.colormapNeedRegen;
 			rootTerrainData["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen;
 			rootTerrainData["007_needUploadToServer"] = terrainEdit.needUploadToServer;
@@ -467,7 +467,7 @@ namespace TheWorld_MapManager
 		strcpy_s(terrainEdit.extraValues.highElevationTexName_g, sizeof(terrainEdit.extraValues.highElevationTexName_g), rootTerrainData["011_highElevationTexName_g"].asString().c_str());
 		strcpy_s(terrainEdit.extraValues.dirtTexName_b, sizeof(terrainEdit.extraValues.dirtTexName_b), rootTerrainData["012_dirtTexName_b"].asString().c_str());
 		strcpy_s(terrainEdit.extraValues.rocksTexName_a, sizeof(terrainEdit.extraValues.rocksTexName_a), rootTerrainData["013_rocksTexName_a"].asString().c_str());
-		terrainEdit.splatmapNeedRegen = rootTerrainData["004_splatmapNeedRegen"].asBool();
+		terrainEdit.splatmapNeedRegen(rootTerrainData["004_splatmapNeedRegen"].asBool());
 		terrainEdit.colormapNeedRegen = rootTerrainData["005_colormapNeedRegen"].asBool();
 		terrainEdit.globalmapNeedRegen = rootTerrainData["006_globalmapNeedRegen"].asBool();
 		terrainEdit.extraValues.slopeVerticalFactor = float(rootTerrainData["014_splatmap_slopeVerticalFactor"].asDouble());
@@ -490,10 +490,10 @@ namespace TheWorld_MapManager
 		// override: forcing terrain [re-]generation because terrain data are not available on the DB
 		terrainEdit.heightsNeedRegen = true;
 		terrainEdit.normalsNeedRegen = true;
-		terrainEdit.splatmapNeedRegen = true;
+		terrainEdit.splatmapNeedRegen(true);
 		terrainEdit.globalmapNeedRegen = true;
 		terrainEdit.colormapNeedRegen = true;
-		terrainEdit.extraValues.seaInfoSet = QUADRANT_SEA_INFO_SET_FALSE;
+		terrainEdit.extraValues.seaInfoSet = QUADRANT_SEA_INFO_FALSE;
 
 		// strBuffer
 		TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData cacheQuadrantData;
@@ -685,7 +685,7 @@ namespace TheWorld_MapManager
 		quadrant["terrain_data"]["001_terrainType"] = int(terrainEdit.terrainType);
 		quadrant["terrain_data"]["002_heightsNeedRegen"] = terrainEdit.heightsNeedRegen;
 		quadrant["terrain_data"]["003_normalsNeedRegen"] = terrainEdit.normalsNeedRegen;
-		quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen;
+		quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen();
 		quadrant["terrain_data"]["005_colormapNeedRegen"] = terrainEdit.colormapNeedRegen;
 		quadrant["terrain_data"]["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen;
 		quadrant["terrain_data"]["007_needUploadToServer"] = terrainEdit.needUploadToServer;
@@ -864,7 +864,7 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["004_splatmapNeedRegen"];
 		if (v.isNull())
-			quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen;
+			quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen();
 
 		v = quadrant["terrain_data"]["005_colormapNeedRegen"];
 		if (v.isNull())

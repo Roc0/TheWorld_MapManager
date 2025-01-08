@@ -938,7 +938,7 @@ namespace TheWorld_MapManager
 		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 		std::string writtenMeshId;
 		TheWorld_Utils::TerrainEdit writtenTerrainEdit;
-		cache.writeBufferToDiskCache(meshBuffer, writtenMeshId, true, false, &writtenTerrainEdit);		// renew meshid to force all clients to donwload quadrant data again
+		std::string bufferMeshId = cache.writeBufferToDiskCache2(meshBuffer, writtenMeshId, true, false, &writtenTerrainEdit);		// renew meshid to force all clients to donwload quadrant data again
 		refreshRequired = false;
 		//std::string writtenMeshId = cache.getMeshIdFromDisk(false);
 		//TheWorld_Utils::QuadrantPos pos(cache.getLowerXGridVertex(), cache.getLowerZGridVertex(), cache.getLevel(), (int)cache.getNumVerticesPerSize(), cache.getGridStepInWU());
@@ -963,14 +963,14 @@ namespace TheWorld_MapManager
 				return;
 
 			s_mapInitMap[numVerticesPerSize][level]->m_modifiedQuadrants[quadrantPos] = writtenMeshId;
-			if (writtenTerrainEdit.normalsNeedRegen || writtenTerrainEdit.splatmapNeedRegen || writtenTerrainEdit.globalmapNeedRegen)
+			if (writtenTerrainEdit.normalsNeedRegen || writtenTerrainEdit.splatmapNeedRegen() || writtenTerrainEdit.globalmapNeedRegen)
 				s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[quadrantPos] = writtenMeshId;
 			else
 				if (s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.contains(quadrantPos))
 					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.erase(quadrantPos);
 		}
 
-		PLOG_DEBUG << "Uploaded Quadrant " << cache.getCacheIdStr();
+		PLOG_DEBUG << "Uploaded Quadrant with new hash " << cache.getCacheIdStr() << " - Client hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(bufferMeshId);
 	}
 
 	bool MapManager::writeDiskCacheToDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB)
@@ -1233,7 +1233,7 @@ namespace TheWorld_MapManager
 				if (splatmapBuffer.size() > 0)
 					cacheQuadrantData.splatmapBuffer = &splatmapBuffer;
 				else
-					terrainEdit.splatmapNeedRegen = true;
+					terrainEdit.splatmapNeedRegen(true);
 
 				if (colormapBuffer.size() > 0)
 					cacheQuadrantData.colormapBuffer = &colormapBuffer;
@@ -2064,7 +2064,7 @@ namespace TheWorld_MapManager
 							internalQuadrantData->terrainData()->westSideXMinus.needBlend = true;
 							internalQuadrantData->terrainData()->eastSideXPlus.needBlend = true;
 							internalQuadrantData->terrainData()->normalsNeedRegen = true;
-							internalQuadrantData->terrainData()->splatmapNeedRegen = true;
+							internalQuadrantData->terrainData()->splatmapNeedRegen(true);
 							internalQuadrantData->terrainData()->globalmapNeedRegen = true;
 							//internalQuadrantData->terrainData()->extraValues.colormapNeedRegen = true;
 
@@ -2216,54 +2216,54 @@ namespace TheWorld_MapManager
 							if (updated)
 							{
 								cacheMapItem.second->internalCacheQuadrantData()->terrainData()->normalsNeedRegen = true;
-								cacheMapItem.second->internalCacheQuadrantData()->terrainData()->splatmapNeedRegen = true;
+								cacheMapItem.second->internalCacheQuadrantData()->terrainData()->splatmapNeedRegen(true);
 								cacheMapItem.second->internalCacheQuadrantData()->terrainData()->globalmapNeedRegen = true;
 								if (northQuadrantData->terrainData() != nullptr)
 								{
 									northQuadrantData->terrainData()->normalsNeedRegen = true;
-									northQuadrantData->terrainData()->splatmapNeedRegen = true;
+									northQuadrantData->terrainData()->splatmapNeedRegen(true);
 									northQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
 								if (southQuadrantData->terrainData() != nullptr)
 								{
 									southQuadrantData->terrainData()->normalsNeedRegen = true;
-									southQuadrantData->terrainData()->splatmapNeedRegen = true;
+									southQuadrantData->terrainData()->splatmapNeedRegen(true);
 									southQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
 								if (westQuadrantData->terrainData() != nullptr)
 								{
 									westQuadrantData->terrainData()->normalsNeedRegen = true;
-									westQuadrantData->terrainData()->splatmapNeedRegen = true;
+									westQuadrantData->terrainData()->splatmapNeedRegen(true);
 									westQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
 								if (eastQuadrantData->terrainData() != nullptr)
 								{
 									eastQuadrantData->terrainData()->normalsNeedRegen = true;
-									eastQuadrantData->terrainData()->splatmapNeedRegen = true;
+									eastQuadrantData->terrainData()->splatmapNeedRegen(true);
 									eastQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
 								if (northwestQuadrantData->terrainData() != nullptr)
 								{
 									northwestQuadrantData->terrainData()->normalsNeedRegen = true;
-									northwestQuadrantData->terrainData()->splatmapNeedRegen = true;
+									northwestQuadrantData->terrainData()->splatmapNeedRegen(true);
 									northwestQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
 								if (northeastQuadrantData->terrainData() != nullptr)
 								{
 									northeastQuadrantData->terrainData()->normalsNeedRegen = true;
-									northeastQuadrantData->terrainData()->splatmapNeedRegen = true;
+									northeastQuadrantData->terrainData()->splatmapNeedRegen(true);
 									northeastQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
 								if (southwestQuadrantData->terrainData() != nullptr)
 								{
 									southwestQuadrantData->terrainData()->normalsNeedRegen = true;
-									southwestQuadrantData->terrainData()->splatmapNeedRegen = true;
+									southwestQuadrantData->terrainData()->splatmapNeedRegen(true);
 									southwestQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
 								if (southeastQuadrantData->terrainData() != nullptr)
 								{
 									southeastQuadrantData->terrainData()->normalsNeedRegen = true;
-									southeastQuadrantData->terrainData()->splatmapNeedRegen = true;
+									southeastQuadrantData->terrainData()->splatmapNeedRegen(true);
 									southeastQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
 							}
@@ -2300,151 +2300,35 @@ namespace TheWorld_MapManager
 				return;
 			}
 
-			if (cacheMap.size() > 0)
-			{
-				processingItem = 0;
+			//if (cacheMap.size() > 0)
+			//{
+			//	processingItem = 0;
 
-				for (auto& cacheMapItem : cacheMap)
-				{
-					if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
-						break;
+			//	for (auto& cacheMapItem : cacheMap)
+			//	{
+			//		if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
+			//			break;
 
-					processingItem++;
-					PLOG_DEBUG << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Setting Sea info (" << processingItem << "/" << cacheMap.size() << ")";
+			//		processingItem++;
+			//		PLOG_DEBUG << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Setting Sea info (" << processingItem << "/" << cacheMap.size() << ")";
 
-					{
-						TheWorld_Utils::GuardProfiler profiler(std::string("generateDetailDataForQuadrants 3 ") + __FUNCTION__, "Setting Sea info");
+			//		{
+			//			TheWorld_Utils::GuardProfiler profiler(std::string("generateDetailDataForQuadrants 3 ") + __FUNCTION__, "Setting Sea info");
 
-						bool canContainSea = false;
-
-						if (cacheMapItem.second->internalCacheQuadrantData()->terrainData() != nullptr)
-						{
-							if (cacheMapItem.second->internalCacheQuadrantData()->terrainData()->seaQuadrant())
-								canContainSea = true;
-							
-							if (!canContainSea)
-							{
-								TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
-								TheWorld_Utils::QuadrantPos neighbourPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::EastXPlus);
-								if (cacheMap.contains(neighbourPos))
-								{
-									if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData() != nullptr)
-									{
-										if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData()->seaQuadrant())
-											canContainSea = true;
-									}
-								}
-							}
-
-							if (!canContainSea)
-							{
-								TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
-								TheWorld_Utils::QuadrantPos neighbourPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::WestXMinus);
-								if (cacheMap.contains(neighbourPos))
-								{
-									if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData() != nullptr)
-									{
-										if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData()->seaQuadrant())
-											canContainSea = true;
-									}
-								}
-							}
-
-							if (!canContainSea)
-							{
-								TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
-								TheWorld_Utils::QuadrantPos neighbourPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthZMinus);
-								if (cacheMap.contains(neighbourPos))
-								{
-									if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData() != nullptr)
-									{
-										if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData()->seaQuadrant())
-											canContainSea = true;
-									}
-								}
-							}
-
-							if (!canContainSea)
-							{
-								TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
-								TheWorld_Utils::QuadrantPos neighbourPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SouthZPlus);
-								if (cacheMap.contains(neighbourPos))
-								{
-									if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData() != nullptr)
-									{
-										if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData()->seaQuadrant())
-											canContainSea = true;
-									}
-								}
-							}
-
-							if (!canContainSea)
-							{
-								TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
-								TheWorld_Utils::QuadrantPos neighbourPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NortheastZMinusXPlus);
-								if (cacheMap.contains(neighbourPos))
-								{
-									if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData() != nullptr)
-									{
-										if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData()->seaQuadrant())
-											canContainSea = true;
-									}
-								}
-							}
-
-							if (!canContainSea)
-							{
-								TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
-								TheWorld_Utils::QuadrantPos neighbourPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthwestZMinusXMinus);
-								if (cacheMap.contains(neighbourPos))
-								{
-									if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData() != nullptr)
-									{
-										if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData()->seaQuadrant())
-											canContainSea = true;
-									}
-								}
-							}
-
-							if (!canContainSea)
-							{
-								TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
-								TheWorld_Utils::QuadrantPos neighbourPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SoutheastZPlusXPlus);
-								if (cacheMap.contains(neighbourPos))
-								{
-									if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData() != nullptr)
-									{
-										if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData()->seaQuadrant())
-											canContainSea = true;
-									}
-								}
-							}
-
-							if (!canContainSea)
-							{
-								TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
-								TheWorld_Utils::QuadrantPos neighbourPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SouthwestZPlusXMinus);
-								if (cacheMap.contains(neighbourPos))
-								{
-									if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData() != nullptr)
-									{
-										if (cacheMap[neighbourPos]->internalCacheQuadrantData()->terrainData()->seaQuadrant())
-											canContainSea = true;
-									}
-								}
-							}
-
-							if (canContainSea && cacheMapItem.second->internalCacheQuadrantData()->terrainData()->minHeight <= (THEWORLD_SEA_LEVEL + THEWORLD_SEA_MAX_WAVE_HEIGHT))
-								cacheMapItem.second->internalCacheQuadrantData()->terrainData()->extraValues.canContainSea = QUADRANT_SEA_INFO_SET_TRUE;
-							else
-								cacheMapItem.second->internalCacheQuadrantData()->terrainData()->extraValues.canContainSea = QUADRANT_SEA_INFO_SET_FALSE;
-							cacheMapItem.second->internalCacheQuadrantData()->terrainData()->extraValues.seaInfoSet = QUADRANT_SEA_INFO_SET_TRUE;
-						}
-						
-						PLOG_DEBUG << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Setting Sea info" << " (" << processingItem << " / " << cacheMap.size() << ")" << " - Elapsed " << profiler.partialDuration() / 1000 << " ms";
-					}
-				}
-			}
+			//			if (cacheMapItem.second->internalCacheQuadrantData()->terrainData() != nullptr)
+			//			{
+			//				bool canContainSea = cacheMapItem.second->internalCacheQuadrantData()->terrainData()->canContainSea();
+			//				if (canContainSea)
+			//					cacheMapItem.second->internalCacheQuadrantData()->terrainData()->extraValues.canContainSea = QUADRANT_SEA_INFO_TRUE;
+			//				else
+			//					cacheMapItem.second->internalCacheQuadrantData()->terrainData()->extraValues.canContainSea = QUADRANT_SEA_INFO_FALSE;
+			//				cacheMapItem.second->internalCacheQuadrantData()->terrainData()->extraValues.seaInfoSet = QUADRANT_SEA_INFO_TRUE;
+			//			}
+			//			
+			//			PLOG_DEBUG << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Setting Sea info" << " (" << processingItem << " / " << cacheMap.size() << ")" << " - Elapsed " << profiler.partialDuration() / 1000 << " ms";
+			//		}
+			//	}
+			//}
 			
 			if (cacheMap.size() > 0)
 			{
@@ -2714,7 +2598,7 @@ namespace TheWorld_MapManager
 			{
 				clientCacheValid = true;
 
-				if (terrainEdit.normalsNeedRegen || terrainEdit.splatmapNeedRegen || terrainEdit.globalmapNeedRegen)
+				if (terrainEdit.normalsNeedRegen || terrainEdit.splatmapNeedRegen() || terrainEdit.globalmapNeedRegen)
 				{
 					std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = diskCacheMeshId;
@@ -2756,7 +2640,7 @@ namespace TheWorld_MapManager
 			else
 			{
 				// looking if we need to re-populate internal memory map with current quadrant (in donwload by some client) after a server restart
-				if (terrainEdit.normalsNeedRegen || terrainEdit.splatmapNeedRegen || terrainEdit.globalmapNeedRegen)
+				if (terrainEdit.normalsNeedRegen || terrainEdit.splatmapNeedRegen() || terrainEdit.globalmapNeedRegen)
 				{
 					std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = diskCacheMeshId;
