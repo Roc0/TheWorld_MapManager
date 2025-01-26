@@ -2218,48 +2218,61 @@ namespace TheWorld_MapManager
 								cacheMapItem.second->internalCacheQuadrantData()->terrainData()->normalsNeedRegen = true;
 								cacheMapItem.second->internalCacheQuadrantData()->terrainData()->splatmapNeedRegen(true);
 								cacheMapItem.second->internalCacheQuadrantData()->terrainData()->globalmapNeedRegen = true;
+								//if (TheWorld_Utils::MeshCacheBuffer::isEmptyBuffer(cacheMapItem.second->getMeshId()))
+								//{
+								//	cacheMapItem.second->generateNewInternalMeshId();
+								//	cacheMapItem.second->internalCacheQuadrantData()->meshId = cacheMapItem.second->getMeshId();
+								//}
+
 								if (northQuadrantData->terrainData() != nullptr)
 								{
 									northQuadrantData->terrainData()->normalsNeedRegen = true;
 									northQuadrantData->terrainData()->splatmapNeedRegen(true);
 									northQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
+
 								if (southQuadrantData->terrainData() != nullptr)
 								{
 									southQuadrantData->terrainData()->normalsNeedRegen = true;
 									southQuadrantData->terrainData()->splatmapNeedRegen(true);
 									southQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
+
 								if (westQuadrantData->terrainData() != nullptr)
 								{
 									westQuadrantData->terrainData()->normalsNeedRegen = true;
 									westQuadrantData->terrainData()->splatmapNeedRegen(true);
 									westQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
+
 								if (eastQuadrantData->terrainData() != nullptr)
 								{
 									eastQuadrantData->terrainData()->normalsNeedRegen = true;
 									eastQuadrantData->terrainData()->splatmapNeedRegen(true);
 									eastQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
+
 								if (northwestQuadrantData->terrainData() != nullptr)
 								{
 									northwestQuadrantData->terrainData()->normalsNeedRegen = true;
 									northwestQuadrantData->terrainData()->splatmapNeedRegen(true);
 									northwestQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
+
 								if (northeastQuadrantData->terrainData() != nullptr)
 								{
 									northeastQuadrantData->terrainData()->normalsNeedRegen = true;
 									northeastQuadrantData->terrainData()->splatmapNeedRegen(true);
 									northeastQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
+
 								if (southwestQuadrantData->terrainData() != nullptr)
 								{
 									southwestQuadrantData->terrainData()->normalsNeedRegen = true;
 									southwestQuadrantData->terrainData()->splatmapNeedRegen(true);
 									southwestQuadrantData->terrainData()->globalmapNeedRegen = true;
 								}
+								
 								if (southeastQuadrantData->terrainData() != nullptr)
 								{
 									southeastQuadrantData->terrainData()->normalsNeedRegen = true;
@@ -2632,10 +2645,10 @@ namespace TheWorld_MapManager
 			{
 				// client and server cache are not valid
 				TheWorld_Utils::MemoryBuffer emptyBuffer;
-				std::string emptyBufferMeshId;
-				cache.setEmptyBuffer(numVerticesPerSize, emptyBufferMeshId, emptyBuffer);
-				//cache.writeBufferToDiskCache(emptyBuffer);
-				meshId = emptyBufferMeshId;
+				//std::string emptyBufferMeshId;
+				//cache.setEmptyBuffer(numVerticesPerSize, emptyBufferMeshId, emptyBuffer);
+				//meshId = emptyBufferMeshId;
+				meshId = cache.generateNewMeshIdForEmptyBuffer();
 			}
 			else
 			{

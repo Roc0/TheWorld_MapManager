@@ -319,14 +319,14 @@ namespace TheWorld_MapManager
 			rootTerrainData["grp_northSideZMinus"]["minHeight"] = terrainEdit.northSideZMinus.minHeight;
 			rootTerrainData["grp_northSideZMinus"]["maxHeight"] = terrainEdit.northSideZMinus.maxHeight;
 
-			rootTerrainData["grp_eastNeighbourXPlus"]["minHeight"] = terrainEdit.eastNeighbourXPlus.minHeight();
-			rootTerrainData["grp_eastNeighbourXPlus"]["maxHeight"] = terrainEdit.eastNeighbourXPlus.maxHeight();
-			rootTerrainData["grp_westNeighbourXMinus"]["minHeight"] = terrainEdit.westNeighbourXMinus.minHeight();
-			rootTerrainData["grp_westNeighbourXMinus"]["maxHeight"] = terrainEdit.westNeighbourXMinus.maxHeight();
-			rootTerrainData["grp_southNeighbourZPlus"]["minHeight"] = terrainEdit.southNeighbourZPlus.minHeight();
-			rootTerrainData["grp_southNeighbourZPlus"]["maxHeight"] = terrainEdit.southNeighbourZPlus.maxHeight();
-			rootTerrainData["grp_northNeighbourZMinus"]["minHeight"] = terrainEdit.northNeighbourZMinus.minHeight();
-			rootTerrainData["grp_northNeighbourZMinus"]["maxHeight"] = terrainEdit.northNeighbourZMinus.maxHeight();
+			rootTerrainData["grp_eastNeighbourXPlus"]["minHeight"] = terrainEdit.deprecated_eastNeighbourXPlus.minHeight();
+			rootTerrainData["grp_eastNeighbourXPlus"]["maxHeight"] = terrainEdit.deprecated_eastNeighbourXPlus.maxHeight();
+			rootTerrainData["grp_westNeighbourXMinus"]["minHeight"] = terrainEdit.deprecated_westNeighbourXMinus.minHeight();
+			rootTerrainData["grp_westNeighbourXMinus"]["maxHeight"] = terrainEdit.deprecated_westNeighbourXMinus.maxHeight();
+			rootTerrainData["grp_southNeighbourZPlus"]["minHeight"] = terrainEdit.deprecated_southNeighbourZPlus.minHeight();
+			rootTerrainData["grp_southNeighbourZPlus"]["maxHeight"] = terrainEdit.deprecated_southNeighbourZPlus.maxHeight();
+			rootTerrainData["grp_northNeighbourZMinus"]["minHeight"] = terrainEdit.deprecated_northNeighbourZMinus.minHeight();
+			rootTerrainData["grp_northNeighbourZMinus"]["maxHeight"] = terrainEdit.deprecated_northNeighbourZMinus.maxHeight();
 
 			rootTerrainData["grp_noise"]["001_noiseType"] = terrainEdit.noise.noiseType;
 			rootTerrainData["grp_noise"]["002_rotationType3D"] = terrainEdit.noise.rotationType3D;
@@ -427,14 +427,14 @@ namespace TheWorld_MapManager
 		terrainEdit.northSideZMinus.minHeight = float(rootTerrainData["grp_northSideZMinus"]["minHeight"].asDouble());
 		terrainEdit.northSideZMinus.maxHeight = float(rootTerrainData["grp_northSideZMinus"]["maxHeight"].asDouble());
 
-		terrainEdit.eastNeighbourXPlus.minHeight(float(rootTerrainData["grp_eastNeighbourXPlus"]["minHeight"].asDouble()));
-		terrainEdit.eastNeighbourXPlus.maxHeight(float(rootTerrainData["grp_eastNeighbourXPlus"]["maxHeight"].asDouble()));
-		terrainEdit.westNeighbourXMinus.minHeight(float(rootTerrainData["grp_westNeighbourXMinus"]["minHeight"].asDouble()));
-		terrainEdit.westNeighbourXMinus.maxHeight(float(rootTerrainData["grp_westNeighbourXMinus"]["maxHeight"].asDouble()));
-		terrainEdit.southNeighbourZPlus.minHeight(float(rootTerrainData["grp_southNeighbourZPlus"]["minHeight"].asDouble()));
-		terrainEdit.southNeighbourZPlus.maxHeight(float(rootTerrainData["grp_southNeighbourZPlus"]["maxHeight"].asDouble()));
-		terrainEdit.northNeighbourZMinus.minHeight(float(rootTerrainData["grp_northNeighbourZMinus"]["minHeight"].asDouble()));
-		terrainEdit.northNeighbourZMinus.maxHeight(float(rootTerrainData["grp_northNeighbourZMinus"]["maxHeight"].asDouble()));
+		terrainEdit.deprecated_eastNeighbourXPlus.minHeight(float(rootTerrainData["grp_eastNeighbourXPlus"]["minHeight"].asDouble()));
+		terrainEdit.deprecated_eastNeighbourXPlus.maxHeight(float(rootTerrainData["grp_eastNeighbourXPlus"]["maxHeight"].asDouble()));
+		terrainEdit.deprecated_westNeighbourXMinus.minHeight(float(rootTerrainData["grp_westNeighbourXMinus"]["minHeight"].asDouble()));
+		terrainEdit.deprecated_westNeighbourXMinus.maxHeight(float(rootTerrainData["grp_westNeighbourXMinus"]["maxHeight"].asDouble()));
+		terrainEdit.deprecated_southNeighbourZPlus.minHeight(float(rootTerrainData["grp_southNeighbourZPlus"]["minHeight"].asDouble()));
+		terrainEdit.deprecated_southNeighbourZPlus.maxHeight(float(rootTerrainData["grp_southNeighbourZPlus"]["maxHeight"].asDouble()));
+		terrainEdit.deprecated_northNeighbourZMinus.minHeight(float(rootTerrainData["grp_northNeighbourZMinus"]["minHeight"].asDouble()));
+		terrainEdit.deprecated_northNeighbourZMinus.maxHeight(float(rootTerrainData["grp_northNeighbourZMinus"]["maxHeight"].asDouble()));
 
 		terrainEdit.noise.noiseType = rootTerrainData["grp_noise"]["001_noiseType"].asInt();
 		terrainEdit.noise.rotationType3D = rootTerrainData["grp_noise"]["002_rotationType3D"].asInt();
@@ -722,14 +722,14 @@ namespace TheWorld_MapManager
 		quadrant["terrain_data"]["grp_northSideZMinus"]["needBlend"] = terrainEdit.northSideZMinus.needBlend;
 		quadrant["terrain_data"]["grp_northSideZMinus"]["minHeight"] = terrainEdit.northSideZMinus.minHeight;
 		quadrant["terrain_data"]["grp_northSideZMinus"]["maxHeight"] = terrainEdit.northSideZMinus.maxHeight;
-		quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["minHeight"] = terrainEdit.eastNeighbourXPlus.minHeight();
-		quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["maxHeight"] = terrainEdit.eastNeighbourXPlus.maxHeight();
-		quadrant["terrain_data"]["grp_westNeighbourXMinus"]["minHeight"] = terrainEdit.westNeighbourXMinus.minHeight();
-		quadrant["terrain_data"]["grp_westNeighbourXMinus"]["maxHeight"] = terrainEdit.westNeighbourXMinus.maxHeight();
-		quadrant["terrain_data"]["grp_southNeighbourZPlus"]["minHeight"] = terrainEdit.southNeighbourZPlus.minHeight();
-		quadrant["terrain_data"]["grp_southNeighbourZPlus"]["maxHeight"] = terrainEdit.southNeighbourZPlus.maxHeight();
-		quadrant["terrain_data"]["grp_northNeighbourZMinus"]["minHeight"] = terrainEdit.northNeighbourZMinus.minHeight();
-		quadrant["terrain_data"]["grp_northNeighbourZMinus"]["maxHeight"] = terrainEdit.northNeighbourZMinus.maxHeight();
+		quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["minHeight"] = terrainEdit.deprecated_eastNeighbourXPlus.minHeight();
+		quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["maxHeight"] = terrainEdit.deprecated_eastNeighbourXPlus.maxHeight();
+		quadrant["terrain_data"]["grp_westNeighbourXMinus"]["minHeight"] = terrainEdit.deprecated_westNeighbourXMinus.minHeight();
+		quadrant["terrain_data"]["grp_westNeighbourXMinus"]["maxHeight"] = terrainEdit.deprecated_westNeighbourXMinus.maxHeight();
+		quadrant["terrain_data"]["grp_southNeighbourZPlus"]["minHeight"] = terrainEdit.deprecated_southNeighbourZPlus.minHeight();
+		quadrant["terrain_data"]["grp_southNeighbourZPlus"]["maxHeight"] = terrainEdit.deprecated_southNeighbourZPlus.maxHeight();
+		quadrant["terrain_data"]["grp_northNeighbourZMinus"]["minHeight"] = terrainEdit.deprecated_northNeighbourZMinus.minHeight();
+		quadrant["terrain_data"]["grp_northNeighbourZMinus"]["maxHeight"] = terrainEdit.deprecated_northNeighbourZMinus.maxHeight();
 		quadrant["terrain_data"]["grp_noise"]["001_noiseType"] = terrainEdit.noise.noiseType;
 		quadrant["terrain_data"]["grp_noise"]["002_rotationType3D"] = terrainEdit.noise.rotationType3D;
 		quadrant["terrain_data"]["grp_noise"]["003_noiseSeed"] = terrainEdit.noise.noiseSeed;
@@ -1012,35 +1012,35 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["minHeight"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["minHeight"] = terrainEdit.eastNeighbourXPlus.minHeight();
+			quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["minHeight"] = terrainEdit.deprecated_eastNeighbourXPlus.minHeight();
 
 		v = quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["maxHeight"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["maxHeight"] = terrainEdit.eastNeighbourXPlus.maxHeight();
+			quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["maxHeight"] = terrainEdit.deprecated_eastNeighbourXPlus.maxHeight();
 
 		v = quadrant["terrain_data"]["grp_westNeighbourXMinus"]["minHeight"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_westNeighbourXMinus"]["minHeight"] = terrainEdit.westNeighbourXMinus.minHeight();
+			quadrant["terrain_data"]["grp_westNeighbourXMinus"]["minHeight"] = terrainEdit.deprecated_westNeighbourXMinus.minHeight();
 
 		v = quadrant["terrain_data"]["grp_westNeighbourXMinus"]["maxHeight"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_westNeighbourXMinus"]["maxHeight"] = terrainEdit.westNeighbourXMinus.maxHeight();
+			quadrant["terrain_data"]["grp_westNeighbourXMinus"]["maxHeight"] = terrainEdit.deprecated_westNeighbourXMinus.maxHeight();
 
 		v = quadrant["terrain_data"]["grp_southNeighbourZPlus"]["minHeight"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_southNeighbourZPlus"]["minHeight"] = terrainEdit.southNeighbourZPlus.minHeight();
+			quadrant["terrain_data"]["grp_southNeighbourZPlus"]["minHeight"] = terrainEdit.deprecated_southNeighbourZPlus.minHeight();
 
 		v = quadrant["terrain_data"]["grp_southNeighbourZPlus"]["maxHeight"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_southNeighbourZPlus"]["maxHeight"] = terrainEdit.southNeighbourZPlus.maxHeight();
+			quadrant["terrain_data"]["grp_southNeighbourZPlus"]["maxHeight"] = terrainEdit.deprecated_southNeighbourZPlus.maxHeight();
 
 		v = quadrant["terrain_data"]["grp_northNeighbourZMinus"]["minHeight"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_northNeighbourZMinus"]["minHeight"] = terrainEdit.northNeighbourZMinus.minHeight();
+			quadrant["terrain_data"]["grp_northNeighbourZMinus"]["minHeight"] = terrainEdit.deprecated_northNeighbourZMinus.minHeight();
 
 		v = quadrant["terrain_data"]["grp_northNeighbourZMinus"]["maxHeight"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_northNeighbourZMinus"]["maxHeight"] = terrainEdit.northNeighbourZMinus.maxHeight();
+			quadrant["terrain_data"]["grp_northNeighbourZMinus"]["maxHeight"] = terrainEdit.deprecated_northNeighbourZMinus.maxHeight();
 
 		v = quadrant["terrain_data"]["grp_noise"]["001_noiseType"];
 		if (v.isNull())
