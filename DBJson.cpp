@@ -305,6 +305,7 @@ namespace TheWorld_MapManager
 			rootTerrainData["026_maxRandomBendingExtension"] = terrainEdit.extraValues.maxRandomBendingExtension;
 			rootTerrainData["027_seaInfoSet"] = terrainEdit.extraValues.seaInfoSet;
 			rootTerrainData["028_containsSea"] = terrainEdit.extraValues.canContainSea;
+			rootTerrainData["029_continentId"] = (int)terrainEdit.extraValues1.continentId;
 
 			rootTerrainData["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
 			rootTerrainData["grp_eastSideXPlus"]["minHeight"] = terrainEdit.eastSideXPlus.minHeight;
@@ -486,6 +487,7 @@ namespace TheWorld_MapManager
 		terrainEdit.heightsNeedRegen = rootTerrainData["002_heightsNeedRegen"].asBool();
 		terrainEdit.extraValues.seaInfoSet = rootTerrainData["027_seaInfoSet"].asInt();
 		terrainEdit.extraValues.canContainSea = rootTerrainData["028_containsSea"].asInt();
+		terrainEdit.extraValues1.continentId = rootTerrainData["029_continentId"].asInt();
 
 		// override: forcing terrain [re-]generation because terrain data are not available on the DB
 		terrainEdit.heightsNeedRegen = true;
@@ -710,6 +712,7 @@ namespace TheWorld_MapManager
 		quadrant["terrain_data"]["026_maxRandomBendingExtension"] = terrainEdit.extraValues.maxRandomBendingExtension;
 		quadrant["terrain_data"]["027_seaInfoSet"] = terrainEdit.extraValues.seaInfoSet;
 		quadrant["terrain_data"]["028_containsSea"] = terrainEdit.extraValues.canContainSea;
+		quadrant["terrain_data"]["029_continentId"] = terrainEdit.extraValues1.continentId;
 		quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
 		quadrant["terrain_data"]["grp_eastSideXPlus"]["minHeight"] = terrainEdit.eastSideXPlus.minHeight;
 		quadrant["terrain_data"]["grp_eastSideXPlus"]["maxHeight"] = terrainEdit.eastSideXPlus.maxHeight;
@@ -961,6 +964,10 @@ namespace TheWorld_MapManager
 		v = quadrant["terrain_data"]["028_containsSea"];
 		if (v.isNull())
 			quadrant["terrain_data"]["028_containsSea"] = terrainEdit.extraValues.canContainSea;
+
+		v = quadrant["terrain_data"]["029_continentId"];
+		if (v.isNull())
+			quadrant["terrain_data"]["029_continentId"] = terrainEdit.extraValues1.continentId;
 
 		v = quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"];
 		if (v.isNull())
