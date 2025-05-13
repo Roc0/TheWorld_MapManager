@@ -282,15 +282,48 @@ namespace TheWorld_MapManager
 	std::string MapManager::getMapName(void)
 	{
 		if (s_mapName.size() == 0)
-			throw(MapManagerException(__FUNCTION__, string("MapManager not initialized!").c_str()));
+			throw(MapManagerException(__FUNCTION__, std::string("MapManager not initialized!").c_str()));
 		return s_mapName;
 	}
 
 	float MapManager::gridStepInWU(void)
 	{
 		if (g_gridStepInWU == 0.0f)
-			throw(MapManagerException(__FUNCTION__, string("MapManager not initialized!").c_str()));
+			throw(MapManagerException(__FUNCTION__, std::string("MapManager not initialized!").c_str()));
 		return g_gridStepInWU;
+	}
+
+	std::string MapManager::getGroundJson(std::chrono::system_clock::time_point& groundJsonUtc)
+	{
+		std::string groundJsonPath = getCacheDir() + "\\" + "DBJson\\maps\\" + getMapName() + "\\ground.json";
+		
+		if (!fs::exists(groundJsonPath))
+			throw(MapManagerException(__FUNCTION__, (std::string("Cannot find ground.json ==> ") + groundJsonPath).c_str()));
+
+		std::ifstream groundJson(groundJsonPath);
+		if (groundJson.fail() || !groundJson.is_open())
+			throw(MapManagerException(__FUNCTION__, (std::string("Cannot open ground.json ==> ") + groundJsonPath).c_str()));
+
+		Json::Value root;
+		try
+		{
+			// loading/parsing json
+			groundJson >> root;
+		}
+		catch (std::exception)
+		{
+			throw(MapManagerException(__FUNCTION__, (std::string("Cannot parse ground.json ==> ") + groundJsonPath).c_str()));
+		}
+
+		groundJsonUtc = TheWorld_Utils::last_write_time_point_utc(groundJsonPath);
+
+		groundJson.close();
+		groundJson.open(groundJsonPath);
+		if (groundJson.fail() || !groundJson.is_open())
+			throw(MapManagerException(__FUNCTION__, (std::string("Cannot open ground.json ==> ") + groundJsonPath).c_str()));
+		std::stringstream buffer;
+		buffer << groundJson.rdbuf();
+		return buffer.str();
 	}
 
 	__int64 MapManager::addWD(WorldDefiner& WD)
