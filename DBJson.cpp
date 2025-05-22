@@ -306,6 +306,19 @@ namespace TheWorld_MapManager
 			rootTerrainData["027_seaInfoSet"] = terrainEdit.extraValues.seaInfoSet;
 			rootTerrainData["028_containsSea"] = terrainEdit.extraValues.canContainSea;
 			rootTerrainData["029_continentId"] = (int)terrainEdit.extraValues1.continentId;
+			
+			rootTerrainData["grp_northGroundTextureLayers"]["layer1"] = (int)terrainEdit.extraValues1.northGroundTextureLayers.layer1;
+			rootTerrainData["grp_northGroundTextureLayers"]["layer2"] = (int)terrainEdit.extraValues1.northGroundTextureLayers.layer2;
+			rootTerrainData["grp_northGroundTextureLayers"]["layer3"] = (int)terrainEdit.extraValues1.northGroundTextureLayers.layer3;
+			rootTerrainData["grp_northGroundTextureLayers"]["layer4"] = (int)terrainEdit.extraValues1.northGroundTextureLayers.layer4;
+			rootTerrainData["grp_westGroundTextureLayers"]["layer1"] = (int)terrainEdit.extraValues1.westGroundTextureLayers.layer1;
+			rootTerrainData["grp_westGroundTextureLayers"]["layer2"] = (int)terrainEdit.extraValues1.westGroundTextureLayers.layer2;
+			rootTerrainData["grp_westGroundTextureLayers"]["layer3"] = (int)terrainEdit.extraValues1.westGroundTextureLayers.layer3;
+			rootTerrainData["grp_westGroundTextureLayers"]["layer4"] = (int)terrainEdit.extraValues1.westGroundTextureLayers.layer4;
+			rootTerrainData["grp_northwestGroundTextureLayers"]["layer1"] = (int)terrainEdit.extraValues1.northwestGroundTextureLayers.layer1;
+			rootTerrainData["grp_northwestGroundTextureLayers"]["layer2"] = (int)terrainEdit.extraValues1.northwestGroundTextureLayers.layer2;
+			rootTerrainData["grp_northwestGroundTextureLayers"]["layer3"] = (int)terrainEdit.extraValues1.northwestGroundTextureLayers.layer3;
+			rootTerrainData["grp_northwestGroundTextureLayers"]["layer4"] = (int)terrainEdit.extraValues1.northwestGroundTextureLayers.layer4;
 
 			rootTerrainData["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
 			rootTerrainData["grp_eastSideXPlus"]["minHeight"] = terrainEdit.eastSideXPlus.minHeight;
@@ -488,6 +501,19 @@ namespace TheWorld_MapManager
 		terrainEdit.extraValues.seaInfoSet = rootTerrainData["027_seaInfoSet"].asInt();
 		terrainEdit.extraValues.canContainSea = rootTerrainData["028_containsSea"].asInt();
 		terrainEdit.extraValues1.continentId = rootTerrainData["029_continentId"].asInt();
+
+		terrainEdit.extraValues1.northGroundTextureLayers.layer1 = rootTerrainData["grp_northGroundTextureLayers"]["layer1"].asInt();
+		terrainEdit.extraValues1.northGroundTextureLayers.layer2 = rootTerrainData["grp_northGroundTextureLayers"]["layer2"].asInt();
+		terrainEdit.extraValues1.northGroundTextureLayers.layer3 = rootTerrainData["grp_northGroundTextureLayers"]["layer3"].asInt();
+		terrainEdit.extraValues1.northGroundTextureLayers.layer4 = rootTerrainData["grp_northGroundTextureLayers"]["layer4"].asInt();
+		terrainEdit.extraValues1.westGroundTextureLayers.layer1 = rootTerrainData["grp_westGroundTextureLayers"]["layer1"].asInt();
+		terrainEdit.extraValues1.westGroundTextureLayers.layer2 = rootTerrainData["grp_westGroundTextureLayers"]["layer2"].asInt();
+		terrainEdit.extraValues1.westGroundTextureLayers.layer3 = rootTerrainData["grp_westGroundTextureLayers"]["layer3"].asInt();
+		terrainEdit.extraValues1.westGroundTextureLayers.layer4 = rootTerrainData["grp_westGroundTextureLayers"]["layer4"].asInt();
+		terrainEdit.extraValues1.northwestGroundTextureLayers.layer1 = rootTerrainData["grp_northwestGroundTextureLayers"]["layer1"].asInt();
+		terrainEdit.extraValues1.northwestGroundTextureLayers.layer2 = rootTerrainData["grp_northwestGroundTextureLayers"]["layer2"].asInt();
+		terrainEdit.extraValues1.northwestGroundTextureLayers.layer3 = rootTerrainData["grp_northwestGroundTextureLayers"]["layer3"].asInt();
+		terrainEdit.extraValues1.northwestGroundTextureLayers.layer4 = rootTerrainData["grp_northwestGroundTextureLayers"]["layer4"].asInt();
 
 		// override: forcing terrain [re-]generation because terrain data are not available on the DB
 		terrainEdit.heightsNeedRegen = true;
@@ -713,6 +739,18 @@ namespace TheWorld_MapManager
 		quadrant["terrain_data"]["027_seaInfoSet"] = terrainEdit.extraValues.seaInfoSet;
 		quadrant["terrain_data"]["028_containsSea"] = terrainEdit.extraValues.canContainSea;
 		quadrant["terrain_data"]["029_continentId"] = terrainEdit.extraValues1.continentId;
+		quadrant["terrain_data"]["grp_northGroundTextureLayers"]["layer1"] = int(terrainEdit.extraValues1.northGroundTextureLayers.layer1);
+		quadrant["terrain_data"]["grp_northGroundTextureLayers"]["layer2"] = int(terrainEdit.extraValues1.northGroundTextureLayers.layer2);
+		quadrant["terrain_data"]["grp_northGroundTextureLayers"]["layer3"] = int(terrainEdit.extraValues1.northGroundTextureLayers.layer3);
+		quadrant["terrain_data"]["grp_northGroundTextureLayers"]["layer4"] = int(terrainEdit.extraValues1.northGroundTextureLayers.layer4);
+		quadrant["terrain_data"]["grp_westGroundTextureLayers"]["layer1"] = int(terrainEdit.extraValues1.westGroundTextureLayers.layer1);
+		quadrant["terrain_data"]["grp_westGroundTextureLayers"]["layer2"] = int(terrainEdit.extraValues1.westGroundTextureLayers.layer2);
+		quadrant["terrain_data"]["grp_westGroundTextureLayers"]["layer3"] = int(terrainEdit.extraValues1.westGroundTextureLayers.layer3);
+		quadrant["terrain_data"]["grp_westGroundTextureLayers"]["layer4"] = int(terrainEdit.extraValues1.westGroundTextureLayers.layer4);
+		quadrant["terrain_data"]["grp_northwestGroundTextureLayers"]["layer1"] = int(terrainEdit.extraValues1.northwestGroundTextureLayers.layer1);
+		quadrant["terrain_data"]["grp_northwestGroundTextureLayers"]["layer2"] = int(terrainEdit.extraValues1.northwestGroundTextureLayers.layer2);
+		quadrant["terrain_data"]["grp_northwestGroundTextureLayers"]["layer3"] = int(terrainEdit.extraValues1.northwestGroundTextureLayers.layer3);
+		quadrant["terrain_data"]["grp_northwestGroundTextureLayers"]["layer4"] = int(terrainEdit.extraValues1.northwestGroundTextureLayers.layer4);
 		quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
 		quadrant["terrain_data"]["grp_eastSideXPlus"]["minHeight"] = terrainEdit.eastSideXPlus.minHeight;
 		quadrant["terrain_data"]["grp_eastSideXPlus"]["maxHeight"] = terrainEdit.eastSideXPlus.maxHeight;
@@ -968,6 +1006,54 @@ namespace TheWorld_MapManager
 		v = quadrant["terrain_data"]["029_continentId"];
 		if (v.isNull())
 			quadrant["terrain_data"]["029_continentId"] = terrainEdit.extraValues1.continentId;
+
+		v = quadrant["terrain_data"]["grp_northGroundTextureLayers"]["layer1"];
+		if (v.isNull())
+			quadrant["terrain_data"]["grp_northGroundTextureLayers"]["layer1"] = int(terrainEdit.extraValues1.northGroundTextureLayers.layer1);
+
+		v = quadrant["terrain_data"]["grp_northGroundTextureLayers"]["layer2"];
+		if (v.isNull())
+			quadrant["terrain_data"]["grp_northGroundTextureLayers"]["layer2"] = int(terrainEdit.extraValues1.northGroundTextureLayers.layer2);
+
+		v = quadrant["terrain_data"]["grp_northGroundTextureLayers"]["layer3"];
+		if (v.isNull())
+			quadrant["terrain_data"]["grp_northGroundTextureLayers"]["layer3"] = int(terrainEdit.extraValues1.northGroundTextureLayers.layer3);
+
+		v = quadrant["terrain_data"]["grp_northGroundTextureLayers"]["layer4"];
+		if (v.isNull())
+			quadrant["terrain_data"]["grp_northGroundTextureLayers"]["layer4"] = int(terrainEdit.extraValues1.northGroundTextureLayers.layer4);
+
+		v = quadrant["terrain_data"]["grp_westGroundTextureLayers"]["layer1"];
+		if (v.isNull())
+			quadrant["terrain_data"]["grp_westGroundTextureLayers"]["layer1"] = int(terrainEdit.extraValues1.westGroundTextureLayers.layer1);
+
+		v = quadrant["terrain_data"]["grp_westGroundTextureLayers"]["layer2"];
+		if (v.isNull())
+			quadrant["terrain_data"]["grp_westGroundTextureLayers"]["layer2"] = int(terrainEdit.extraValues1.westGroundTextureLayers.layer2);
+
+		v = quadrant["terrain_data"]["grp_westGroundTextureLayers"]["layer3"];
+		if (v.isNull())
+			quadrant["terrain_data"]["grp_westGroundTextureLayers"]["layer3"] = int(terrainEdit.extraValues1.westGroundTextureLayers.layer3);
+
+		v = quadrant["terrain_data"]["grp_westGroundTextureLayers"]["layer4"];
+		if (v.isNull())
+			quadrant["terrain_data"]["grp_westGroundTextureLayers"]["layer4"] = int(terrainEdit.extraValues1.westGroundTextureLayers.layer4);
+
+		v = quadrant["terrain_data"]["grp_northwestGroundTextureLayers"]["layer1"];
+		if (v.isNull())
+			quadrant["terrain_data"]["grp_northwestGroundTextureLayers"]["layer1"] = int(terrainEdit.extraValues1.northwestGroundTextureLayers.layer1);
+
+		v = quadrant["terrain_data"]["grp_northwestGroundTextureLayers"]["layer2"];
+		if (v.isNull())
+			quadrant["terrain_data"]["grp_northwestGroundTextureLayers"]["layer2"] = int(terrainEdit.extraValues1.northwestGroundTextureLayers.layer2);
+
+		v = quadrant["terrain_data"]["grp_northwestGroundTextureLayers"]["layer3"];
+		if (v.isNull())
+			quadrant["terrain_data"]["grp_northwestGroundTextureLayers"]["layer3"] = int(terrainEdit.extraValues1.northwestGroundTextureLayers.layer3);
+
+		v = quadrant["terrain_data"]["grp_northwestGroundTextureLayers"]["layer4"];
+		if (v.isNull())
+			quadrant["terrain_data"]["grp_northwestGroundTextureLayers"]["layer4"] = int(terrainEdit.extraValues1.northwestGroundTextureLayers.layer4);
 
 		v = quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"];
 		if (v.isNull())
