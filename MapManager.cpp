@@ -2090,7 +2090,6 @@ namespace TheWorld_MapManager
 								importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SoutheastZPlusXPlus), cacheDir, mapName, cacheToAdd);
 							}
 
-
 							internalQuadrantData->terrainData()->heightsNeedRegen = false;
 							internalQuadrantData->terrainData()->northSideZMinus.needBlend = true;
 							internalQuadrantData->terrainData()->southSideZPlus.needBlend = true;
@@ -2099,7 +2098,6 @@ namespace TheWorld_MapManager
 							internalQuadrantData->terrainData()->normalsNeedRegen = true;
 							internalQuadrantData->terrainData()->splatmapNeedRegen(true);
 							internalQuadrantData->terrainData()->globalmapNeedRegen = true;
-							//internalQuadrantData->terrainData()->extraValues.colormapNeedRegen = true;
 
 							heightGenerationCompleted = false;
 						}
@@ -2117,6 +2115,39 @@ namespace TheWorld_MapManager
 						else
 							cacheMap[cacheToAddItem.first] = cacheToAddItem.second;
 				}
+
+				for (auto& cacheMapItem : cacheMap)
+				{
+					TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* internalQuadrantData = cacheMapItem.second->internalCacheQuadrantData();
+					TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
+
+					std::string lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName;
+
+					TheWorld_Utils::QuadrantPos northQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthZMinus);
+					if (cacheMap.contains(northQuadrantPos))
+					{
+						TheWorld_Utils::TerrainEdit* northTerrainData = cacheMap[northQuadrantPos]->internalCacheQuadrantData()->terrainData();
+						northTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
+						internalQuadrantData->terrainData()->setNorthGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
+					}
+
+					TheWorld_Utils::QuadrantPos westQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::WestXMinus);
+					if (cacheMap.contains(westQuadrantPos))
+					{
+						TheWorld_Utils::TerrainEdit* westTerrainData = cacheMap[westQuadrantPos]->internalCacheQuadrantData()->terrainData();
+						westTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
+						internalQuadrantData->terrainData()->setWestGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
+					}
+
+					TheWorld_Utils::QuadrantPos northwestQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthwestZMinusXMinus);
+					if (cacheMap.contains(northwestQuadrantPos))
+					{
+						TheWorld_Utils::TerrainEdit* northwestTerrainData = cacheMap[northwestQuadrantPos]->internalCacheQuadrantData()->terrainData();
+						northwestTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
+						internalQuadrantData->terrainData()->setNorthwestGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
+					}
+				}
+
 			}
 
 			if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
