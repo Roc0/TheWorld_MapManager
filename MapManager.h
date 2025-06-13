@@ -273,6 +273,8 @@ namespace TheWorld_MapManager
 			std::time_t m_fromFileTimeType = 0;
 			std::map<TheWorld_Utils::QuadrantPos, std::string> m_modifiedQuadrants;
 			std::map<TheWorld_Utils::QuadrantPos, std::string> m_needingClientWorkQuadrants;
+			bool m_uploadedMapQuadrantsOverride = false;
+			std::chrono::system_clock::time_point m_lastMapQuadrantsOverrideUpload;
 			TheWorld_Utils::MapManagerProceduralGenerationStatus m_procGen;
 		};
 
@@ -378,6 +380,10 @@ namespace TheWorld_MapManager
 		{
 			return m_dataPath; 
 		}
+		std::chrono::system_clock::time_point lastMapQuadrantsOverrideUpload(int numVerticesPerSize, int level);
+		void uploadedMapQuadrantsOverride(bool b, int numVerticesPerSize, int level);
+		bool safeResetUploadedMapQuadrantsOverride(std::chrono::system_clock::time_point previousUploadTime, int numVerticesPerSize, int level);
+		bool uploadedMapQuadrantsOverride(void) const;
 
 	private:
 		static DBInterface::DBType s_dbt;

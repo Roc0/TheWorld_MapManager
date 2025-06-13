@@ -852,7 +852,7 @@ namespace TheWorld_MapManager
 			max_Z_OnTheGridInWUs = calcNextCoordOnTheGridInWUs(anchorZInWUs + size);
 		}
 		else
-			throw(MapManagerException(__FUNCTION__, string("Unkwon anchor type").c_str()));
+			throw(MapManagerException(__FUNCTION__, string("Unknown anchor type").c_str()));
 
 		anchorXInWUs = calcNextCoordOnTheGridInWUs(anchorXInWUs);
 		anchorZInWUs = calcNextCoordOnTheGridInWUs(anchorZInWUs);
@@ -920,6 +920,8 @@ namespace TheWorld_MapManager
 
 	void MapManager::uploadMapQuadrantOverrides(bool isInEditor, int numVerticesPerSize, float& gridStepInWU, int level, std::string& buffer)
 	{
+		uploadedMapQuadrantsOverride(true, numVerticesPerSize, level);
+		
 		size_t cursor = 1;	// bypassing first byte '0'
 		size_t size = 0;
 
@@ -1690,6 +1692,9 @@ namespace TheWorld_MapManager
 		replyClientQuadrants.clear();
 		replyExtraQuadrants.clear();
 
+		//if (uploadedMapQuadrantsOverride())
+		//	return;
+
 		if (isInEditor)
 			return;
 		
@@ -1949,6 +1954,8 @@ namespace TheWorld_MapManager
 
 		while (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 		{
+			std::chrono::system_clock::time_point lastUploadTime = lastMapQuadrantsOverrideUpload((int)numVerticesPerSize, level);
+			
 			if (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 				importExternalQuadrantsInDB(numVerticesPerSize, level);
 
@@ -1959,20 +1966,32 @@ namespace TheWorld_MapManager
 				generateDetailDataForQuadrants(numVerticesPerSize, level);
 
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_proceduralProcessingInProgress = false;
-			
-			TheWorld_Viewer_Utils::MsTimePoint start = std::chrono::time_point_cast<TheWorld_Viewer_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
-			while (true)
+			while (s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.size() > 0)
 			{
-				if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
-					break;
-
-				TheWorld_Viewer_Utils::MsTimePoint now = std::chrono::time_point_cast<TheWorld_Viewer_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
-				long long elapsedWaiting = (now - start).count();
-				if (elapsedWaiting > WAIT_TIME_BEFORE_NEW_SCAN)
-					break;
-
-				Sleep(50);
+				Sleep(10);
 			}
+			
+			bool done = safeResetUploadedMapQuadrantsOverride(lastUploadTime, (int)numVerticesPerSize, level);
+			
+			if (done)
+			{
+				// if reset done wait until next execution otherwise continue loop immed
+				TheWorld_Viewer_Utils::MsTimePoint start = std::chrono::time_point_cast<TheWorld_Viewer_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
+				while (true)
+				{
+					if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
+						break;
+
+					TheWorld_Viewer_Utils::MsTimePoint now = std::chrono::time_point_cast<TheWorld_Viewer_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
+					long long elapsedWaiting = (now - start).count();
+					if (elapsedWaiting > WAIT_TIME_BEFORE_NEW_SCAN)
+						break;
+
+					Sleep(50);
+				}
+			}
+			else
+				done = false;
 		}
 
 		PLOG_DEBUG << "Align CACHE <==> DB - Stop alignement thread - " << "map=" << s_mapName << " numVerticesPerSize=" << numVerticesPerSize << " level=" << level;
@@ -2760,7 +2779,7 @@ namespace TheWorld_MapManager
 			//max_Z_OnTheGridInWUs = calcNextCoordOnTheGridInWUs(anchorZInWUs + (numVerticesZ * MapManager::gridStepInWU()));
 		}
 		else
-			throw(MapManagerException(__FUNCTION__, string("Unkwon anchor type").c_str()));
+			throw(MapManagerException(__FUNCTION__, string("Unknown anchor type").c_str()));
 
 		anchorXInWUs = calcNextCoordOnTheGridInWUs(anchorXInWUs);
 		anchorZInWUs = calcNextCoordOnTheGridInWUs(anchorZInWUs);
@@ -3164,6 +3183,53 @@ namespace TheWorld_MapManager
 
 		
 		if (instrumented()) clock.printDuration(__FUNCTION__);
+	}
+
+	std::chrono::system_clock::time_point MapManager::lastMapQuadrantsOverrideUpload(int numVerticesPerSize, int level)
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
+		return s_mapInitMap[numVerticesPerSize][level]->m_lastMapQuadrantsOverrideUpload;
+	}
+	
+	void MapManager::uploadedMapQuadrantsOverride(bool b, int numVerticesPerSize, int level)
+	{
+		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
+		s_mapInitMap[numVerticesPerSize][level]->m_uploadedMapQuadrantsOverride = b;
+		s_mapInitMap[numVerticesPerSize][level]->m_lastMapQuadrantsOverrideUpload = TheWorld_Utils::current_utc_time_point();
+	}
+	
+	bool MapManager::safeResetUploadedMapQuadrantsOverride(std::chrono::system_clock::time_point previousUploadTime, int numVerticesPerSize, int level)
+	{
+		bool done = false;
+		
+		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
+		if (previousUploadTime == s_mapInitMap[numVerticesPerSize][level]->m_lastMapQuadrantsOverrideUpload)
+		{
+			uploadedMapQuadrantsOverride(false, numVerticesPerSize, level);
+			done = true;
+			return done;
+		}
+		else
+			return done;
+	}
+	
+	bool MapManager::uploadedMapQuadrantsOverride(void) const
+	{
+		bool ret = false;
+		
+		for (auto& item : s_mapInitMap)
+		{
+			for (auto& item1 : item.second)
+			{
+				if (item1.second->m_uploadedMapQuadrantsOverride)
+				{
+					ret = true;
+					break;
+				}
+			}
+		}
+		
+		return ret;
 	}
 
 	float MapManager::interpolateAltitude(vector<DBInterface::GridVertex>& vectGridVertex, FlatGridPoint& pos)
