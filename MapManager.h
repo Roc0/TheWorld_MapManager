@@ -27,6 +27,8 @@ namespace TheWorld_MapManager
 
 	class MapManager
 	{
+	private:
+		static std::string defaultGroudJsonContent;
 	public:
 		class TextureRectTimeCache
 		{

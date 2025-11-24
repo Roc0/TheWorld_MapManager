@@ -45,6 +45,8 @@ namespace TheWorld_MapManager
 
 		Json::Value root;
 		std::ifstream jsonFile(g_confFilePath);
+		if (jsonFile.fail() || !jsonFile.is_open())
+			throw(MapManagerExceptionDBException(__FUNCTION__, "Could not open json DB conf file for reading", g_confFilePath.c_str()));
 		jsonFile >> root;
 		return root[paranName].asString();
 	}

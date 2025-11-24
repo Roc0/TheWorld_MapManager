@@ -177,8 +177,10 @@ namespace TheWorld_MapManager
 		else
 			configFilePath += string("\\") + configFileName;
 
-		Json::Value root;
 		std::ifstream jsonFile(configFilePath);
+		if (jsonFile.fail() || !jsonFile.is_open())
+			throw(MapManagerException(__FUNCTION__, "Could not open json conf file for reading", configFilePath.c_str()));
+		Json::Value root;
 		jsonFile >> root;
 		m_dataPath = root["DataPath"].asString();
 
@@ -295,14 +297,26 @@ namespace TheWorld_MapManager
 
 	std::string MapManager::getGroundJson(std::chrono::system_clock::time_point& groundJsonUtc)
 	{
-		std::string groundJsonPath = getCacheDir() + "\\" + "DBJson\\maps\\" + getMapName() + "\\ground.json";
+		std::string cacheDir = getCacheDir();
+		std::string groundJsonFilePath = cacheDir + "\\" + "DBJson\\maps\\" + getMapName() + "\\ground.json";
 		
-		if (!fs::exists(groundJsonPath))
-			throw(MapManagerException(__FUNCTION__, (std::string("Cannot find ground.json ==> ") + groundJsonPath).c_str()));
+		if (!fs::exists(groundJsonFilePath))
+		{
+			// Creating default ground.json file
+			std::string groundJsonDirPath = cacheDir + "\\" + "DBJson\\maps\\" + getMapName();
+			if (!fs::exists(groundJsonFilePath))
+				fs::create_directory(groundJsonDirPath);
 
-		std::ifstream groundJson(groundJsonPath);
+			std::ofstream ofs(groundJsonFilePath);
+			ofs << defaultGroudJsonContent;
+			ofs.close();
+
+			//throw(MapManagerException(__FUNCTION__, (std::string("Cannot find ground.json ==> ") + groundJsonFilePath).c_str()));
+		}
+
+		std::ifstream groundJson(groundJsonFilePath);
 		if (groundJson.fail() || !groundJson.is_open())
-			throw(MapManagerException(__FUNCTION__, (std::string("Cannot open ground.json ==> ") + groundJsonPath).c_str()));
+			throw(MapManagerException(__FUNCTION__, (std::string("Cannot open ground.json ==> ") + groundJsonFilePath).c_str()));
 
 		Json::Value root;
 		try
@@ -312,15 +326,15 @@ namespace TheWorld_MapManager
 		}
 		catch (std::exception)
 		{
-			throw(MapManagerException(__FUNCTION__, (std::string("Cannot parse ground.json ==> ") + groundJsonPath).c_str()));
+			throw(MapManagerException(__FUNCTION__, (std::string("Cannot parse ground.json ==> ") + groundJsonFilePath).c_str()));
 		}
 
-		groundJsonUtc = TheWorld_Utils::last_write_time_point_utc(groundJsonPath);
+		//groundJsonUtc = TheWorld_Utils::last_write_time_point_utc(groundJsonFilePath);	// DEBUG
 
 		groundJson.close();
-		groundJson.open(groundJsonPath);
+		groundJson.open(groundJsonFilePath);
 		if (groundJson.fail() || !groundJson.is_open())
-			throw(MapManagerException(__FUNCTION__, (std::string("Cannot open ground.json ==> ") + groundJsonPath).c_str()));
+			throw(MapManagerException(__FUNCTION__, (std::string("Cannot open ground.json ==> ") + groundJsonFilePath).c_str()));
 		std::stringstream buffer;
 		buffer << groundJson.rdbuf();
 		return buffer.str();
