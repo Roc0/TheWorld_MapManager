@@ -329,7 +329,7 @@ namespace TheWorld_MapManager
 			throw(MapManagerException(__FUNCTION__, (std::string("Cannot parse ground.json ==> ") + groundJsonFilePath).c_str()));
 		}
 
-		//groundJsonUtc = TheWorld_Utils::last_write_time_point_utc(groundJsonFilePath);	// DEBUG
+		groundJsonUtc = TheWorld_Utils::last_write_time_point_utc(groundJsonFilePath);
 
 		groundJson.close();
 		groundJson.open(groundJsonFilePath);
