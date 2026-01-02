@@ -2724,11 +2724,11 @@ namespace TheWorld_MapManager
 			// client cache is valid: more recent than server's one (if server's cache is empty it MUST be less recent by design) - We answer an empty buffer so that client can use its own buffer
 
 			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.2 ") + __FUNCTION__, "Set header in buffer (use client cache)");
-			std::vector<float> vectGridHeights;
-			float minAltitude = 0, maxAltitude = 0;
-			TheWorld_Utils::MemoryBuffer terrainEditValuesBuffer;
+			//std::vector<float> vectGridHeights;
+			//float minAltitude = 0, maxAltitude = 0;
+			//TheWorld_Utils::MemoryBuffer terrainEditValuesBuffer;
 			// we don't call setEmptyBuffer because we need to mantain the same meshId of the client instead of generating a new meshid for empty buffer
-			cache.setBufferFromHeights(meshId, numVerticesPerSize, gridStepInWU, terrainEditValuesBuffer, vectGridHeights, meshBuffer, minAltitude, maxAltitude, false);
+			cache.setDummyBuffer(meshId, meshBuffer);
 		}
 		else
 		{
