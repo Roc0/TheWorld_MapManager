@@ -1560,7 +1560,7 @@ namespace TheWorld_MapManager
 						startIdxX = startIdxZ = 0;
 
 						float vertexPosX = quadPosX + x * gridStep;
-						float vertexPosY = cacheQuadrantData.heights32Buffer->get_at_ref<float>(x, z, vertexPerSize);
+						float vertexPosY = cacheQuadrantData.heights32Buffer->_deprecated_get_at_ref<float>(x, z, vertexPerSize);
 						float vertexPosZ = quadPosZ + z * gridStep;
 						float initialAltitude = vertexPosY;
 						GridVertex v(vertexPosX, vertexPosZ, initialAltitude, level);
@@ -1572,7 +1572,7 @@ namespace TheWorld_MapManager
 						size_t globalMapR = 0, globalMapG = 0, globalMapB = 0;	// 0-255
 						if (!normalMapEmpty)
 						{
-							struct TheWorld_Utils::_RGB rgbNormal = cacheQuadrantData.normalsBuffer->get_at_ref<TheWorld_Utils::_RGB>(x, z, vertexPerSize);									// 0-255
+							struct TheWorld_Utils::_RGB rgbNormal = cacheQuadrantData.normalsBuffer->_deprecated_get_at_ref<TheWorld_Utils::_RGB>(x, z, vertexPerSize);									// 0-255
 							normalX = (float)rgbNormal.r / 255;
 							normalY = (float)rgbNormal.g / 255;
 							normalZ = (float)rgbNormal.b / 255;
@@ -1584,7 +1584,7 @@ namespace TheWorld_MapManager
 						}
 						if (!splatMapEmpty)
 						{
-							struct TheWorld_Utils::_RGBA rgba = cacheQuadrantData.splatmapBuffer->get_at_ref<TheWorld_Utils::_RGBA>(x, z, vertexPerSize);
+							struct TheWorld_Utils::_RGBA rgba = cacheQuadrantData.splatmapBuffer->_deprecated_get_at_ref<TheWorld_Utils::_RGBA>(x, z, vertexPerSize);
 							lowElevationTexAmount = (size_t)rgba.r;
 							highElevationTexAmount = (size_t)rgba.g;
 							dirtTexAmount = (size_t)rgba.b;
@@ -1592,7 +1592,7 @@ namespace TheWorld_MapManager
 						}
 						if (!colorMapEmpty)
 						{
-							struct TheWorld_Utils::_RGBA rgba = cacheQuadrantData.colormapBuffer->get_at_ref<TheWorld_Utils::_RGBA>(x, z, vertexPerSize);
+							struct TheWorld_Utils::_RGBA rgba = cacheQuadrantData.colormapBuffer->_deprecated_get_at_ref<TheWorld_Utils::_RGBA>(x, z, vertexPerSize);
 							colorR = (size_t)rgba.r;
 							colorG = (size_t)rgba.g;
 							colorB = (size_t)rgba.b;
@@ -1600,7 +1600,7 @@ namespace TheWorld_MapManager
 						}
 						if (!globalMapEmpty)
 						{
-							struct TheWorld_Utils::_RGB rgb = cacheQuadrantData.globalmapBuffer->get_at_ref<TheWorld_Utils::_RGB>(x, z, vertexPerSize);
+							struct TheWorld_Utils::_RGB rgb = cacheQuadrantData.globalmapBuffer->_deprecated_get_at_ref<TheWorld_Utils::_RGB>(x, z, vertexPerSize);
 							globalMapR = (size_t)rgb.r;
 							globalMapG = (size_t)rgb.g;
 							globalMapB = (size_t)rgb.b;
