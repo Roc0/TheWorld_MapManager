@@ -973,6 +973,8 @@ namespace TheWorld_MapManager
 			std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 			m_DBInterface->writeExternalQuadrants(gridStepInWU, numVerticesPerSize, level, mapQuadrantOverrides);
 		}
+
+		m_mapQuadrantOverridesJustUploaded = true;
 	}
 
 	void MapManager::uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer, bool& refreshRequired, int32_t numQuadrantsPerSize, float quadrantGlobalSize, float quadrantWorldSize)
@@ -1998,11 +2000,13 @@ namespace TheWorld_MapManager
 
 					TheWorld_Viewer_Utils::MsTimePoint now = std::chrono::time_point_cast<TheWorld_Viewer_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
 					long long elapsedWaiting = (now - start).count();
-					if (elapsedWaiting > WAIT_TIME_BEFORE_NEW_SCAN)
+					if (elapsedWaiting > WAIT_TIME_BEFORE_NEW_SCAN or m_mapQuadrantOverridesJustUploaded)
 						break;
 
 					Sleep(50);
 				}
+
+				m_mapQuadrantOverridesJustUploaded = false;
 			}
 			else
 				done = false;

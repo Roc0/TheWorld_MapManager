@@ -407,6 +407,8 @@ namespace TheWorld_MapManager
 
 		static std::string s_mapName;
 		static size_t s_numInstances;
+
+		bool m_mapQuadrantOverridesJustUploaded = false;
 	};
 }
 
