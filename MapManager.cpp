@@ -2001,12 +2001,13 @@ namespace TheWorld_MapManager
 					TheWorld_Viewer_Utils::MsTimePoint now = std::chrono::time_point_cast<TheWorld_Viewer_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
 					long long elapsedWaiting = (now - start).count();
 					if (elapsedWaiting > WAIT_TIME_BEFORE_NEW_SCAN or m_mapQuadrantOverridesJustUploaded)
+					{
+						m_mapQuadrantOverridesJustUploaded = false;
 						break;
+					}
 
 					Sleep(50);
 				}
-
-				m_mapQuadrantOverridesJustUploaded = false;
 			}
 			else
 				done = false;
