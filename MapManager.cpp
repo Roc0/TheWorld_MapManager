@@ -934,8 +934,6 @@ namespace TheWorld_MapManager
 
 	void MapManager::uploadMapQuadrantOverrides(bool isInEditor, int numVerticesPerSize, float& gridStepInWU, int level, std::string& buffer)
 	{
-		uploadedMapQuadrantsOverride(true, numVerticesPerSize, level);
-		
 		size_t cursor = 1;	// bypassing first byte '0'
 		size_t size = 0;
 
@@ -974,7 +972,7 @@ namespace TheWorld_MapManager
 			m_DBInterface->writeExternalQuadrants(gridStepInWU, numVerticesPerSize, level, mapQuadrantOverrides);
 		}
 
-		m_mapQuadrantOverridesJustUploaded = true;
+		uploadedMapQuadrantsOverride(true, numVerticesPerSize, level);
 	}
 
 	void MapManager::uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer, bool& refreshRequired, int32_t numQuadrantsPerSize, float quadrantGlobalSize, float quadrantWorldSize)
@@ -2000,11 +1998,8 @@ namespace TheWorld_MapManager
 
 					TheWorld_Viewer_Utils::MsTimePoint now = std::chrono::time_point_cast<TheWorld_Viewer_Utils::MsTimePoint::duration>(std::chrono::system_clock::now());
 					long long elapsedWaiting = (now - start).count();
-					if (elapsedWaiting > WAIT_TIME_BEFORE_NEW_SCAN or m_mapQuadrantOverridesJustUploaded)
-					{
-						m_mapQuadrantOverridesJustUploaded = false;
+					if (elapsedWaiting > WAIT_TIME_BEFORE_NEW_SCAN or uploadedMapQuadrantsOverride())
 						break;
-					}
 
 					Sleep(50);
 				}
