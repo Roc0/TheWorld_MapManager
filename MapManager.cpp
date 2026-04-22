@@ -2469,6 +2469,7 @@ namespace TheWorld_MapManager
 					else
 						Sleep(1);
 				}
+
 				TheWorld_Utils::MeshCacheBuffer::clearWorkCacheDir(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level);
 			}
 
@@ -2870,45 +2871,45 @@ namespace TheWorld_MapManager
 		}
 	}
 
-	void MapManager::getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level)
-	{
-		consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
-		TimerMsMapManager clock(true, consoleDebugMode());
-		if (instrumented()) clock.tick();
+	//void MapManager::getPatches(float anchorX, float anchorZ, anchorType type, float size, vector<GridPatch>& patches, int& numPatchX, int& numPatchZ, float& gridStepInWU, int level)
+	//{
+	//	consoleDebugUtil _consoleDebugUtil(consoleDebugMode());
+	//	TimerMsMapManager clock(true, consoleDebugMode());
+	//	if (instrumented()) clock.tick();
 
-		patches.clear();
-		
-		int numPointX = 0, numPointZ = 0;
-		vector<DBInterface::GridVertex> mesh;
-		getVertices(anchorX, anchorZ, type, size, mesh, numPointX, numPointZ, gridStepInWU, level);
+	//	patches.clear();
+	//	
+	//	int numPointX = 0, numPointZ = 0;
+	//	vector<DBInterface::GridVertex> mesh;
+	//	getVertices(anchorX, anchorZ, type, size, mesh, numPointX, numPointZ, gridStepInWU, level);
 
-		if (mesh.size() <= 1)
-			return;
+	//	if (mesh.size() <= 1)
+	//		return;
 
-		numPatchX = numPointX - 1;
-		numPatchZ = numPointZ - 1;
-		
-		patches.reserve(size_t(numPatchX) * size_t(numPatchZ));
-		
-		// Collecting patches: the patch is the one wich has the current grid vertex as upper left corner
-		for (size_t idx = 0; idx < mesh.size(); idx++)
-		{
-			DBInterface::GridVertex upperLeftGridVertex = mesh[idx];
-			assert(idx + 1 < mesh.size());
-			DBInterface::GridVertex upperRightGridVertex = mesh[idx + 1];
-			if (upperLeftGridVertex.posZ() != upperRightGridVertex.posZ())
-				continue;	// the current grid vertex (p1) is the last of the row so it doesn't point to a patch
-			if (idx + numPointX >= mesh.size())
-				break;		// the current grid vertex (p1) is on the last row of the grid so it doesn't point to a patch nor any of the following: we can exit loop
-			DBInterface::GridVertex lowerLeftGridVertex = mesh[idx + numPointX];
-			DBInterface::GridVertex lowerRightGridVertex = mesh[idx + numPointX + 1];
-			GridPatch patch(upperLeftGridVertex, upperRightGridVertex, lowerLeftGridVertex, lowerRightGridVertex);
-			patches.push_back(patch);
-		}
-		assert((int)patches.size() == numPatchX * numPatchZ);
+	//	numPatchX = numPointX - 1;
+	//	numPatchZ = numPointZ - 1;
+	//	
+	//	patches.reserve(size_t(numPatchX) * size_t(numPatchZ));
+	//	
+	//	// Collecting patches: the patch is the one wich has the current grid vertex as upper left corner
+	//	for (size_t idx = 0; idx < mesh.size(); idx++)
+	//	{
+	//		DBInterface::GridVertex upperLeftGridVertex = mesh[idx];
+	//		assert(idx + 1 < mesh.size());
+	//		DBInterface::GridVertex upperRightGridVertex = mesh[idx + 1];
+	//		if (upperLeftGridVertex.posZ() != upperRightGridVertex.posZ())
+	//			continue;	// the current grid vertex (p1) is the last of the row so it doesn't point to a patch
+	//		if (idx + numPointX >= mesh.size())
+	//			break;		// the current grid vertex (p1) is on the last row of the grid so it doesn't point to a patch nor any of the following: we can exit loop
+	//		DBInterface::GridVertex lowerLeftGridVertex = mesh[idx + numPointX];
+	//		DBInterface::GridVertex lowerRightGridVertex = mesh[idx + numPointX + 1];
+	//		GridPatch patch(upperLeftGridVertex, upperRightGridVertex, lowerLeftGridVertex, lowerRightGridVertex);
+	//		patches.push_back(patch);
+	//	}
+	//	assert((int)patches.size() == numPatchX * numPatchZ);
 
-		if (instrumented()) clock.printDuration((string(__FUNCTION__) + " - Num patches: " + to_string(patches.size()) + " - (X x Z): " + to_string(numPatchX) + " x " + to_string(numPatchZ)).c_str());
-	}
+	//	if (instrumented()) clock.printDuration((string(__FUNCTION__) + " - Num patches: " + to_string(patches.size()) + " - (X x Z): " + to_string(numPatchX) + " x " + to_string(numPatchZ)).c_str());
+	//}
 
 	struct GISPoint
 	{
