@@ -2047,7 +2047,7 @@ namespace TheWorld_MapManager
 				std::vector<TheWorld_Utils::QuadrantPos> workedDiskCacheMap;
 				std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*> cacheMap;
 				size_t idx = 0;
-				size_t maxNumQuadrantToProcess = 1000;	// to avoid too long processing in one cycle and let server breathe and process client requests
+				size_t maxNumQuadrantToProcess = 100;	// to avoid too long processing in one cycle and let server breathe and process client requests
 				for (auto& cacheMapItem : diskCacheMap)
 				{
 					if (idx >= maxNumQuadrantToProcess)
@@ -2452,16 +2452,17 @@ namespace TheWorld_MapManager
 						else
 							Sleep(1);
 					}
-
-					TheWorld_Utils::MeshCacheBuffer::clearWorkCacheDir(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level);
 				}
 
 				for (auto& pos : workedDiskCacheMap)
 				{
 					diskCacheMap.erase(pos);
 				}
-				remainigQuadrantsToProcess -= workedDiskCacheMap.size();
+				//remainigQuadrantsToProcess -= workedDiskCacheMap.size();
+				remainigQuadrantsToProcess = diskCacheMap.size();
 			}
+
+			TheWorld_Utils::MeshCacheBuffer::clearWorkCacheDir(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level);
 
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_proceduralProcessingInProgress = false;
 
@@ -2486,10 +2487,17 @@ namespace TheWorld_MapManager
 	{
 		if (!cacheMap.contains(pos))
 		{
+			bool workDir = false;
+			{
+				TheWorld_Utils::MeshCacheBuffer cache = TheWorld_Utils::MeshCacheBuffer(_cacheDir, mapName, pos.getGridStepInWU(), pos.getNumVerticesPerSize(), pos.getLevel(), pos.getLowerXGridVertex(), pos.getLowerZGridVertex());
+				if (cache.getMeshIdFromDisk(true).size() > 0)
+					workDir = true;
+			}
+			
 			//if (pos.getIndexPosX() == 100 && pos.getIndexPosZ() == 97)
 			//	PLOG_DEBUG << "Beccato";
 			TheWorld_Utils::MeshCacheBuffer* cache = new TheWorld_Utils::MeshCacheBuffer(_cacheDir, mapName, pos.getGridStepInWU(), pos.getNumVerticesPerSize(), pos.getLevel(), pos.getLowerXGridVertex(), pos.getLowerZGridVertex());
-			cache->refreshInternalCacheQuadrantDataFromDisk(false, false, true);
+			cache->refreshInternalCacheQuadrantDataFromDisk(workDir, false, true);
 			PLOG_DEBUG << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Adding quadrant to Work Cache " << pos.getIdStr() << " " << pos.getName() << (cache->isEmptyBuffer(cache->internalCacheQuadrantData()->meshId) || cache->internalCacheQuadrantData()->terrainData()->terrainType == TheWorld_Utils::TerrainEdit::TerrainType::empty ? " - EMPTY QUADRANT" : "") << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(cache->internalCacheQuadrantData()->meshId);
 			cacheMap[pos] = cache;
 		}
@@ -3435,3 +3443,4 @@ double LoadGISMap_getAltitude(TheWorld_MapManager::GISPoint& GISP, TheWorld_MapM
 	else
 		return GISPointAltidues[GISP][0];
 }
+
