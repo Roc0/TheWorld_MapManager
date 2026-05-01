@@ -2037,6 +2037,7 @@ namespace TheWorld_MapManager
 			//size_t heightGenerationProcessingQuad = 0, heightGenerationProcessedQuads = 0;
 			//size_t blendProcessingQuad = 0, blendProcessedQuads = 0;
 			size_t remainigQuadrantsToProcess = diskCacheMap.size();
+			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsToProcessServerSide = remainigQuadrantsToProcess;
 
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_proceduralProcessingInProgress = true;
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numVerticesPerSize = numVerticesPerSize;
@@ -2047,7 +2048,7 @@ namespace TheWorld_MapManager
 				std::vector<TheWorld_Utils::QuadrantPos> workedDiskCacheMap;
 				std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*> cacheMap;
 				size_t idx = 0;
-				size_t maxNumQuadrantToProcess = 100;	// to avoid too long processing in one cycle and let server breathe and process client requests
+				size_t maxNumQuadrantToProcess = 150;	// to avoid too long processing in one cycle and let server breathe and process client requests
 				for (auto& cacheMapItem : diskCacheMap)
 				{
 					if (idx >= maxNumQuadrantToProcess)
@@ -2056,6 +2057,7 @@ namespace TheWorld_MapManager
 					workedDiskCacheMap.push_back(cacheMapItem.first);
 					idx++;
 				}
+				s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsToProcessServerSide = remainigQuadrantsToProcess - workedDiskCacheMap.size();
 
 				size_t processingItem = 0;
 
@@ -2460,6 +2462,7 @@ namespace TheWorld_MapManager
 				}
 				//remainigQuadrantsToProcess -= workedDiskCacheMap.size();
 				remainigQuadrantsToProcess = diskCacheMap.size();
+				s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsToProcessServerSide = remainigQuadrantsToProcess;
 			}
 
 			TheWorld_Utils::MeshCacheBuffer::clearWorkCacheDir(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level);
@@ -2480,6 +2483,7 @@ namespace TheWorld_MapManager
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_currentBlendingCycle = 0;
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numBlendedQuadrants = 0;
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numQuadrantsToBlend = 0;
+			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsToProcessServerSide = 0;
 		}
 	}
 
