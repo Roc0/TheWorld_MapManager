@@ -273,7 +273,7 @@ namespace TheWorld_MapManager
 			std::thread m_alignCacheAndDbThread;
 			bool m_alignCacheAndDbThreadRequiredExit = true;
 			std::time_t m_fromFileTimeType = 0;
-			std::map<TheWorld_Utils::QuadrantPos, std::string> m_modifiedQuadrants;
+			std::map<TheWorld_Utils::QuadrantPos, std::string> m_modifiedQuadrants;				// Modified quadrants from last server start-up. This list is never cleared during the server life-time, but only updated with new modified quadrants. The client can use this list to know which quadrants have been modified since the last time they asked for modified quadrants (with a timestamp) and then ask for the modified quadrants they are interested in.
 			std::map<TheWorld_Utils::QuadrantPos, std::string> m_needingClientWorkQuadrants;
 			bool m_uploadedMapQuadrantsOverride = false;
 			std::chrono::system_clock::time_point m_lastMapQuadrantsOverrideUpload;
@@ -341,7 +341,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) void alignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
 		void importExternalQuadrantsInDB(size_t numVerticesPerSize, int level);
 		void generateDetailDataForQuadrants(size_t numVerticesPerSize, int level);
-		void importQuadrantInWorkArea(TheWorld_Utils::QuadrantPos pos, std::string _cacheDir, std::string mapName, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*>& diskCacheMap);
+		void importQuadrantInWorkArea(TheWorld_Utils::QuadrantPos pos, std::string _cacheDir, std::string mapName, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*>& diskCacheMap, bool renewMeshId);
 		_declspec(dllexport) void alignDiskCacheAndDBTaskInternal(size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void stopAlignDiskCacheAndDBTasks(bool isInEditor);
 		_declspec(dllexport) void sync(bool isInEditor, bool inGameEditMode, size_t numVerticesPerSize, float gridStepInWU, std::string* clientQuadrants, std::string& replyClientQuadrants, std::string& replyProceGenStatus, std::string& replyExtraQuadrants, std::string& mapTextureRects, std::string& replyMapTextureRects);
