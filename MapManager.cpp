@@ -983,10 +983,9 @@ namespace TheWorld_MapManager
 
 		std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 		
-		TheWorld_Utils::MeshCacheBuffer cache;
 		std::string cacheDir = m_DBInterface->dataPath();
 		std::string mapName = getMapName();
-		cache = TheWorld_Utils::MeshCacheBuffer(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
+		TheWorld_Utils::MeshCacheBuffer cache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, lowerXGridVertex, lowerZGridVertex);
 		std::string writtenMeshId;
 		TheWorld_Utils::TerrainEdit writtenTerrainEdit;
 		std::string clientMeshId = cache.writeBufferToDiskCache2(meshBuffer, writtenMeshId, true, false, &writtenTerrainEdit);		// renew meshid to force all clients to donwload quadrant data again
@@ -995,7 +994,8 @@ namespace TheWorld_MapManager
 		//TheWorld_Utils::QuadrantPos pos(cache.getLowerXGridVertex(), cache.getLowerZGridVertex(), cache.getLevel(), (int)cache.getNumVerticesPerSize(), cache.getGridStepInWU());
 		
 		TheWorld_Utils::QuadrantPos quadrantPos = cache.getQuadrantPos();
-		
+		quadrantPos.trackQuadrantForDebug("", "uploadCacheBuffer");
+
 		{
 			TheWorld_Utils::MapTextureRectPos mapTextureRectPos(quadrantPos, numQuadrantsPerSize, quadrantGlobalSize, quadrantWorldSize);
 
@@ -1015,10 +1015,18 @@ namespace TheWorld_MapManager
 
 			s_mapInitMap[numVerticesPerSize][level]->m_modifiedQuadrants[quadrantPos] = writtenMeshId;
 			if (writtenTerrainEdit.normalsNeedRegen || writtenTerrainEdit.splatmapNeedRegen() || writtenTerrainEdit.globalmapNeedRegen)
+			{
 				s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[quadrantPos] = writtenMeshId;
+				PLOG_VERBOSE << "Quadrant needing client work (shader maps generation) " << quadrantPos.getIdStr() << " " << quadrantPos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(writtenMeshId);
+			}
 			else
+			{
 				if (s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.contains(quadrantPos))
+				{
 					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.erase(quadrantPos);
+					PLOG_VERBOSE << "Quadrant no longer needing client work (shader maps generation) " << quadrantPos.getIdStr();
+				}
+			}
 		}
 
 		PLOG_VERBOSE << "Uploaded Quadrant with new hash " << cache.getCacheIdStr() << " - Client hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(clientMeshId);
@@ -1905,10 +1913,11 @@ namespace TheWorld_MapManager
 						std::string mapName = getMapName();
 						TheWorld_Utils::MeshCacheBuffer cache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, quadrantPos.getLowerXGridVertex(), quadrantPos.getLowerZGridVertex());
 						TheWorld_Utils::TerrainEdit terrainEdit;
-						cache.getTerrainEdit(terrainEdit);
+						std::string serverMeshId = cache.getMeshIdFromDisk(false, &terrainEdit);
+						//cache.getTerrainEdit(terrainEdit);
 						if (terrainEdit.normalsNeedRegen or terrainEdit.splatmapNeedRegen() or terrainEdit.globalmapNeedRegen)
 						{
-							PLOG_VERBOSE << "SYNC - Client work (shader maps generation) needed for quadrant " << quadrantPos.getIdStr() << " - Client hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(meshId);
+							PLOG_VERBOSE << "SYNC - Client work (shader maps generation) needed for quadrant " << quadrantPos.getIdStr() << " - Server map hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(meshId) << " - Server cache hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(serverMeshId);
 							quadrantToRefreshMap[quadrantPos] = true;
 							replyExtraQuadrantsVect.push_back(quadrantPos);
 						}
@@ -2124,7 +2133,7 @@ namespace TheWorld_MapManager
 							cacheMapItem.second->refreshInternalCacheQuadrantDataFromDisk(false, false);	// we choose morte recent cache data between work cache and normal cache
 							TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* internalQuadrantData = cacheMapItem.second->internalCacheQuadrantData();
 							TheWorld_Utils::TerrainEdit* terrainEdit = internalQuadrantData->terrainData();
-							//pos.trackQuadrantForDebug("", std::string("SERVER PROCEDURAL TERRAIN GENERATION - ") + "Processing quadrant for height generation" + pos.getIdStr() + " " + pos.getName() + " Hash=" + TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(internalQuadrantData->meshId));
+							pos.trackQuadrantForDebug("", std::string("SERVER PROCEDURAL TERRAIN GENERATION - ") + "Processing quadrant for height generation" + pos.getIdStr() + " " + pos.getName() + " Hash=" + TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(internalQuadrantData->meshId));
 							if (terrainEdit->heightsNeedRegen)
 							{
 								// generate heights
@@ -2491,26 +2500,24 @@ namespace TheWorld_MapManager
 						std::unique_lock<std::recursive_mutex> lock(s_mtxInternalData, std::try_to_lock);
 						if (lock.owns_lock() || s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 						{
-							for (auto& cacheMapItem : cacheMap)
+							for (auto& [quadrantPos, cache] : cacheMap)
 							{
-								TheWorld_Utils::MeshCacheBuffer* cache = cacheMapItem.second;
 								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* internalQuadrantData = cache->internalCacheQuadrantData();
 								TheWorld_Utils::QuadrantPos pos = cache->getQuadrantPos();
-								//pos.trackQuadrantForDebug("", std::string("Updating quadrant server Cache ") + pos.getIdStr() + " " + pos.getName() + " Hash=" + TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(internalQuadrantData->meshId));
+								pos.trackQuadrantForDebug("", std::string("Updating quadrant server Cache ") + pos.getIdStr() + " " + pos.getName() + " Hash=" + TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(internalQuadrantData->meshId));
 								std::string buffer;
 								cache->setBufferFromCacheQuadrantData(cache->getNumVerticesPerSize(), *internalQuadrantData, buffer);
 								std::string writtenMeshId;
 								bool reneweMeshId = false;	// We don't renew meshId when writing to disk cache as we we have renewed it on heights update (generation and blending) XXXXX
 								cache->writeBufferToDiskCache(buffer, writtenMeshId, reneweMeshId, true);		// writing buffer to work cache in case of restart to not loose some quadrant for client processing
 								cache->writeBufferToDiskCache(buffer, writtenMeshId, reneweMeshId, false);		// writing buffer for to cache for client generation
-								s_mapInitMap[numVerticesPerSize][level]->m_modifiedQuadrants[cacheMapItem.first] = internalQuadrantData->meshId;
 
 								TheWorld_Utils::TerrainEdit* terrainEdit = internalQuadrantData->terrainData();
 								if (terrainEdit->normalsNeedRegen or terrainEdit->splatmapNeedRegen() or terrainEdit->globalmapNeedRegen)
-									quadrantsToUpdateClientSide[cacheMapItem.first] = internalQuadrantData->meshId;
-								PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Updating quadrant server Cache " << pos.getIdStr() << " " << pos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(internalQuadrantData->meshId);
+									quadrantsToUpdateClientSide[quadrantPos] = internalQuadrantData->meshId;
+								PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Updated quadrant server Cache (work and normal) " << pos.getIdStr() << " " << pos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(internalQuadrantData->meshId);
 								delete cache;
-								cacheMapItem.second = nullptr;
+								cache = nullptr;
 							}
 							break;
 						}
@@ -2538,7 +2545,9 @@ namespace TheWorld_MapManager
 						for (auto& [pos, meshId] : quadrantsToUpdateClientSide)
 						{
 							//s_mapInitMap[numVerticesPerSize][level]->m_modifiedQuadrants[pos] = meshId;
+							s_mapInitMap[numVerticesPerSize][level]->m_modifiedQuadrants[pos] = meshId;
 							s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = meshId;
+							PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Quadrant set as updated and needing client work (shader maps generation) " << pos.getIdStr() << " " << pos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(meshId);
 						}
 						break;
 					}
@@ -2780,7 +2789,7 @@ namespace TheWorld_MapManager
 		
 		gridStepInWU = MapManager::gridStepInWU();
 		TheWorld_Utils::QuadrantPos pos(lowerXGridVertex, lowerZGridVertex, level, numVerticesPerSize, gridStepInWU);
-		//pos.trackQuadrantForDebug("", "getQuadrantVertices");
+		pos.trackQuadrantForDebug("", "getQuadrantVertices");
 
 		{
 			TheWorld_Utils::GuardProfiler profiler(std::string("WorldDeploy 1b.1 ") + __FUNCTION__, "Get MeshId from cache");
@@ -2800,8 +2809,10 @@ namespace TheWorld_MapManager
 
 				if (terrainEdit.normalsNeedRegen || terrainEdit.splatmapNeedRegen() || terrainEdit.globalmapNeedRegen)
 				{
+					pos.trackQuadrantForDebug("", "Quadrant needing client work (shader maps generation)");
 					std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = serverMeshId;
+					PLOG_VERBOSE << "Quadrant needing client work (shader maps generation) " << pos.getIdStr() << " " << pos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(serverMeshId);
 				}
 			}
 			else
@@ -2842,8 +2853,10 @@ namespace TheWorld_MapManager
 				// looking if we need to re-populate internal memory map with current quadrant (in donwload by some client) after a server restart
 				if (terrainEdit.normalsNeedRegen || terrainEdit.splatmapNeedRegen() || terrainEdit.globalmapNeedRegen)
 				{
+					pos.trackQuadrantForDebug("", "Quadrant needing client work (shader maps generation)");
 					std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = serverMeshId;
+					PLOG_VERBOSE << "Quadrant needing client work (shader maps generation) " << pos.getIdStr() << " " << pos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(serverMeshId);
 				}
 				//else		// should be useless 
 				//{

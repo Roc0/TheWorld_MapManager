@@ -100,7 +100,7 @@ namespace TheWorld_MapManager
     void MapManagerUtils::staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender)
     {
         if (appender == nullptr)
-            plog::init(sev, logPath, 1000000, 3);
+            plog::init(sev, logPath, 10000000, 3);
         else
             plog::init(sev, appender);
 
