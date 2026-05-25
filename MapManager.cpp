@@ -184,6 +184,7 @@ namespace TheWorld_MapManager
 		jsonFile >> root;
 		m_dataPath = root["DataPath"].asString();
 
+		my_assert(s_dbt == DBInterface::DBType::Json);
 		m_DBInterface = DBFactory::getDB(s_dbt, m_dataPath.c_str());
 		m_instrumented = false;
 		m_consoleDebugMode = false;
@@ -248,6 +249,7 @@ namespace TheWorld_MapManager
 
 	void MapManager::staticInit(const char* logPath, plog::Severity sev, plog::IAppender* appender, bool multiThreadEnvironment /* every thread is provided with its own DB connection associated to the thread::id*/)
 	{
+		my_assert(s_dbt == DBInterface::DBType::Json);
 		if (multiThreadEnvironment)
 			DBFactory::setConnectionType(DBInterface::ConnectionType::MultiConn, s_dbt);
 		else
@@ -1051,6 +1053,7 @@ namespace TheWorld_MapManager
 		TheWorld_Utils::MemoryBuffer splatmapBuffer;
 		TheWorld_Utils::MemoryBuffer colormapBuffer;
 		TheWorld_Utils::MemoryBuffer globalmapBuffer;
+		TheWorld_Utils::NamedDataBuffer namedDataBuffer;
 		TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData cacheQuadrantData;
 		cacheQuadrantData.meshId = cache.getMeshIdFromDisk();
 		cacheQuadrantData.terrainEditValues = &terrainEditValues;
@@ -1059,7 +1062,8 @@ namespace TheWorld_MapManager
 		cacheQuadrantData.normalsBuffer = &normalsBuffer;
 		cacheQuadrantData.splatmapBuffer = &splatmapBuffer;
 		cacheQuadrantData.colormapBuffer = &colormapBuffer;
-		cacheQuadrantData.globalmapBuffer = &globalmapBuffer;
+		cacheQuadrantData.globalmapBuffer = &globalmapBuffer;		
+		cacheQuadrantData.namedDataBuffer = &namedDataBuffer;
 		
 		bool completed;
 
@@ -1125,6 +1129,7 @@ namespace TheWorld_MapManager
 		}
 		else
 		{
+			throw MapManagerException(__FUNCTION__, "Unsupported vertex store type");	// we must to manage vertices and named data to and from db
 			TheWorld_Utils::MemoryBuffer heights16Buffer;
 			TheWorld_Utils::MemoryBuffer heights32Buffer;
 			TheWorld_Utils::MemoryBuffer normalsBuffer;
@@ -2072,7 +2077,7 @@ namespace TheWorld_MapManager
 
 		if (diskCacheMap.size() > 0)
 		{
-			TheWorld_Utils::GuardProfiler profiler(std::string("generateDetailDataFmorQuadrants ") + __FUNCTION__, "Manage Work cache");
+			TheWorld_Utils::GuardProfiler profiler(std::string("generateDetailDataForQuadrants ") + __FUNCTION__, "Manage Work cache");
 			PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION Started";
 
 			//size_t heightGenerationProcessingQuad = 0, heightGenerationProcessedQuads = 0;
@@ -2171,12 +2176,12 @@ namespace TheWorld_MapManager
 								internalQuadrantData->heights16Buffer->adjustSize(heights16BufferSize);
 								internalQuadrantData->heights32Buffer->adjustSize(heights32BufferSize);
 
-								internalQuadrantData->meshId = TheWorld_Utils::MeshCacheBuffer::generateNewMeshId();	// update meshId as heights updated XXXXX
+								internalQuadrantData->meshId = TheWorld_Utils::MeshCacheBuffer::generateNewMeshId();	// update meshId as heights updated
 
 								// import neighbour quadrants in workdir from cache if they exist
 								{
 									bool reneweMeshId = false;
-									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthZMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);	// don't update meshId now as we are just importing in work area and not modifying data, meshId will be updated when/if the quadrant will be processed for height generation XXXXX
+									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthZMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);	// don't update meshId now as we are just importing in work area and not modifying data, meshId will be updated when/if the quadrant will be processed for height generation
 									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SouthZPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
 									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::WestXMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
 									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::EastXPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
@@ -2234,39 +2239,6 @@ namespace TheWorld_MapManager
 							}
 						}
 					}
-
-					for (auto& cacheMapItem : cacheMap)
-					{
-						TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* internalQuadrantData = cacheMapItem.second->internalCacheQuadrantData();
-						TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
-
-						std::string lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName;
-
-						TheWorld_Utils::QuadrantPos northQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthZMinus);
-						if (cacheMap.contains(northQuadrantPos))
-						{
-							TheWorld_Utils::TerrainEdit* northTerrainData = cacheMap[northQuadrantPos]->internalCacheQuadrantData()->terrainData();
-							northTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
-							internalQuadrantData->terrainData()->setNorthGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
-						}
-
-						TheWorld_Utils::QuadrantPos westQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::WestXMinus);
-						if (cacheMap.contains(westQuadrantPos))
-						{
-							TheWorld_Utils::TerrainEdit* westTerrainData = cacheMap[westQuadrantPos]->internalCacheQuadrantData()->terrainData();
-							westTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
-							internalQuadrantData->terrainData()->setWestGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
-						}
-
-						TheWorld_Utils::QuadrantPos northwestQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthwestZMinusXMinus);
-						if (cacheMap.contains(northwestQuadrantPos))
-						{
-							TheWorld_Utils::TerrainEdit* northwestTerrainData = cacheMap[northwestQuadrantPos]->internalCacheQuadrantData()->terrainData();
-							northwestTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
-							internalQuadrantData->terrainData()->setNorthwestGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
-						}
-					}
-
 				}
 
 				if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
@@ -2492,6 +2464,90 @@ namespace TheWorld_MapManager
 					return;
 				}
 
+				// Preparing data for globalmap generation client side
+				if (cacheMap.size() > 0)
+				{
+					TimerMcs clock;
+					clock.tick();
+					
+					for (auto& cacheMapItem : cacheMap)
+					{
+						TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* internalQuadrantData = cacheMapItem.second->internalCacheQuadrantData();
+						TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
+
+						TheWorld_Utils::QuadrantPos northQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthZMinus);
+						if (cacheMap.contains(northQuadrantPos))
+						{
+							std::string lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName;
+							TheWorld_Utils::TerrainEdit* northTerrainData = cacheMap[northQuadrantPos]->internalCacheQuadrantData()->terrainData();
+							northTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
+							internalQuadrantData->terrainData()->setNorthGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
+
+							if (not northTerrainData->heightsNeedRegen)
+							{
+								TheWorld_Utils::MemoryBuffer northQuadrantSplatmapRow;
+								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* northInternalQuadrantData = cacheMap[northQuadrantPos]->internalCacheQuadrantData();
+								size_t firstIndexOfLastRow = numVerticesPerSize * numVerticesPerSize - numVerticesPerSize;	// first (left) vertex of the last (bottom) row of the north (top) quadrant
+								for (size_t idx = 0; idx < numVerticesPerSize; ++idx)
+								{
+									size_t currentHeightIndex = firstIndexOfLastRow + idx;	// scrolling the last row from left to right
+									TheWorld_Utils::_RGBA splatColor = TheWorld_Utils::MeshCacheBuffer::calcSplat(*northInternalQuadrantData->heights32Buffer, currentHeightIndex, numVerticesPerSize, gridStepInWU, northTerrainData);
+									northQuadrantSplatmapRow.append((BYTE*)&splatColor, sizeof(TheWorld_Utils::_RGBA));
+								}
+
+								internalQuadrantData->namedDataBuffer->add(northQuadrantSplatmapRow, THEWORLD_QUADRANT_NAMEDATA_NORTHQUADSPLATMAPROW);
+							}
+						}
+
+						TheWorld_Utils::QuadrantPos westQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::WestXMinus);
+						if (cacheMap.contains(westQuadrantPos))
+						{
+							std::string lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName;
+							TheWorld_Utils::TerrainEdit* westTerrainData = cacheMap[westQuadrantPos]->internalCacheQuadrantData()->terrainData();
+							westTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
+							internalQuadrantData->terrainData()->setWestGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
+
+							if (not westTerrainData->heightsNeedRegen)
+							{
+								TheWorld_Utils::MemoryBuffer westQuadrantSplatmapRow;
+								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* westInternalQuadrantData = cacheMap[westQuadrantPos]->internalCacheQuadrantData();
+								size_t firstIndexOfRightRow = numVerticesPerSize - 1;	// first (top) vertex of the last (right) column of the west (left) quadrant
+								for (size_t idx = 0; idx < numVerticesPerSize; ++idx)
+								{
+									size_t currentHeightIndex = firstIndexOfRightRow + (idx * numVerticesPerSize);	// scrolling the last column from top to bottom
+									TheWorld_Utils::_RGBA splatColor = TheWorld_Utils::MeshCacheBuffer::calcSplat(*westInternalQuadrantData->heights32Buffer, currentHeightIndex, numVerticesPerSize, gridStepInWU, westTerrainData);
+									westQuadrantSplatmapRow.append((BYTE*)&splatColor, sizeof(TheWorld_Utils::_RGBA));
+								}
+
+								internalQuadrantData->namedDataBuffer->add(westQuadrantSplatmapRow, THEWORLD_QUADRANT_NAMEDATA_WESTQUADSPLATMAPROW);
+							}
+						}
+
+						TheWorld_Utils::QuadrantPos northwestQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthwestZMinusXMinus);
+						if (cacheMap.contains(northwestQuadrantPos))
+						{
+							std::string lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName;
+							TheWorld_Utils::TerrainEdit* northwestTerrainData = cacheMap[northwestQuadrantPos]->internalCacheQuadrantData()->terrainData();
+							northwestTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
+							internalQuadrantData->terrainData()->setNorthwestGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
+
+							if (not northwestTerrainData->heightsNeedRegen)
+							{
+								TheWorld_Utils::_RGBA northwestQuadrantSplatRGBA(0, 0, 0, 0);
+								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* northwestInternalQuadrantData = cacheMap[northwestQuadrantPos]->internalCacheQuadrantData();
+								size_t lastHeightIndex = numVerticesPerSize * numVerticesPerSize - 1;	// last vertex of the northwest (left-top) quadrant which is the one at the bottom-right corner
+								northwestQuadrantSplatRGBA = TheWorld_Utils::MeshCacheBuffer::calcSplat(*northwestInternalQuadrantData->heights32Buffer, lastHeightIndex, numVerticesPerSize, gridStepInWU, northwestTerrainData);
+
+								TheWorld_Utils::MemoryBuffer northwestQuadrantSplatTexel((BYTE*)&northwestQuadrantSplatRGBA, sizeof(TheWorld_Utils::_RGBA));
+								internalQuadrantData->namedDataBuffer->add(northwestQuadrantSplatTexel, THEWORLD_QUADRANT_NAMEDATA_NORTHWESTQUADSPLATMAPTEXEL);
+							}
+						}
+					}
+
+					clock.tock();
+					PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Border quadrant splatmap generation on north/west side elepsed (mcs): " << clock.duration().count() << " for " << cacheMap.size() << " quadrants";
+				}
+
 				if (cacheMap.size() > 0)
 				{
 					while (true)
@@ -2508,7 +2564,7 @@ namespace TheWorld_MapManager
 								std::string buffer;
 								cache->setBufferFromCacheQuadrantData(cache->getNumVerticesPerSize(), *internalQuadrantData, buffer);
 								std::string writtenMeshId;
-								bool reneweMeshId = false;	// We don't renew meshId when writing to disk cache as we we have renewed it on heights update (generation and blending) XXXXX
+								bool reneweMeshId = false;	// We don't renew meshId when writing to disk cache as we we have renewed it on heights update (generation and blending)
 								cache->writeBufferToDiskCache(buffer, writtenMeshId, reneweMeshId, true);		// writing buffer to work cache in case of restart to not loose some quadrant for client processing
 								cache->writeBufferToDiskCache(buffer, writtenMeshId, reneweMeshId, false);		// writing buffer for to cache for client generation
 
@@ -2534,7 +2590,7 @@ namespace TheWorld_MapManager
 				remainigQuadrantsToProcess = diskCacheMap.size();
 				s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsToProcessServerSide = remainigQuadrantsToProcess;
 			}
-
+		
 			{
 				while (true)
 				{
@@ -2545,7 +2601,7 @@ namespace TheWorld_MapManager
 						for (auto& [pos, meshId] : quadrantsToUpdateClientSide)
 						{
 							//s_mapInitMap[numVerticesPerSize][level]->m_modifiedQuadrants[pos] = meshId;
-							s_mapInitMap[numVerticesPerSize][level]->m_modifiedQuadrants[pos] = meshId;
+							s_mapInitMap[numVerticesPerSize][level]->m_modifiedQuadrants[pos] = meshId;				// we set modified quadrants to trigger client refresh of quadrant data: we must set modified quadrants at the end of the heights generation cycles
 							s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = meshId;
 							PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Quadrant set as updated and needing client work (shader maps generation) " << pos.getIdStr() << " " << pos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(meshId);
 						}
@@ -2619,6 +2675,8 @@ namespace TheWorld_MapManager
 
 	void MapManager::alignDiskCacheAndDBTaskInternal(size_t numVerticesPerSize, int level)
 	{
+		my_assert(c_writeCompactVerticesToDB);
+		
 		std::time_t fromFileTimeType = s_mapInitMap[numVerticesPerSize][level]->m_fromFileTimeType;
 		s_mapInitMap[numVerticesPerSize][level]->m_fromFileTimeType = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 		
