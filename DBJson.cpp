@@ -295,8 +295,8 @@ namespace TheWorld_MapManager
 			rootTerrainData["014_splatmap_slopeVerticalFactor"] = terrainEdit.extraValues.slopeVerticalFactor;
 			rootTerrainData["015_splatmap_slopeFlatFactor"] = terrainEdit.extraValues.slopeFlatFactor;
 			rootTerrainData["016_splatmap_dirtOnRocksFactor"] = terrainEdit.extraValues.dirtOnRocksFactor;
-			rootTerrainData["017_splatmap_highElevationFactor"] = terrainEdit.extraValues.highElevationFactor;
-			rootTerrainData["018_splatmap_lowElevationFactor"] = terrainEdit.extraValues.lowElevationFactor;
+			rootTerrainData["017_splatmap_highElevationFactor"] = terrainEdit.extraValues.highElevationFactor_not_used;
+			rootTerrainData["018_splatmap_lowElevationFactor"] = terrainEdit.extraValues.lowElevationFactor_not_used;
 			rootTerrainData["019_splatMapMode"] = int(terrainEdit.extraValues.splatMapMode);
 			rootTerrainData["020_amplitudeBlendFactor"] = terrainEdit.extraValues.amplitudeBlendFactor;
 			rootTerrainData["021_postGenerateElevation"] = terrainEdit.extraValues.postGenerateElevation;
@@ -489,8 +489,8 @@ namespace TheWorld_MapManager
 		terrainEdit.extraValues.slopeVerticalFactor = float(rootTerrainData["014_splatmap_slopeVerticalFactor"].asDouble());
 		terrainEdit.extraValues.slopeFlatFactor = float(rootTerrainData["015_splatmap_slopeFlatFactor"].asDouble());
 		terrainEdit.extraValues.dirtOnRocksFactor = float(rootTerrainData["016_splatmap_dirtOnRocksFactor"].asDouble());
-		terrainEdit.extraValues.highElevationFactor = float(rootTerrainData["017_splatmap_highElevationFactor"].asDouble());
-		terrainEdit.extraValues.lowElevationFactor = float(rootTerrainData["018_splatmap_lowElevationFactor"].asDouble());
+		terrainEdit.extraValues.highElevationFactor_not_used = float(rootTerrainData["017_splatmap_highElevationFactor"].asDouble());
+		terrainEdit.extraValues.lowElevationFactor_not_used = float(rootTerrainData["018_splatmap_lowElevationFactor"].asDouble());
 		terrainEdit.extraValues.splatMapMode = size_t(rootTerrainData["019_splatMapMode"].asInt());
 		terrainEdit.extraValues.amplitudeBlendFactor = float(rootTerrainData["020_amplitudeBlendFactor"].asDouble());
 		terrainEdit.extraValues.postGenerateElevation = float(rootTerrainData["021_postGenerateElevation"].asDouble());
@@ -728,8 +728,8 @@ namespace TheWorld_MapManager
 		quadrant["terrain_data"]["014_splatmap_slopeVerticalFactor"] = terrainEdit.extraValues.slopeVerticalFactor;
 		quadrant["terrain_data"]["015_splatmap_slopeFlatFactor"] = terrainEdit.extraValues.slopeFlatFactor;
 		quadrant["terrain_data"]["016_splatmap_dirtOnRocksFactor"] = terrainEdit.extraValues.dirtOnRocksFactor;
-		quadrant["terrain_data"]["017_splatmap_highElevationFactor"] = terrainEdit.extraValues.highElevationFactor;
-		quadrant["terrain_data"]["018_splatmap_lowElevationFactor"] = terrainEdit.extraValues.lowElevationFactor;
+		quadrant["terrain_data"]["017_splatmap_highElevationFactor"] = terrainEdit.extraValues.highElevationFactor_not_used;
+		quadrant["terrain_data"]["018_splatmap_lowElevationFactor"] = terrainEdit.extraValues.lowElevationFactor_not_used;
 		quadrant["terrain_data"]["019_splatMapMode"] = int(terrainEdit.extraValues.splatMapMode);
 		quadrant["terrain_data"]["020_amplitudeBlendFactor"] = terrainEdit.extraValues.amplitudeBlendFactor;
 		quadrant["terrain_data"]["021_postGenerateElevation"] = terrainEdit.extraValues.postGenerateElevation;
@@ -959,12 +959,11 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["017_splatmap_highElevationFactor"];
 		if (v.isNull())
-			quadrant["terrain_data"]["017_splatmap_highElevationFactor"] = terrainEdit.extraValues.highElevationFactor;
+			quadrant["terrain_data"]["017_splatmap_highElevationFactor"] = terrainEdit.extraValues.highElevationFactor_not_used;
 
 		v = quadrant["terrain_data"]["018_splatmap_lowElevationFactor"];
 		if (v.isNull())
-			quadrant["terrain_data"]["018_splatmap_lowElevationFactor"] = terrainEdit.extraValues.lowElevationFactor;
-
+			quadrant["terrain_data"]["018_splatmap_lowElevationFactor"] = terrainEdit.extraValues.lowElevationFactor_not_used;
 		v = quadrant["terrain_data"]["019_splatMapMode"];
 		if (v.isNull())
 			quadrant["terrain_data"]["019_splatMapMode"] = int(terrainEdit.extraValues.splatMapMode);

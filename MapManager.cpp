@@ -2483,20 +2483,20 @@ namespace TheWorld_MapManager
 							northTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
 							internalQuadrantData->terrainData()->setNorthGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
 
-							if (not northTerrainData->heightsNeedRegen)
-							{
-								TheWorld_Utils::MemoryBuffer northQuadrantSplatmapRow;
-								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* northInternalQuadrantData = cacheMap[northQuadrantPos]->internalCacheQuadrantData();
-								size_t firstIndexOfLastRow = numVerticesPerSize * numVerticesPerSize - numVerticesPerSize;	// first (left) vertex of the last (bottom) row of the north (top) quadrant
-								for (size_t idx = 0; idx < numVerticesPerSize; ++idx)
-								{
-									size_t currentHeightIndex = firstIndexOfLastRow + idx;	// scrolling the last row from left to right
-									TheWorld_Utils::_RGBA splatColor = TheWorld_Utils::MeshCacheBuffer::calcSplat(*northInternalQuadrantData->heights32Buffer, currentHeightIndex, numVerticesPerSize, gridStepInWU, northTerrainData);
-									northQuadrantSplatmapRow.append((BYTE*)&splatColor, sizeof(TheWorld_Utils::_RGBA));
-								}
+							//if (not northTerrainData->heightsNeedRegen)
+							//{
+							//	TheWorld_Utils::MemoryBuffer northQuadrantSplatmapRow;
+							//	TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* northInternalQuadrantData = cacheMap[northQuadrantPos]->internalCacheQuadrantData();
+							//	size_t firstIndexOfLastRow = numVerticesPerSize * numVerticesPerSize - numVerticesPerSize;	// first (left) vertex of the last (bottom) row of the north (top) quadrant
+							//	for (size_t idx = 0; idx < numVerticesPerSize; ++idx)
+							//	{
+							//		size_t currentHeightIndex = firstIndexOfLastRow + idx;	// scrolling the last row from left to right
+							//		TheWorld_Utils::_RGBA splatColor = TheWorld_Utils::MeshCacheBuffer::calcSplat(*northInternalQuadrantData->heights32Buffer, currentHeightIndex, numVerticesPerSize, gridStepInWU, northTerrainData);
+							//		northQuadrantSplatmapRow.append((BYTE*)&splatColor, sizeof(TheWorld_Utils::_RGBA));
+							//	}
 
-								internalQuadrantData->namedDataBuffer->add(northQuadrantSplatmapRow, THEWORLD_QUADRANT_NAMEDATA_NORTHQUADSPLATMAPROW);
-							}
+							//	internalQuadrantData->namedDataBuffer->add(northQuadrantSplatmapRow, THEWORLD_QUADRANT_NAMEDATA_NORTHQUADSPLATMAPROW);
+							//}
 						}
 
 						TheWorld_Utils::QuadrantPos westQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::WestXMinus);
@@ -2507,20 +2507,20 @@ namespace TheWorld_MapManager
 							westTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
 							internalQuadrantData->terrainData()->setWestGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
 
-							if (not westTerrainData->heightsNeedRegen)
-							{
-								TheWorld_Utils::MemoryBuffer westQuadrantSplatmapRow;
-								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* westInternalQuadrantData = cacheMap[westQuadrantPos]->internalCacheQuadrantData();
-								size_t firstIndexOfRightRow = numVerticesPerSize - 1;	// first (top) vertex of the last (right) column of the west (left) quadrant
-								for (size_t idx = 0; idx < numVerticesPerSize; ++idx)
-								{
-									size_t currentHeightIndex = firstIndexOfRightRow + (idx * numVerticesPerSize);	// scrolling the last column from top to bottom
-									TheWorld_Utils::_RGBA splatColor = TheWorld_Utils::MeshCacheBuffer::calcSplat(*westInternalQuadrantData->heights32Buffer, currentHeightIndex, numVerticesPerSize, gridStepInWU, westTerrainData);
-									westQuadrantSplatmapRow.append((BYTE*)&splatColor, sizeof(TheWorld_Utils::_RGBA));
-								}
+							//if (not westTerrainData->heightsNeedRegen)
+							//{
+							//	TheWorld_Utils::MemoryBuffer westQuadrantSplatmapRow;
+							//	TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* westInternalQuadrantData = cacheMap[westQuadrantPos]->internalCacheQuadrantData();
+							//	size_t firstIndexOfRightRow = numVerticesPerSize - 1;	// first (top) vertex of the last (right) column of the west (left) quadrant
+							//	for (size_t idx = 0; idx < numVerticesPerSize; ++idx)
+							//	{
+							//		size_t currentHeightIndex = firstIndexOfRightRow + (idx * numVerticesPerSize);	// scrolling the last column from top to bottom
+							//		TheWorld_Utils::_RGBA splatColor = TheWorld_Utils::MeshCacheBuffer::calcSplat(*westInternalQuadrantData->heights32Buffer, currentHeightIndex, numVerticesPerSize, gridStepInWU, westTerrainData);
+							//		westQuadrantSplatmapRow.append((BYTE*)&splatColor, sizeof(TheWorld_Utils::_RGBA));
+							//	}
 
-								internalQuadrantData->namedDataBuffer->add(westQuadrantSplatmapRow, THEWORLD_QUADRANT_NAMEDATA_WESTQUADSPLATMAPROW);
-							}
+							//	internalQuadrantData->namedDataBuffer->add(westQuadrantSplatmapRow, THEWORLD_QUADRANT_NAMEDATA_WESTQUADSPLATMAPROW);
+							//}
 						}
 
 						TheWorld_Utils::QuadrantPos northwestQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthwestZMinusXMinus);
@@ -2531,16 +2531,16 @@ namespace TheWorld_MapManager
 							northwestTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
 							internalQuadrantData->terrainData()->setNorthwestGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
 
-							if (not northwestTerrainData->heightsNeedRegen)
-							{
-								TheWorld_Utils::_RGBA northwestQuadrantSplatRGBA(0, 0, 0, 0);
-								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* northwestInternalQuadrantData = cacheMap[northwestQuadrantPos]->internalCacheQuadrantData();
-								size_t lastHeightIndex = numVerticesPerSize * numVerticesPerSize - 1;	// last vertex of the northwest (left-top) quadrant which is the one at the bottom-right corner
-								northwestQuadrantSplatRGBA = TheWorld_Utils::MeshCacheBuffer::calcSplat(*northwestInternalQuadrantData->heights32Buffer, lastHeightIndex, numVerticesPerSize, gridStepInWU, northwestTerrainData);
+							//if (not northwestTerrainData->heightsNeedRegen)
+							//{
+							//	TheWorld_Utils::_RGBA northwestQuadrantSplatRGBA(0, 0, 0, 0);
+							//	TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* northwestInternalQuadrantData = cacheMap[northwestQuadrantPos]->internalCacheQuadrantData();
+							//	size_t lastHeightIndex = numVerticesPerSize * numVerticesPerSize - 1;	// last vertex of the northwest (left-top) quadrant which is the one at the bottom-right corner
+							//	northwestQuadrantSplatRGBA = TheWorld_Utils::MeshCacheBuffer::calcSplat(*northwestInternalQuadrantData->heights32Buffer, lastHeightIndex, numVerticesPerSize, gridStepInWU, northwestTerrainData);
 
-								TheWorld_Utils::MemoryBuffer northwestQuadrantSplatTexel((BYTE*)&northwestQuadrantSplatRGBA, sizeof(TheWorld_Utils::_RGBA));
-								internalQuadrantData->namedDataBuffer->add(northwestQuadrantSplatTexel, THEWORLD_QUADRANT_NAMEDATA_NORTHWESTQUADSPLATMAPTEXEL);
-							}
+							//	TheWorld_Utils::MemoryBuffer northwestQuadrantSplatTexel((BYTE*)&northwestQuadrantSplatRGBA, sizeof(TheWorld_Utils::_RGBA));
+							//	internalQuadrantData->namedDataBuffer->add(northwestQuadrantSplatTexel, THEWORLD_QUADRANT_NAMEDATA_NORTHWESTQUADSPLATMAPTEXEL);
+							//}
 						}
 					}
 
