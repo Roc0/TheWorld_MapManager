@@ -979,7 +979,7 @@ namespace TheWorld_MapManager
 		uploadedMapQuadrantsOverride(true, numVerticesPerSize, level);
 	}
 
-	void MapManager::uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer, bool& refreshRequired, int32_t numQuadrantsPerSize, float quadrantGlobalSize, float quadrantWorldSize)
+	void MapManager::uploadCacheBuffer(float lowerXGridVertex, float lowerZGridVertex, int numVerticesPerSize, float& gridStepInWU, int level, std::string& meshBuffer, bool& refreshRequired, int32_t numQuadrantsPerSize, float quadrantGlobalSize, float quadrantWorldSize, bool regenOnServer)
 	{
 		TheWorld_Utils::GuardProfiler profiler(std::string("UploadBuffer 1b ") + __FUNCTION__, "uploadCacheBuffer");
 
@@ -1017,10 +1017,10 @@ namespace TheWorld_MapManager
 				return;
 
 			s_mapInitMap[numVerticesPerSize][level]->m_modifiedQuadrants[quadrantPos] = writtenMeshId;
-			if (writtenTerrainEdit.normalsNeedRegen || writtenTerrainEdit.splatmapNeedRegen() || writtenTerrainEdit.globalmapNeedRegen)
+			if (/*writtenTerrainEdit.normalsNeedRegen() || writtenTerrainEdit.splatmapNeedRegen() ||*/ writtenTerrainEdit.globalmapNeedRegen())
 			{
 				s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[quadrantPos] = writtenMeshId;
-				PLOG_VERBOSE << "Quadrant needing client work (shader maps generation) " << quadrantPos.getIdStr() << " " << quadrantPos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(writtenMeshId);
+				PLOG_VERBOSE << "Quadrant needing client work (shader maps generation) 1 " << quadrantPos.getIdStr() << " " << quadrantPos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(writtenMeshId);
 			}
 			else
 			{
@@ -1030,6 +1030,18 @@ namespace TheWorld_MapManager
 					PLOG_VERBOSE << "Quadrant no longer needing client work (shader maps generation) " << quadrantPos.getIdStr();
 				}
 			}
+		}
+
+		if (regenOnServer)
+		{
+			{
+				std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::TerrainEdit> mapQuadrantOverrides;
+				mapQuadrantOverrides[quadrantPos] = writtenTerrainEdit;
+				std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
+				m_DBInterface->writeExternalQuadrants(gridStepInWU, numVerticesPerSize, level, mapQuadrantOverrides);
+			}
+
+			uploadedMapQuadrantsOverride(true, numVerticesPerSize, level);
 		}
 
 		PLOG_VERBOSE << "Uploaded Quadrant, new server hash " << cache.getCacheIdStr() << " - Previous server hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(previousServerMeshId);
@@ -1121,7 +1133,7 @@ namespace TheWorld_MapManager
 		if (vertexStoreType == DBInterface::QuadrantVertexStoreType::NotSet)
 		{
 			std::string writtenMeshId;
-			cache.writeBufferToDiskCache(strBuffer, writtenMeshId, false, true);
+			cache.writeBufferToDiskCache(strBuffer, writtenMeshId, false, true, &terrainEdit);
 		}
 		else if (vertexStoreType == DBInterface::QuadrantVertexStoreType::Compact)
 		{
@@ -1290,25 +1302,25 @@ namespace TheWorld_MapManager
 				if (heights32Buffer.size() > 0)
 					cacheQuadrantData.heights32Buffer = &heights32Buffer;
 
-				if (normalsBuffer.size() > 0)
-					cacheQuadrantData.normalsBuffer = &normalsBuffer;
-				else
-					terrainEdit.normalsNeedRegen = true;
+				//if (normalsBuffer.size() > 0)
+				//	cacheQuadrantData.normalsBuffer = &normalsBuffer;
+				//else
+				//	terrainEdit.normalsNeedRegen(true);
 
-				if (splatmapBuffer.size() > 0)
-					cacheQuadrantData.splatmapBuffer = &splatmapBuffer;
-				else
-					terrainEdit.splatmapNeedRegen(true);
+				//if (splatmapBuffer.size() > 0)
+				//	cacheQuadrantData.splatmapBuffer = &splatmapBuffer;
+				//else
+				//	terrainEdit.splatmapNeedRegen(true);
 
-				if (colormapBuffer.size() > 0)
-					cacheQuadrantData.colormapBuffer = &colormapBuffer;
-				else
-					terrainEdit.colormapNeedRegen = true;
+				//if (colormapBuffer.size() > 0)
+				//	cacheQuadrantData.colormapBuffer = &colormapBuffer;
+				//else
+				//	terrainEdit.colormapNeedRegen(true);
 
 				if (globalmapBuffer.size() > 0)
 					cacheQuadrantData.globalmapBuffer = &globalmapBuffer;
 				else
-					terrainEdit.globalmapNeedRegen = true;
+					terrainEdit.globalmapNeedRegen(true);
 
 				TheWorld_Utils::MemoryBuffer terrainEditValues;
 				if (terrainEdit.size > 0)
@@ -1344,7 +1356,6 @@ namespace TheWorld_MapManager
 		}
 		
 		return true;
-
 	}
 
 #define MAPMANAGER_STOPPED				-1
@@ -1921,7 +1932,7 @@ namespace TheWorld_MapManager
 						TheWorld_Utils::TerrainEdit terrainEdit;
 						std::string serverMeshId = cache.getMeshIdFromDisk(false, &terrainEdit);
 						//cache.getTerrainEdit(terrainEdit);
-						if (terrainEdit.normalsNeedRegen or terrainEdit.splatmapNeedRegen() or terrainEdit.globalmapNeedRegen)
+						if (/*terrainEdit.normalsNeedRegen() or terrainEdit.splatmapNeedRegen() or*/ terrainEdit.globalmapNeedRegen())
 						{
 							PLOG_VERBOSE << "SYNC - Client work (shader maps generation) needed for quadrant " << quadrantPos.getIdStr() << " - Server map hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(meshId) << " - Server cache hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(serverMeshId);
 							quadrantToRefreshMap[quadrantPos] = true;
@@ -2136,11 +2147,13 @@ namespace TheWorld_MapManager
 
 							TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
 							
-							cacheMapItem.second->refreshInternalCacheQuadrantDataFromDisk(false, false);	// we choose morte recent cache data between work cache and normal cache
+							bool refreshed = cacheMapItem.second->refreshInternalCacheQuadrantDataFromDisk(false, false);	// we choose more recent cache data between work cache and normal cache
 							TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* internalQuadrantData = cacheMapItem.second->internalCacheQuadrantData();
 							TheWorld_Utils::TerrainEdit* terrainEdit = internalQuadrantData->terrainData();
 							pos.TRACK_QUADRANT_FOR_DEBUG(std::string("SERVER PROCEDURAL TERRAIN GENERATION - ") + "Processing quadrant for height generation" + pos.getIdStr() + " " + pos.getName(), internalQuadrantData->meshId);
-							if (terrainEdit->heightsNeedRegen)
+							//if (refreshed)									// DEBUG
+							//	terrainEdit->heightsNeedRegen(true);		// DEBUG
+							if (terrainEdit->heightsNeedRegen())
 							{
 								// generate heights
 								std::vector<float> vectGridHeights;
@@ -2181,25 +2194,34 @@ namespace TheWorld_MapManager
 
 								// import neighbour quadrants in workdir from cache if they exist
 								{
-									bool reneweMeshId = false;
-									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthZMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);	// don't update meshId now as we are just importing in work area and not modifying data, meshId will be updated when/if the quadrant will be processed for height generation
-									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SouthZPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::WestXMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::EastXPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthwestZMinusXMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NortheastZMinusXPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SouthwestZPlusXMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SoutheastZPlusXPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
+									
+									std::vector<TheWorld_Utils::QuadrantPos> neighbours;
+									pos.getNeighbours(neighbours, THEWORLD_QUADRANT_DISTANCE_FOR_BLENDING);
+									for (auto& neighbourPos : neighbours)
+									{
+										bool reneweMeshId = false;	// don't update meshId now as we are just importing in work area and not modifying data, meshId will be updated when/if the quadrant will be processed for height generation
+										importQuadrantInWorkArea(neighbourPos, cacheDir, mapName, cacheToAdd, reneweMeshId);
+									}
+									
+									//bool reneweMeshId = false;	// don't update meshId now as we are just importing in work area and not modifying data, meshId will be updated when/if the quadrant will be processed for height generation
+									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthZMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
+									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SouthZPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
+									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::WestXMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
+									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::EastXPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
+									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthwestZMinusXMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
+									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NortheastZMinusXPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
+									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SouthwestZPlusXMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
+									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SoutheastZPlusXPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
 								}
 
-								internalQuadrantData->terrainData()->heightsNeedRegen = false;
+								internalQuadrantData->terrainData()->heightsNeedRegen(false);
 								internalQuadrantData->terrainData()->northSideZMinus.needBlend = true;
 								internalQuadrantData->terrainData()->southSideZPlus.needBlend = true;
 								internalQuadrantData->terrainData()->westSideXMinus.needBlend = true;
 								internalQuadrantData->terrainData()->eastSideXPlus.needBlend = true;
-								internalQuadrantData->terrainData()->normalsNeedRegen = true;
-								internalQuadrantData->terrainData()->splatmapNeedRegen(true);
-								internalQuadrantData->terrainData()->globalmapNeedRegen = true;
+								//internalQuadrantData->terrainData()->normalsNeedRegen(true);
+								//internalQuadrantData->terrainData()->splatmapNeedRegen(true);
+								internalQuadrantData->terrainData()->globalmapNeedRegen(true);
 
 								heightGenerationCompleted = false;
 							}
@@ -2357,9 +2379,8 @@ namespace TheWorld_MapManager
 								else
 									southeastQuadrantData = &emptyQuadrantData;
 
-								//lastPhase = false;	// DEBUG
 								bool renewMeshIdOnUpdate = true;	// we need to renew meshId if the heights are changed to be sure that client will update cache when receiving new meshId, but for blending only we can keep same meshId as we are just updating borders and not heights, so client can keep using same cached mesh and just update borders with shader blending
-								bool updated = cacheMapItem.second->blendQuadrant(pos.getNumVerticesPerSize(), pos.getGridStepInWU(), lastPhase, renewMeshIdOnUpdate,
+								bool updated = cacheMapItem.second->blendQuadrant(pos, lastPhase, renewMeshIdOnUpdate,
 									*cacheMapItem.second->internalCacheQuadrantData(),
 									*northQuadrantData,
 									*southQuadrantData,
@@ -2372,64 +2393,64 @@ namespace TheWorld_MapManager
 
 								if (updated)
 								{
-									cacheMapItem.second->internalCacheQuadrantData()->terrainData()->normalsNeedRegen = true;
-									cacheMapItem.second->internalCacheQuadrantData()->terrainData()->splatmapNeedRegen(true);
-									cacheMapItem.second->internalCacheQuadrantData()->terrainData()->globalmapNeedRegen = true;
+									//cacheMapItem.second->internalCacheQuadrantData()->terrainData()->normalsNeedRegen(true);
+									//cacheMapItem.second->internalCacheQuadrantData()->terrainData()->splatmapNeedRegen(true);
+									cacheMapItem.second->internalCacheQuadrantData()->terrainData()->globalmapNeedRegen(true);
 
-									if (northQuadrantData->terrainData() != nullptr)
+									if (northQuadrantData->terrainData() != nullptr and northQuadrantData->heightsUpdated)
 									{
-										northQuadrantData->terrainData()->normalsNeedRegen = true;
-										northQuadrantData->terrainData()->splatmapNeedRegen(true);
-										northQuadrantData->terrainData()->globalmapNeedRegen = true;
+										//northQuadrantData->terrainData()->normalsNeedRegen(true);
+										//northQuadrantData->terrainData()->splatmapNeedRegen(true);
+										northQuadrantData->terrainData()->globalmapNeedRegen(true);
 									}
 
-									if (southQuadrantData->terrainData() != nullptr)
+									if (southQuadrantData->terrainData() != nullptr and southQuadrantData->heightsUpdated)
 									{
-										southQuadrantData->terrainData()->normalsNeedRegen = true;
-										southQuadrantData->terrainData()->splatmapNeedRegen(true);
-										southQuadrantData->terrainData()->globalmapNeedRegen = true;
+										//southQuadrantData->terrainData()->normalsNeedRegen(true);
+										//southQuadrantData->terrainData()->splatmapNeedRegen(true);
+										southQuadrantData->terrainData()->globalmapNeedRegen(true);
 									}
 
-									if (westQuadrantData->terrainData() != nullptr)
+									if (westQuadrantData->terrainData() != nullptr and westQuadrantData->heightsUpdated)
 									{
-										westQuadrantData->terrainData()->normalsNeedRegen = true;
-										westQuadrantData->terrainData()->splatmapNeedRegen(true);
-										westQuadrantData->terrainData()->globalmapNeedRegen = true;
+										//westQuadrantData->terrainData()->normalsNeedRegen(true);
+										//westQuadrantData->terrainData()->splatmapNeedRegen(true);
+										westQuadrantData->terrainData()->globalmapNeedRegen(true);
 									}
 
-									if (eastQuadrantData->terrainData() != nullptr)
+									if (eastQuadrantData->terrainData() != nullptr and eastQuadrantData->heightsUpdated)
 									{
-										eastQuadrantData->terrainData()->normalsNeedRegen = true;
-										eastQuadrantData->terrainData()->splatmapNeedRegen(true);
-										eastQuadrantData->terrainData()->globalmapNeedRegen = true;
+										//eastQuadrantData->terrainData()->normalsNeedRegen(true);
+										//eastQuadrantData->terrainData()->splatmapNeedRegen(true);
+										eastQuadrantData->terrainData()->globalmapNeedRegen(true);
 									}
 
-									if (northwestQuadrantData->terrainData() != nullptr)
+									if (northwestQuadrantData->terrainData() != nullptr and northwestQuadrantData->heightsUpdated)
 									{
-										northwestQuadrantData->terrainData()->normalsNeedRegen = true;
-										northwestQuadrantData->terrainData()->splatmapNeedRegen(true);
-										northwestQuadrantData->terrainData()->globalmapNeedRegen = true;
+										//northwestQuadrantData->terrainData()->normalsNeedRegen(true);
+										//northwestQuadrantData->terrainData()->splatmapNeedRegen(true);
+										northwestQuadrantData->terrainData()->globalmapNeedRegen(true);
 									}
 
-									if (northeastQuadrantData->terrainData() != nullptr)
+									if (northeastQuadrantData->terrainData() != nullptr	and northeastQuadrantData->heightsUpdated)
 									{
-										northeastQuadrantData->terrainData()->normalsNeedRegen = true;
-										northeastQuadrantData->terrainData()->splatmapNeedRegen(true);
-										northeastQuadrantData->terrainData()->globalmapNeedRegen = true;
+										//northeastQuadrantData->terrainData()->normalsNeedRegen(true);
+										//northeastQuadrantData->terrainData()->splatmapNeedRegen(true);
+										northeastQuadrantData->terrainData()->globalmapNeedRegen(true);
 									}
 
-									if (southwestQuadrantData->terrainData() != nullptr)
+									if (southwestQuadrantData->terrainData() != nullptr and southwestQuadrantData->heightsUpdated)
 									{
-										southwestQuadrantData->terrainData()->normalsNeedRegen = true;
-										southwestQuadrantData->terrainData()->splatmapNeedRegen(true);
-										southwestQuadrantData->terrainData()->globalmapNeedRegen = true;
+										//southwestQuadrantData->terrainData()->normalsNeedRegen(true);
+										//southwestQuadrantData->terrainData()->splatmapNeedRegen(true);
+										southwestQuadrantData->terrainData()->globalmapNeedRegen(true);
 									}
 
-									if (southeastQuadrantData->terrainData() != nullptr)
+									if (southeastQuadrantData->terrainData() != nullptr and southeastQuadrantData->heightsUpdated)
 									{
-										southeastQuadrantData->terrainData()->normalsNeedRegen = true;
-										southeastQuadrantData->terrainData()->splatmapNeedRegen(true);
-										southeastQuadrantData->terrainData()->globalmapNeedRegen = true;
+										//southeastQuadrantData->terrainData()->normalsNeedRegen(true);
+										//southeastQuadrantData->terrainData()->splatmapNeedRegen(true);
+										southeastQuadrantData->terrainData()->globalmapNeedRegen(true);
 									}
 								}
 
@@ -2570,7 +2591,7 @@ namespace TheWorld_MapManager
 								cache->writeBufferToDiskCache(buffer, writtenMeshId, reneweMeshId, false);		// writing buffer for to cache for client generation
 
 								TheWorld_Utils::TerrainEdit* terrainEdit = internalQuadrantData->terrainData();
-								if (terrainEdit->normalsNeedRegen or terrainEdit->splatmapNeedRegen() or terrainEdit->globalmapNeedRegen)
+								if (/*terrainEdit->normalsNeedRegen() or terrainEdit->splatmapNeedRegen() or*/ terrainEdit->globalmapNeedRegen())
 									quadrantsToUpdateClientSide[quadrantPos] = internalQuadrantData->meshId;
 								PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Updated quadrant server Cache (work and normal) " << pos.getIdStr() << " " << pos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(internalQuadrantData->meshId);
 								delete cache;
@@ -2686,8 +2707,10 @@ namespace TheWorld_MapManager
 		std::string mapName = getMapName();
 		
 		std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer> diskCacheMap;
+		// Reading disk cache to get all cached quadrants
 		std::time_t t = fromFileTimeType;
 		TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, diskCacheMap, t);
+		// Adding DB quadrants
 		t = fromFileTimeType;
 		m_DBInterface->getAllQuadrants(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, diskCacheMap, t);
 
@@ -2761,8 +2784,8 @@ namespace TheWorld_MapManager
 		}
 		else if (diskCacheMeshId.size() == 0)
 		{
-			// info of the terrain is in DB
-			PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " DB ==> Work Cache";
+			// info of the terrain is only in DB: we write work cache with DB info to generate heigths etc.
+			PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " DB ==> Work Cache - Quadrant info is only in DB, writing work Cache to generate heigths, etc.";
 			bool completed = writeWorkDiskCacheFromDB(cache, stop);
 			if (completed)
 			{
@@ -2778,8 +2801,8 @@ namespace TheWorld_MapManager
 			//
 			//if (!emptyBuffer)
 			//{
-				// info of the terrain is in cache
-				PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " Cache ==> DB";
+				// info of the terrain is in only in cache: we write it to DB
+				PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " Cache ==> DB - Quadrant info is only in Cache, writing DB";
 				bool completed = writeDiskCacheToDB(cache, stop, writeCompactVerticesToDB);
 				if (completed)
 				{
@@ -2802,14 +2825,15 @@ namespace TheWorld_MapManager
 			//	b = true;
 			//}
 			
-			// info of the terrain is in cache and in db
+			// info of the terrain is in cache and in db adn are the same: nothing to do
 			if (diskCacheMeshId.compare(dbMeshId) == 0)
 			{
 				ret = MAPMANAGER_NOTHING_TO_DO;
 			}
 			else if (cache.firstMeshIdMoreRecentRef(diskCacheMeshId, dbMeshId))
 			{
-				PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " Cache ==> DB";
+				// cache info of the terrain is more recent than DB one: we update DB with cache info
+				PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " Cache ==> DB - Quadrant info is both in Cache and DB but Cache info is more recent, updating DB";
 				bool completed = writeDiskCacheToDB(cache, stop, writeCompactVerticesToDB);
 				if (completed)
 				{
@@ -2821,7 +2845,8 @@ namespace TheWorld_MapManager
 			}
 			else
 			{
-				PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " DB ==> Work Cache";
+				// DB info of the terrain is more recent than cache one: we update cache with DB info to generate heigths etc.
+				PLOG_DEBUG << "Align CACHE <==> DB - Start aligning " << cache.getCacheIdStr() << " DB ==> Work Cache - Quadrant info is both in Cache and DB but DB info is more recent, updating Work Cache to generate heigths, etc.";
 				bool completed = writeWorkDiskCacheFromDB(cache, stop);
 				if (completed)
 				{
@@ -2860,6 +2885,7 @@ namespace TheWorld_MapManager
 
 		pos.TRACK_QUADRANT_FOR_DEBUG("getQuadrantVertices", serverMeshId);
 
+		TheWorld_Utils::TerrainEdit* terrainEditToClient = nullptr;
 		bool clientCacheValid = false;
 		if (clientMeshId.size() > 0)
 		{
@@ -2867,12 +2893,13 @@ namespace TheWorld_MapManager
 			{
 				clientCacheValid = true;
 
-				if (terrainEdit.normalsNeedRegen || terrainEdit.splatmapNeedRegen() || terrainEdit.globalmapNeedRegen)
+				if (/*terrainEdit.normalsNeedRegen() || terrainEdit.splatmapNeedRegen() ||*/ terrainEdit.globalmapNeedRegen())
 				{
-					pos.TRACK_QUADRANT_FOR_DEBUG("Quadrant needing client work (shader maps generation)", serverMeshId);
+					terrainEditToClient = &terrainEdit;
+					pos.TRACK_QUADRANT_FOR_DEBUG("Quadrant needing client work (shader maps generation) 2 ", serverMeshId);
 					std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = serverMeshId;
-					PLOG_VERBOSE << "Quadrant needing client work (shader maps generation) " << pos.getIdStr() << " " << pos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(serverMeshId);
+					PLOG_VERBOSE << "Quadrant needing client work (shader maps generation) 2 " << pos.getIdStr() << " " << pos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(serverMeshId);
 				}
 			}
 			else
@@ -2889,7 +2916,7 @@ namespace TheWorld_MapManager
 			//float minAltitude = 0, maxAltitude = 0;
 			//TheWorld_Utils::MemoryBuffer terrainEditValuesBuffer;
 			// we don't call setEmptyBuffer because we need to mantain the same meshId of the client instead of generating a new meshid for empty buffer
-			cache.setDummyBuffer(clientMeshId, meshBuffer);
+			cache.setDummyBuffer(clientMeshId, meshBuffer, terrainEditToClient);
 		}
 		else
 		{
@@ -2911,12 +2938,12 @@ namespace TheWorld_MapManager
 			else
 			{
 				// looking if we need to re-populate internal memory map with current quadrant (in donwload by some client) after a server restart
-				if (terrainEdit.normalsNeedRegen || terrainEdit.splatmapNeedRegen() || terrainEdit.globalmapNeedRegen)
+				if (/*terrainEdit.normalsNeedRegen() || terrainEdit.splatmapNeedRegen() ||*/ terrainEdit.globalmapNeedRegen())
 				{
-					pos.TRACK_QUADRANT_FOR_DEBUG("Quadrant needing client work (shader maps generation)", serverMeshId);
+					pos.TRACK_QUADRANT_FOR_DEBUG("Quadrant needing client work (shader maps generation) 3 ", serverMeshId);
 					std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);
 					s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants[pos] = serverMeshId;
-					PLOG_VERBOSE << "Quadrant needing client work (shader maps generation) " << pos.getIdStr() << " " << pos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(serverMeshId);
+					PLOG_VERBOSE << "Quadrant needing client work (shader maps generation) 3 " << pos.getIdStr() << " " << pos.getName() << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(serverMeshId);
 				}
 				//else		// should be useless 
 				//{

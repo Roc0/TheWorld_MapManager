@@ -280,11 +280,11 @@ namespace TheWorld_MapManager
 			terrainEdit.deserialize(*cacheQuadrantData.terrainEditValues);
 			rootTerrainData["001_terrainType"] = int(terrainEdit.terrainType);
 			rootTerrainData["001_terrainTypeStr"] = TheWorld_Utils::TerrainEdit::terrainTypeString(terrainEdit.terrainType);
-			rootTerrainData["002_heightsNeedRegen"] = terrainEdit.heightsNeedRegen;
-			rootTerrainData["003_normalsNeedRegen"] = terrainEdit.normalsNeedRegen;
-			rootTerrainData["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen();
-			rootTerrainData["005_colormapNeedRegen"] = terrainEdit.colormapNeedRegen;
-			rootTerrainData["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen;
+			rootTerrainData["002_heightsNeedRegen"] = terrainEdit.heightsNeedRegen();
+			rootTerrainData["003_normalsNeedRegen"] = false;	//terrainEdit.normalsNeedRegen();
+			rootTerrainData["004_splatmapNeedRegen"] = false;	//terrainEdit.splatmapNeedRegen();
+			rootTerrainData["005_colormapNeedRegen"] = false;	//terrainEdit.colormapNeedRegen();
+			rootTerrainData["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen();
 			rootTerrainData["007_needUploadToServer"] = terrainEdit.needUploadToServer;
 			rootTerrainData["008_minHeight"] = terrainEdit.minHeight;
 			rootTerrainData["009_maxHeight"] = terrainEdit.maxHeight;
@@ -425,7 +425,7 @@ namespace TheWorld_MapManager
 		// terrainEdit
 		terrainEdit.size = sizeof(TheWorld_Utils::TerrainEdit);
 		terrainEdit.needUploadToServer = rootTerrainData["007_needUploadToServer"].asBool();
-		terrainEdit.normalsNeedRegen = rootTerrainData["003_normalsNeedRegen"].asBool();
+		//terrainEdit.normalsNeedRegen(rootTerrainData["003_normalsNeedRegen"].asBool());
 		terrainEdit.terrainType = (enum class TheWorld_Utils::TerrainEdit::TerrainType)rootTerrainData["001_terrainType"].asInt();
 		terrainEdit.minHeight = float(rootTerrainData["008_minHeight"].asDouble());
 		terrainEdit.maxHeight = float(rootTerrainData["009_maxHeight"].asDouble());
@@ -483,9 +483,9 @@ namespace TheWorld_MapManager
 		strcpy_s(terrainEdit.extraValues.highElevationTexName_g, sizeof(terrainEdit.extraValues.highElevationTexName_g), rootTerrainData["011_highElevationTexName_g"].asString().c_str());
 		strcpy_s(terrainEdit.extraValues.dirtTexName_b, sizeof(terrainEdit.extraValues.dirtTexName_b), rootTerrainData["012_dirtTexName_b"].asString().c_str());
 		strcpy_s(terrainEdit.extraValues.rocksTexName_a, sizeof(terrainEdit.extraValues.rocksTexName_a), rootTerrainData["013_rocksTexName_a"].asString().c_str());
-		terrainEdit.splatmapNeedRegen(rootTerrainData["004_splatmapNeedRegen"].asBool());
-		terrainEdit.colormapNeedRegen = rootTerrainData["005_colormapNeedRegen"].asBool();
-		terrainEdit.globalmapNeedRegen = rootTerrainData["006_globalmapNeedRegen"].asBool();
+		//terrainEdit.splatmapNeedRegen(rootTerrainData["004_splatmapNeedRegen"].asBool());
+		//terrainEdit.colormapNeedRegen(rootTerrainData["005_colormapNeedRegen"].asBool());
+		terrainEdit.globalmapNeedRegen(rootTerrainData["006_globalmapNeedRegen"].asBool());
 		terrainEdit.extraValues.slopeVerticalFactor = float(rootTerrainData["014_splatmap_slopeVerticalFactor"].asDouble());
 		terrainEdit.extraValues.slopeFlatFactor = float(rootTerrainData["015_splatmap_slopeFlatFactor"].asDouble());
 		terrainEdit.extraValues.dirtOnRocksFactor = float(rootTerrainData["016_splatmap_dirtOnRocksFactor"].asDouble());
@@ -499,7 +499,7 @@ namespace TheWorld_MapManager
 		terrainEdit.extraValues.blendingBendingFactor = float(rootTerrainData["024_blendingBendingFactor"].asDouble());
 		terrainEdit.extraValues.minRandomBendingExtension = float(rootTerrainData["025_minRandomBendingExtension"].asDouble());
 		terrainEdit.extraValues.maxRandomBendingExtension = float(rootTerrainData["026_maxRandomBendingExtension"].asDouble());
-		terrainEdit.heightsNeedRegen = rootTerrainData["002_heightsNeedRegen"].asBool();
+		terrainEdit.heightsNeedRegen(rootTerrainData["002_heightsNeedRegen"].asBool());
 		terrainEdit.extraValues.seaInfoSet = rootTerrainData["027_seaInfoSet"].asInt();
 		terrainEdit.extraValues.canContainSea = rootTerrainData["028_containsSea"].asInt();
 		terrainEdit.extraValues1.continentId = rootTerrainData["029_continentId"].asInt();
@@ -518,11 +518,11 @@ namespace TheWorld_MapManager
 		strcpy_s(terrainEdit.extraValues1.northwestGroundTextures.rocksTexName_a, sizeof(terrainEdit.extraValues1.northwestGroundTextures.rocksTexName_a), rootTerrainData["grp_northwestGroundTextures"]["rocksTexName_a"].asString().c_str());
 
 		// override: forcing terrain [re-]generation because terrain data are not available on the DB
-		terrainEdit.heightsNeedRegen = true;
-		terrainEdit.normalsNeedRegen = true;
-		terrainEdit.splatmapNeedRegen(true);
-		terrainEdit.globalmapNeedRegen = true;
-		terrainEdit.colormapNeedRegen = true;
+		terrainEdit.heightsNeedRegen(true);
+		//terrainEdit.normalsNeedRegen(true);
+		//terrainEdit.splatmapNeedRegen(true);
+		terrainEdit.globalmapNeedRegen(true);
+		//terrainEdit.colormapNeedRegen(true);
 		terrainEdit.extraValues.seaInfoSet = QUADRANT_SEA_INFO_FALSE;
 
 		// strBuffer
@@ -568,6 +568,7 @@ namespace TheWorld_MapManager
 		for (auto& item : externalQuadrants)
 		{
 			Json::Value quadrant;
+			item.second.heightsNeedRegen(true);
 			terrainDataToQuadrant(quadrant, item.first, item.second);
 			bool ok = completeQuadrantDataWithDefaultValues(gridStepInWU, numVerticesPerSize, level, quadrant);
 			if (not ok)
@@ -713,11 +714,11 @@ namespace TheWorld_MapManager
 		quadrant["quadrantIndexX"] = pos.getIndexPosX();
 		quadrant["quadrantIndexZ"] = pos.getIndexPosZ();
 		quadrant["terrain_data"]["001_terrainType"] = int(terrainEdit.terrainType);
-		quadrant["terrain_data"]["002_heightsNeedRegen"] = terrainEdit.heightsNeedRegen;
-		quadrant["terrain_data"]["003_normalsNeedRegen"] = terrainEdit.normalsNeedRegen;
-		quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen();
-		quadrant["terrain_data"]["005_colormapNeedRegen"] = terrainEdit.colormapNeedRegen;
-		quadrant["terrain_data"]["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen;
+		quadrant["terrain_data"]["002_heightsNeedRegen"] = terrainEdit.heightsNeedRegen();
+		//quadrant["terrain_data"]["003_normalsNeedRegen"] = terrainEdit.normalsNeedRegen();
+		//quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen();
+		//quadrant["terrain_data"]["005_colormapNeedRegen"] = terrainEdit.colormapNeedRegen();
+		quadrant["terrain_data"]["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen();
 		quadrant["terrain_data"]["007_needUploadToServer"] = terrainEdit.needUploadToServer;
 		quadrant["terrain_data"]["008_minHeight"] = terrainEdit.minHeight;
 		quadrant["terrain_data"]["009_maxHeight"] = terrainEdit.maxHeight;
@@ -899,24 +900,23 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["002_heightsNeedRegen"];
 		if (v.isNull())
-			quadrant["terrain_data"]["002_heightsNeedRegen"] = terrainEdit.heightsNeedRegen;
+			quadrant["terrain_data"]["002_heightsNeedRegen"] = terrainEdit.heightsNeedRegen();
 		
-		v = quadrant["terrain_data"]["003_normalsNeedRegen"];
-		if (v.isNull())
-			quadrant["terrain_data"]["003_normalsNeedRegen"] = terrainEdit.normalsNeedRegen;
+		//v = quadrant["terrain_data"]["003_normalsNeedRegen"];
+		//if (v.isNull())
+		//	quadrant["terrain_data"]["003_normalsNeedRegen"] = terrainEdit.normalsNeedRegen();
+		
+		//v = quadrant["terrain_data"]["004_splatmapNeedRegen"];
+		//if (v.isNull())
+		//	quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen();
 
-		v = quadrant["terrain_data"]["004_splatmapNeedRegen"];
-		if (v.isNull())
-			quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen();
-
-		v = quadrant["terrain_data"]["005_colormapNeedRegen"];
-		if (v.isNull())
-			quadrant["terrain_data"]["005_colormapNeedRegen"] = terrainEdit.colormapNeedRegen;
+		//v = quadrant["terrain_data"]["005_colormapNeedRegen"];
+		//if (v.isNull())
+		//	quadrant["terrain_data"]["005_colormapNeedRegen"] = terrainEdit.colormapNeedRegen();
 
 		v = quadrant["terrain_data"]["006_globalmapNeedRegen"];
 		if (v.isNull())
-			quadrant["terrain_data"]["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen;
-
+			quadrant["terrain_data"]["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen();
 		v = quadrant["terrain_data"]["007_needUploadToServer"];
 		if (v.isNull())
 			quadrant["terrain_data"]["007_needUploadToServer"] = terrainEdit.needUploadToServer;
