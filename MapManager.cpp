@@ -2103,6 +2103,8 @@ namespace TheWorld_MapManager
 
 			std::map<TheWorld_Utils::QuadrantPos, std::string> quadrantsToUpdateClientSide;
 
+			std::map<TheWorld_Utils::QuadrantPos, bool> neighbourAddedToCache;
+			
 			while (diskCacheMap.size() > 0)
 			{
 				std::vector<TheWorld_Utils::QuadrantPos> workedDiskCacheMap;
@@ -2192,7 +2194,8 @@ namespace TheWorld_MapManager
 
 								internalQuadrantData->meshId = TheWorld_Utils::MeshCacheBuffer::generateNewMeshId();	// update meshId as heights updated
 
-								// import neighbour quadrants in workdir from cache if they exist
+								// import neighbour quadrants in workdir from cache if they exist and if they are not neighbours imported in previous cycles (to avoid infinite loop)
+								if (not neighbourAddedToCache.contains(pos))
 								{
 									
 									std::vector<TheWorld_Utils::QuadrantPos> neighbours;
@@ -2201,8 +2204,12 @@ namespace TheWorld_MapManager
 									{
 										bool reneweMeshId = false;	// don't update meshId now as we are just importing in work area and not modifying data, meshId will be updated when/if the quadrant will be processed for height generation
 										importQuadrantInWorkArea(neighbourPos, cacheDir, mapName, cacheToAdd, reneweMeshId);
+										// remember that we already imported this neighbour in work area to avoid infinite loop (if it was an original quadrant we don't mark it as a neghbour to permit its neighbours to be processed)
+										if (not diskCacheMap.contains(neighbourPos))
+											neighbourAddedToCache[neighbourPos] = true;
 									}
 									
+									// OCCHIO non viene impostato neighbourAddedToCache
 									//bool reneweMeshId = false;	// don't update meshId now as we are just importing in work area and not modifying data, meshId will be updated when/if the quadrant will be processed for height generation
 									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthZMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
 									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SouthZPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
