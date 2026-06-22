@@ -1296,7 +1296,7 @@ namespace TheWorld_MapManager
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind TerrainQuadrant.RocksElevationTexName failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 
-				rc = sqlite3_bind_int(dbOps->getStmt(), 9, terrainEdit.eastSideXPlus.needBlend ? 1 : 0);
+				rc = sqlite3_bind_int(dbOps->getStmt(), 9, terrainEdit.eastSideXPlus.needBlend_notused ? 1 : 0);
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind TerrainQuadrant.EastSideXPlusNeedBlend failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 
@@ -1308,7 +1308,7 @@ namespace TheWorld_MapManager
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind TerrainQuadrant.EastSideXPlusMaxHeight failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 
-				rc = sqlite3_bind_int(dbOps->getStmt(), 12, terrainEdit.westSideXMinus.needBlend ? 1 : 0);
+				rc = sqlite3_bind_int(dbOps->getStmt(), 12, terrainEdit.westSideXMinus.needBlend_notused ? 1 : 0);
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind TerrainQuadrant.WestSideXPlusNeedBlend failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 
@@ -1320,7 +1320,7 @@ namespace TheWorld_MapManager
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind TerrainQuadrant.WestSideXPlusMaxHeight failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 
-				rc = sqlite3_bind_int(dbOps->getStmt(), 15, terrainEdit.southSideZPlus.needBlend ? 1 : 0);
+				rc = sqlite3_bind_int(dbOps->getStmt(), 15, terrainEdit.southSideZPlus.needBlend_notused ? 1 : 0);
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind TerrainQuadrant.SouthSideXPlusNeedBlend failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 
@@ -1332,7 +1332,7 @@ namespace TheWorld_MapManager
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind TerrainQuadrant.SouthSideXPlusMaxHeight failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 
-				rc = sqlite3_bind_int(dbOps->getStmt(), 18, terrainEdit.northSideZMinus.needBlend ? 1 : 0);
+				rc = sqlite3_bind_int(dbOps->getStmt(), 18, terrainEdit.northSideZMinus.needBlend_notused ? 1 : 0);
 				if (rc != SQLITE_OK)
 					throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind TerrainQuadrant.NorthSideXPlusNeedBlend failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 
@@ -1962,16 +1962,16 @@ namespace TheWorld_MapManager
 			//terrainEdit.splatmapNeedRegen(false);
 			//terrainEdit.colormapNeedRegen(false);
 			terrainEdit.globalmapNeedRegen(false);
-			terrainEdit.eastSideXPlus.needBlend = sqlite3_column_int(dbOps.getStmt(), 7) == 1 ? true : false;
+			terrainEdit.eastSideXPlus.needBlend_notused = sqlite3_column_int(dbOps.getStmt(), 7) == 1 ? true : false;
 			terrainEdit.eastSideXPlus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 8);
 			terrainEdit.eastSideXPlus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 9);
-			terrainEdit.westSideXMinus.needBlend = sqlite3_column_int(dbOps.getStmt(), 10) == 1 ? true : false;
+			terrainEdit.westSideXMinus.needBlend_notused = sqlite3_column_int(dbOps.getStmt(), 10) == 1 ? true : false;
 			terrainEdit.westSideXMinus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 11);
 			terrainEdit.westSideXMinus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 12);
-			terrainEdit.southSideZPlus.needBlend = sqlite3_column_int(dbOps.getStmt(), 13) == 1 ? true : false;
+			terrainEdit.southSideZPlus.needBlend_notused = sqlite3_column_int(dbOps.getStmt(), 13) == 1 ? true : false;
 			terrainEdit.southSideZPlus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 14);
 			terrainEdit.southSideZPlus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 15);
-			terrainEdit.northSideZMinus.needBlend = sqlite3_column_int(dbOps.getStmt(), 16) == 1 ? true : false;
+			terrainEdit.northSideZMinus.needBlend_notused = sqlite3_column_int(dbOps.getStmt(), 16) == 1 ? true : false;
 			terrainEdit.northSideZMinus.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 17);
 			terrainEdit.northSideZMinus.maxHeight = (float)sqlite3_column_double(dbOps.getStmt(), 18);
 		}

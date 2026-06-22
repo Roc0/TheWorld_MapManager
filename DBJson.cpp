@@ -322,16 +322,16 @@ namespace TheWorld_MapManager
 			rootTerrainData["grp_northwestGroundTextures"]["dirtTexName_b"] = terrainEdit.extraValues1.northwestGroundTextures.dirtTexName_b;
 			rootTerrainData["grp_northwestGroundTextures"]["rocksTexName_a"] = terrainEdit.extraValues1.northwestGroundTextures.rocksTexName_a;
 
-			rootTerrainData["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
+			rootTerrainData["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend_notused;
 			rootTerrainData["grp_eastSideXPlus"]["minHeight"] = terrainEdit.eastSideXPlus.minHeight;
 			rootTerrainData["grp_eastSideXPlus"]["maxHeight"] = terrainEdit.eastSideXPlus.maxHeight;
-			rootTerrainData["grp_westSideXMinus"]["needBlend"] = terrainEdit.westSideXMinus.needBlend;
+			rootTerrainData["grp_westSideXMinus"]["needBlend"] = terrainEdit.westSideXMinus.needBlend_notused;
 			rootTerrainData["grp_westSideXMinus"]["minHeight"] = terrainEdit.westSideXMinus.minHeight;
 			rootTerrainData["grp_westSideXMinus"]["maxHeight"] = terrainEdit.westSideXMinus.maxHeight;
-			rootTerrainData["grp_southSideZPlus"]["needBlend"] = terrainEdit.southSideZPlus.needBlend;
+			rootTerrainData["grp_southSideZPlus"]["needBlend"] = terrainEdit.southSideZPlus.needBlend_notused;
 			rootTerrainData["grp_southSideZPlus"]["minHeight"] = terrainEdit.southSideZPlus.minHeight;
 			rootTerrainData["grp_southSideZPlus"]["maxHeight"] = terrainEdit.southSideZPlus.maxHeight;
-			rootTerrainData["grp_northSideZMinus"]["needBlend"] = terrainEdit.northSideZMinus.needBlend;
+			rootTerrainData["grp_northSideZMinus"]["needBlend"] = terrainEdit.northSideZMinus.needBlend_notused;
 			rootTerrainData["grp_northSideZMinus"]["minHeight"] = terrainEdit.northSideZMinus.minHeight;
 			rootTerrainData["grp_northSideZMinus"]["maxHeight"] = terrainEdit.northSideZMinus.maxHeight;
 
@@ -430,16 +430,16 @@ namespace TheWorld_MapManager
 		terrainEdit.minHeight = float(rootTerrainData["008_minHeight"].asDouble());
 		terrainEdit.maxHeight = float(rootTerrainData["009_maxHeight"].asDouble());
 
-		terrainEdit.eastSideXPlus.needBlend = rootTerrainData["grp_eastSideXPlus"]["needBlend"].asBool();
+		terrainEdit.eastSideXPlus.needBlend_notused = rootTerrainData["grp_eastSideXPlus"]["needBlend"].asBool();
 		terrainEdit.eastSideXPlus.minHeight = float(rootTerrainData["grp_eastSideXPlus"]["minHeight"].asDouble());
 		terrainEdit.eastSideXPlus.maxHeight = float(rootTerrainData["grp_eastSideXPlus"]["maxHeight"].asDouble());
-		terrainEdit.westSideXMinus.needBlend = rootTerrainData["grp_westSideXMinus"]["needBlend"].asBool();
+		terrainEdit.westSideXMinus.needBlend_notused = rootTerrainData["grp_westSideXMinus"]["needBlend"].asBool();
 		terrainEdit.westSideXMinus.minHeight = float(rootTerrainData["grp_westSideXMinus"]["minHeight"].asDouble());
 		terrainEdit.westSideXMinus.maxHeight = float(rootTerrainData["grp_westSideXMinus"]["maxHeight"].asDouble());
-		terrainEdit.southSideZPlus.needBlend = rootTerrainData["grp_southSideZPlus"]["needBlend"].asBool();
+		terrainEdit.southSideZPlus.needBlend_notused = rootTerrainData["grp_southSideZPlus"]["needBlend"].asBool();
 		terrainEdit.southSideZPlus.minHeight = float(rootTerrainData["grp_southSideZPlus"]["minHeight"].asDouble());
 		terrainEdit.southSideZPlus.maxHeight = float(rootTerrainData["grp_southSideZPlus"]["maxHeight"].asDouble());
-		terrainEdit.northSideZMinus.needBlend = rootTerrainData["grp_northSideZMinus"]["needBlend"].asBool();
+		terrainEdit.northSideZMinus.needBlend_notused = rootTerrainData["grp_northSideZMinus"]["needBlend"].asBool();
 		terrainEdit.northSideZMinus.minHeight = float(rootTerrainData["grp_northSideZMinus"]["minHeight"].asDouble());
 		terrainEdit.northSideZMinus.maxHeight = float(rootTerrainData["grp_northSideZMinus"]["maxHeight"].asDouble());
 
@@ -754,16 +754,16 @@ namespace TheWorld_MapManager
 		quadrant["terrain_data"]["grp_northwestGroundTextures"]["highElevationTexName_g"] = terrainEdit.extraValues1.northwestGroundTextures.highElevationTexName_g;
 		quadrant["terrain_data"]["grp_northwestGroundTextures"]["dirtTexName_b"] = terrainEdit.extraValues1.northwestGroundTextures.dirtTexName_b;
 		quadrant["terrain_data"]["grp_northwestGroundTextures"]["rocksTexName_a"] = terrainEdit.extraValues1.northwestGroundTextures.rocksTexName_a;
-		quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
+		quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend_notused;
 		quadrant["terrain_data"]["grp_eastSideXPlus"]["minHeight"] = terrainEdit.eastSideXPlus.minHeight;
 		quadrant["terrain_data"]["grp_eastSideXPlus"]["maxHeight"] = terrainEdit.eastSideXPlus.maxHeight;
-		quadrant["terrain_data"]["grp_westSideXMinus"]["needBlend"] = terrainEdit.westSideXMinus.needBlend;
+		quadrant["terrain_data"]["grp_westSideXMinus"]["needBlend"] = terrainEdit.westSideXMinus.needBlend_notused;
 		quadrant["terrain_data"]["grp_westSideXMinus"]["minHeight"] = terrainEdit.westSideXMinus.minHeight;
 		quadrant["terrain_data"]["grp_westSideXMinus"]["maxHeight"] = terrainEdit.westSideXMinus.maxHeight;
-		quadrant["terrain_data"]["grp_southSideZPlus"]["needBlend"] = terrainEdit.southSideZPlus.needBlend;
+		quadrant["terrain_data"]["grp_southSideZPlus"]["needBlend"] = terrainEdit.southSideZPlus.needBlend_notused;
 		quadrant["terrain_data"]["grp_southSideZPlus"]["minHeight"] = terrainEdit.southSideZPlus.minHeight;
 		quadrant["terrain_data"]["grp_southSideZPlus"]["maxHeight"] = terrainEdit.southSideZPlus.maxHeight;
-		quadrant["terrain_data"]["grp_northSideZMinus"]["needBlend"] = terrainEdit.northSideZMinus.needBlend;
+		quadrant["terrain_data"]["grp_northSideZMinus"]["needBlend"] = terrainEdit.northSideZMinus.needBlend_notused;
 		quadrant["terrain_data"]["grp_northSideZMinus"]["minHeight"] = terrainEdit.northSideZMinus.minHeight;
 		quadrant["terrain_data"]["grp_northSideZMinus"]["maxHeight"] = terrainEdit.northSideZMinus.maxHeight;
 		quadrant["terrain_data"]["grp_eastNeighbourXPlus"]["minHeight"] = terrainEdit.deprecated_eastNeighbourXPlus.minHeight();
@@ -1058,7 +1058,7 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend;
+			quadrant["terrain_data"]["grp_eastSideXPlus"]["needBlend"] = terrainEdit.eastSideXPlus.needBlend_notused;
 
 		v = quadrant["terrain_data"]["grp_eastSideXPlus"]["minHeight"];
 		if (v.isNull())
@@ -1070,7 +1070,7 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["grp_westSideXMinus"]["needBlend"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_westSideXMinus"]["needBlend"] = terrainEdit.westSideXMinus.needBlend;
+			quadrant["terrain_data"]["grp_westSideXMinus"]["needBlend"] = terrainEdit.westSideXMinus.needBlend_notused;
 
 		v = quadrant["terrain_data"]["grp_westSideXMinus"]["minHeight"];
 		if (v.isNull())
@@ -1082,7 +1082,7 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["grp_southSideZPlus"]["needBlend"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_southSideZPlus"]["needBlend"] = terrainEdit.southSideZPlus.needBlend;
+			quadrant["terrain_data"]["grp_southSideZPlus"]["needBlend"] = terrainEdit.southSideZPlus.needBlend_notused;
 
 		v = quadrant["terrain_data"]["grp_southSideZPlus"]["minHeight"];
 		if (v.isNull())
@@ -1094,7 +1094,7 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["grp_northSideZMinus"]["needBlend"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_northSideZMinus"]["needBlend"] = terrainEdit.northSideZMinus.needBlend;
+			quadrant["terrain_data"]["grp_northSideZMinus"]["needBlend"] = terrainEdit.northSideZMinus.needBlend_notused;
 
 		v = quadrant["terrain_data"]["grp_northSideZMinus"]["minHeight"];
 		if (v.isNull())

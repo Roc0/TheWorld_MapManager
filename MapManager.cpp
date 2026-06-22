@@ -2101,6 +2101,15 @@ namespace TheWorld_MapManager
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numVerticesPerSize = numVerticesPerSize;
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_level = level;
 
+			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_currentHeightGenCycle = 0;
+			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsWithHeigthsGenerated = 0;
+			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsToGenerateHeights = 0;
+			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numBlendingCycles = 0;
+			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_currentBlendingCycle = 0;
+			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numBlendedQuadrants = 0;
+			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numQuadrantsToBlend = 0;
+			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsToProcessServerSide = 0;
+
 			std::map<TheWorld_Utils::QuadrantPos, std::string> quadrantsToUpdateClientSide;
 
 			std::map<TheWorld_Utils::QuadrantPos, bool> neighbourAddedToCache;
@@ -2222,10 +2231,10 @@ namespace TheWorld_MapManager
 								}
 
 								internalQuadrantData->terrainData()->heightsNeedRegen(false);
-								internalQuadrantData->terrainData()->northSideZMinus.needBlend = true;
-								internalQuadrantData->terrainData()->southSideZPlus.needBlend = true;
-								internalQuadrantData->terrainData()->westSideXMinus.needBlend = true;
-								internalQuadrantData->terrainData()->eastSideXPlus.needBlend = true;
+								//internalQuadrantData->terrainData()->northSideZMinus.needBlend = true;
+								//internalQuadrantData->terrainData()->southSideZPlus.needBlend = true;
+								//internalQuadrantData->terrainData()->westSideXMinus.needBlend = true;
+								//internalQuadrantData->terrainData()->eastSideXPlus.needBlend = true;
 								//internalQuadrantData->terrainData()->normalsNeedRegen(true);
 								//internalQuadrantData->terrainData()->splatmapNeedRegen(true);
 								internalQuadrantData->terrainData()->globalmapNeedRegen(true);
@@ -2386,6 +2395,13 @@ namespace TheWorld_MapManager
 								else
 									southeastQuadrantData = &emptyQuadrantData;
 
+								// DEBUG
+								if (pos.isQuadrantTrackedForDebug())
+								{
+									bool debug = true;
+								}
+								// DEBUG
+
 								bool renewMeshIdOnUpdate = true;	// we need to renew meshId if the heights are changed to be sure that client will update cache when receiving new meshId, but for blending only we can keep same meshId as we are just updating borders and not heights, so client can keep using same cached mesh and just update borders with shader blending
 								bool updated = cacheMapItem.second->blendQuadrant(pos, lastPhase, renewMeshIdOnUpdate,
 									*cacheMapItem.second->internalCacheQuadrantData(),
@@ -2467,6 +2483,20 @@ namespace TheWorld_MapManager
 							s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numBlendedQuadrants = processingItem;
 							s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numQuadrantsToBlend = cacheMap.size();
 						}
+					}
+				}
+
+				if (cacheMap.size() > 0)
+				{
+					for (auto& cacheMapItem : cacheMap)
+					{
+						if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
+							break;
+
+						TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
+
+						bool renewMeshIdOnUpdate = true;	// we need to renew meshId if the heights are changed to be sure that client will update cache when receiving new meshId, but for blending only we can keep same meshId as we are just updating borders and not heights, so client can keep using same cached mesh and just update borders with shader blending
+						bool updated = cacheMapItem.second->calcMinMaxHeights(pos, renewMeshIdOnUpdate, *cacheMapItem.second->internalCacheQuadrantData());
 					}
 				}
 
