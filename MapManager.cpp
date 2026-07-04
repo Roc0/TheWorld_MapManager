@@ -2190,7 +2190,7 @@ namespace TheWorld_MapManager
 								{
 									TheWorld_Utils::GuardProfiler profiler(std::string("generateDetailDataForQuadrants 1 ") + __FUNCTION__, "Generate Heights");
 									//PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Generating Heights for " << pos.getIdStr() << " " << pos.getName();
-									cacheMapItem.second->generateHeightsWithNoise(numVerticesPerSize, gridStepInWU, cacheMapItem.second->getLowerXGridVertex(), cacheMapItem.second->getLowerZGridVertex(), internalQuadrantData->terrainData(), vectGridHeights);
+									cacheMapItem.second->generateHeightsWithNoise(pos, internalQuadrantData->terrainData(), vectGridHeights);
 									PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Generated Heights for " << pos.getIdStr() << " " << pos.getName() << " - Elapsed " << profiler.partialDuration() / 1000 << " ms";
 								}
 
