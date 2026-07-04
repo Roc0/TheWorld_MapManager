@@ -26,7 +26,7 @@
 namespace fs = std::filesystem;
 
 // PROCEDURAL TERRAIN GENERATION
-// Import (JSon) ==> DB						==> Server Work Cache	==>	Gen. heigths & blend)	==>	Server Cache	==>	Client Cache (get[|refresh]QuadrantVertices)	==>	Gen Normalmap|Splatmap|Globalmap	==>	Client cache (Save)	==>	Server Cache (Upload)	==>	DB
+// Import JSon (via periodic autoalign) ==> DB ==> Server Work Cache (JSon via periodic autoalign) ==> Gen. heigths & blend) ==> Server Cache and Work Cache ==> Client Cache (get[|refresh]QuadrantVertices) ==> Gen Globalmap ==> Client cache (via Auto Save) ==> Server Cache (via Auto Upload) ==> DB (via periodic autoo align)
 // Neighbours quadrant of imported	ones	==>
 
 namespace TheWorld_MapManager
@@ -2027,13 +2027,13 @@ namespace TheWorld_MapManager
 			std::chrono::system_clock::time_point lastUploadTime = lastMapQuadrantsOverrideUpload((int)numVerticesPerSize, level);
 			
 			if (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
-				importExternalQuadrantsInDB(numVerticesPerSize, level);
+				importExternalQuadrantsInDB(numVerticesPerSize, level);			// import in DB external quadrants from DB Import directory
 
 			if (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
-				alignDiskCacheAndDBTaskInternal(numVerticesPerSize, level);
+				alignDiskCacheAndDBTaskInternal(numVerticesPerSize, level);		// populate work cache (missing / updated quadrants) for next step
 
 			if (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
-				generateDetailDataForQuadrants(numVerticesPerSize, level);
+				generateDetailDataForQuadrants(numVerticesPerSize, level);		// generate heightmap and prepare for globalmap client generation for quadrants in work cache
 
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_proceduralProcessingInProgress = false;
 			while (s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.size() > 0)
@@ -2085,7 +2085,7 @@ namespace TheWorld_MapManager
 
 		std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer> diskCacheMap;
 		std::time_t t = 0;
-		TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, diskCacheMap, t, true);
+		TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, diskCacheMap, t, true);	// get all quadrants in work cache
 
 		if (diskCacheMap.size() > 0)
 		{
@@ -2116,7 +2116,7 @@ namespace TheWorld_MapManager
 
 			std::map<TheWorld_Utils::QuadrantPos, bool> neighbourAddedToCache;
 			
-			while (diskCacheMap.size() > 0)
+			while (diskCacheMap.size() > 0)		// quadrants generation happens in blocks of maxNumQuadrantToProcess to avoid memory overflow in one cycle
 			{
 				std::vector<TheWorld_Utils::QuadrantPos> workedDiskCacheMap;
 				std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*> cacheMap;
@@ -2141,6 +2141,10 @@ namespace TheWorld_MapManager
 				s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numQuadrantsToGenerateMinMax = 0;
 				s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numGeneratedMinMaxQuadrants = 0;
 
+				//
+				// VERTEX HEIGTHS GENERATION
+				//
+				
 				// Loop to generate heights in quadrants if required: for every quadrant updated we insert in Work Cache all its neighbours and check again updated Work Cache for heigths needed
 				if (cacheMap.size() > 0)
 				{
@@ -2240,17 +2244,6 @@ namespace TheWorld_MapManager
 										if (not diskCacheMap.contains(neighbourPos))
 											neighbourAddedToCache[neighbourPos] = true;
 									}
-									
-									// OCCHIO non viene impostato neighbourAddedToCache
-									//bool reneweMeshId = false;	// don't update meshId now as we are just importing in work area and not modifying data, meshId will be updated when/if the quadrant will be processed for height generation
-									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthZMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SouthZPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::WestXMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::EastXPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthwestZMinusXMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NortheastZMinusXPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SouthwestZPlusXMinus), cacheDir, mapName, cacheToAdd, reneweMeshId);
-									//importQuadrantInWorkArea(pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SoutheastZPlusXPlus), cacheDir, mapName, cacheToAdd, reneweMeshId);
 								}
 
 								internalQuadrantData->terrainData()->heightsNeedRegen(false);
@@ -2324,6 +2317,10 @@ namespace TheWorld_MapManager
 					}
 					return;
 				}
+
+				//
+				// VERTEX BLENDING ON BORDERS
+				//
 
 				if (cacheMap.size() > 0)
 				{
@@ -2527,6 +2524,10 @@ namespace TheWorld_MapManager
 					return;
 				}
 
+				//
+				// ADJUST MIN/MAX HEIGHTS INFO FOR QUADRANT AND BORDERS
+				//
+
 				if (cacheMap.size() > 0)
 				{
 					processingItem = 0;
@@ -2580,6 +2581,10 @@ namespace TheWorld_MapManager
 					return;
 				}
 
+				//
+				// PREPARE DATA FOR GLOBALMAP GENERATION CLIENT SIDE: GROUND TEXTURE INDEXES OF NORTH, WEST AND NORTHWEST NEIGHBOURS
+				//
+				
 				// Preparing data for globalmap generation client side
 				if (cacheMap.size() > 0)
 				{
@@ -2664,6 +2669,10 @@ namespace TheWorld_MapManager
 					PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Border quadrant splatmap generation on north/west side elepsed (mcs): " << clock.duration().count() << " for " << cacheMap.size() << " quadrants";
 				}
 
+				//
+				// WRITE QUADRANTS IN DISK CACHE (BOTH WORK AND NORMAL)
+				//
+				
 				if (cacheMap.size() > 0)
 				{
 					while (true)
@@ -2711,6 +2720,10 @@ namespace TheWorld_MapManager
 				s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsToProcessServerSide = remainigQuadrantsToProcess;
 			}
 		
+			//
+			// SIGN QUADRANTS TO BE UPDATED CLIENT SIDE (GLOBALMAP GENERATION)
+			//
+
 			{
 				while (true)
 				{
@@ -2733,6 +2746,10 @@ namespace TheWorld_MapManager
 			}
 
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_proceduralProcessingInProgress = false;
+
+			//
+			// WAIT FOR ALL QUADRANTS UPDATE CLIENT SIDE (GLOBALMAP GENERATION) BEFORE CLEARING WORK CACHE
+			//
 
 			// Wait for client to complete its work on quadrants (splatmap/globalmap generation) before clearing Work Cache
 			while (s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.size() > 0)
@@ -2809,10 +2826,10 @@ namespace TheWorld_MapManager
 		std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer> diskCacheMap;
 		// Reading disk cache to get all cached quadrants
 		std::time_t t = fromFileTimeType;
-		TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, diskCacheMap, t);
+		TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, diskCacheMap, t);	// read all new quadrants from disk cache (not work) that have been modified since last time we aligned cache and DB, to avoid reprocessing quadrants that have not changed since last time
 		// Adding DB quadrants
 		t = fromFileTimeType;
-		m_DBInterface->getAllQuadrants(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, diskCacheMap, t);
+		m_DBInterface->getAllQuadrants(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, diskCacheMap, t);					// read all new quadrants from DB that have been modified since last time we aligned cache and DB, to avoid reprocessing quadrants that have not changed since last time
 
 		size_t progr = 0;
 		if (diskCacheMap.size() > 0)
