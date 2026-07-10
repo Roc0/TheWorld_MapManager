@@ -15,6 +15,7 @@ namespace TheWorld_MapManager
 {
 	std::string DBJson::g_DBDir;
 	std::string DBJson::g_confFilePath;
+	std::time_t DBJson::s_deleteUnusedFilesLastTime = 0;
 
 	DBJson::DBJson(DBType _dbt, const char* _dataPath, bool consoleDebugMode) : DBInterface(_dbt, _dataPath, consoleDebugMode)
 	{
@@ -600,6 +601,22 @@ namespace TheWorld_MapManager
 			quadrantImportFile.close();
 		}
 
+	}
+
+	void DBJson::deleteUnusedFiles(float gridStepInWU, size_t numVerticesPerSize, int level)
+	{
+		std::recursive_mutex& exclusiveDBAccessMutex = DBInterface::getExclusiveDBAccessMutex();
+		std::lock_guard<std::recursive_mutex> lock(exclusiveDBAccessMutex);
+
+		std::time_t _current_utc_time_t = TheWorld_Utils::current_utc_time_t();
+		if (_current_utc_time_t - s_deleteUnusedFilesLastTime > THEWORLD_CHECK_FOR_UNUSED_FILES_INTERVAL)
+		{
+			std::string quadrantImportDirPath = getQuadrantImportDirPath(gridStepInWU, numVerticesPerSize, level);
+
+			TheWorld_Utils::Utils::deleteUnusedFiles(quadrantImportDirPath, ".imported", THEWORLD_DELETE_IMPORTED_FILES_UNUSED_FOR_SECONDS, 0);
+
+			s_deleteUnusedFilesLastTime = _current_utc_time_t;
+		}
 	}
 
 	void DBJson::importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level)

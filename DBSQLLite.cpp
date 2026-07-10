@@ -2056,6 +2056,11 @@ namespace TheWorld_MapManager
 		throw(MapManagerExceptionDBExceptionNotImpl(__FUNCTION__));
 	}
 
+	void DBSQLLite::deleteUnusedFiles(float gridStepInWU, size_t numVerticesPerSize, int level)
+	{
+		throw(MapManagerExceptionDBExceptionNotImpl(__FUNCTION__));
+	}
+
 	void DBSQLLite::importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level)
 	{
 		throw(MapManagerExceptionDBExceptionNotImpl(__FUNCTION__));

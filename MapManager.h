@@ -339,6 +339,7 @@ namespace TheWorld_MapManager
 		_declspec(dllexport) int alignDiskCacheAndDB(TheWorld_Utils::MeshCacheBuffer& cache, bool& stop, bool writeCompactVerticesToDB);
 		_declspec(dllexport) void alignDiskCacheAndDB(bool isInEditor, size_t numVerticesPerSize, int level);
 		_declspec(dllexport) void alignDiskCacheAndDBTask(size_t numVerticesPerSize, int level);
+		void deleteUnusedFiles(size_t numVerticesPerSize, int level);
 		void importExternalQuadrantsInDB(size_t numVerticesPerSize, int level);
 		void generateDetailDataForQuadrants(size_t numVerticesPerSize, int level);
 		void importQuadrantInWorkArea(TheWorld_Utils::QuadrantPos pos, std::string _cacheDir, std::string mapName, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*>& diskCacheMap, bool renewMeshId);

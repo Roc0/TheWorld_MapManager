@@ -2027,6 +2027,9 @@ namespace TheWorld_MapManager
 			std::chrono::system_clock::time_point lastUploadTime = lastMapQuadrantsOverrideUpload((int)numVerticesPerSize, level);
 			
 			if (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
+				deleteUnusedFiles(numVerticesPerSize, level);					// delete unused files
+
+			if (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 				importExternalQuadrantsInDB(numVerticesPerSize, level);			// import in DB external quadrants from DB Import directory
 
 			if (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
@@ -2067,6 +2070,12 @@ namespace TheWorld_MapManager
 		}
 
 		PLOG_INFO << "Align CACHE <==> DB - Stop alignement thread - " << "map=" << s_mapName << " numVerticesPerSize=" << numVerticesPerSize << " level=" << level;
+	}
+
+	void MapManager::deleteUnusedFiles(size_t numVerticesPerSize, int level)
+	{
+		float gridStepInWU = MapManager::gridStepInWU();
+		m_DBInterface->deleteUnusedFiles(gridStepInWU, numVerticesPerSize, level);
 	}
 
 	void MapManager::importExternalQuadrantsInDB(size_t numVerticesPerSize, int level)

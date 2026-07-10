@@ -36,6 +36,7 @@ namespace TheWorld_MapManager
 		virtual bool writeQuadrantToDB(TheWorld_Utils::MeshCacheBuffer& cache, TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData& cacheQuadrantData, std::string strBuffer, enum class QuadrantVertexStoreType vertexStoreType, bool& stop);
 		virtual void readQuadrantFromDB(TheWorld_Utils::MeshCacheBuffer& cache, std::string& meshId, std::string& strBuffer, enum class DBInterface::QuadrantStatus& status, enum class QuadrantVertexStoreType& vertexStoreType, TheWorld_Utils::TerrainEdit& terrainEdit);
 		virtual void finalizeDB(void);
+		virtual void deleteUnusedFiles(float gridStepInWU, size_t numVerticesPerSize, int level);
 		virtual void importExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level);
 		virtual void writeExternalQuadrants(float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::TerrainEdit>& externalQuadrants);
 		virtual void getAllQuadrants(std::string _cacheDir, std::string mapName, float gridStepInWU, size_t numVerticesPerSize, int level, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer>& diskCacheMap, std::time_t& fromFileTimeType);
@@ -54,6 +55,7 @@ namespace TheWorld_MapManager
 	private:
 		static std::string g_DBDir;
 		static std::string g_confFilePath;
+		static std::time_t s_deleteUnusedFilesLastTime;
 	};
 }
 
