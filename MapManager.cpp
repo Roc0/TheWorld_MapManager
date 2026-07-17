@@ -2151,10 +2151,10 @@ namespace TheWorld_MapManager
 				s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numGeneratedMinMaxQuadrants = 0;
 
 				//
-				// VERTEX HEIGTHS GENERATION
+				// *** VERTEX HEIGHTS GENERATION ***
 				//
 				
-				// Loop to generate heights in quadrants if required: for every quadrant updated we insert in Work Cache all its neighbours and check again updated Work Cache for heigths needed
+				// Loop to generate heights in quadrants if required: for every quadrant updated we insert in Work Cache all its neighbours and check again updated Work Cache for heights needed
 				if (cacheMap.size() > 0)
 				{
 					bool heightGenerationCompleted = false;
@@ -2190,7 +2190,7 @@ namespace TheWorld_MapManager
 							TheWorld_Utils::TerrainEdit* terrainEdit = internalQuadrantData->terrainData();
 							pos.TRACK_QUADRANT_FOR_DEBUG(std::string("SERVER PROCEDURAL TERRAIN GENERATION - ") + "Processing quadrant for height generation", internalQuadrantData->meshId);
 
-							//if (refreshed)									// DEBUG
+							//if (refreshed)								// DEBUG
 							//	terrainEdit->heightsNeedRegen(true);		// DEBUG
 							if (terrainEdit->heightsNeedRegen())
 							{
@@ -2207,35 +2207,44 @@ namespace TheWorld_MapManager
 								
 								size_t heights16BufferSize = numVertices * sizeof(uint16_t);
 								internalQuadrantData->heights16Buffer->reserve(heights16BufferSize);
-								uint16_t* movingHeights16Buffer = (uint16_t*)internalQuadrantData->heights16Buffer->ptr();
-								
+								internalQuadrantData->heights16Buffer->adjustSize(heights16BufferSize);
+
 								size_t heights32BufferSize = numVertices * sizeof(float);
 								internalQuadrantData->heights32Buffer->reserve(heights32BufferSize);
-								float* movingHeights32Buffer = (float*)internalQuadrantData->heights32Buffer->ptr();
-
-								{
-									TheWorld_Utils::GuardProfiler profiler(std::string("generateDetailDataForQuadrants 2 ") + __FUNCTION__, "Move Heights to float16/float32 buffer");
-									//PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Moving Heights to float16/float32 buffer for " << pos.getIdStr() << " " << pos.getName();
-									size_t idx = 0;
-									for (int z = 0; z < numVerticesPerSize; z++)
-										for (int x = 0; x < numVerticesPerSize; x++)
-										{
-											float altitude = vectGridHeights[idx];
-											TheWorld_Utils::FLOAT_32 f(altitude);
-											*movingHeights16Buffer = half_from_float(f.u32);
-											f.u32 = half_to_float(*movingHeights16Buffer);
-											*movingHeights32Buffer = f.f32;
-											movingHeights16Buffer++;
-											movingHeights32Buffer++;
-											idx++;
-										}
-									//memcpy(internalQuadrantData->heights32Buffer->ptr(), &vectGridHeights[0], heights32BufferSize);	// we force float16 and float 32 to the same approssimated value to avoid float16/float32 mismtach
-									PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Moved Heights to float16/float32 buffer for " << pos.getIdStr() << " " << pos.getName() << " - Elapsed " << profiler.partialDuration() / 1000 << " ms";
-								}
-								
-								my_assert((BYTE*)movingHeights16Buffer - internalQuadrantData->heights16Buffer->ptr() == heights16BufferSize);
-								internalQuadrantData->heights16Buffer->adjustSize(heights16BufferSize);
 								internalQuadrantData->heights32Buffer->adjustSize(heights32BufferSize);
+
+								//{
+								//	TheWorld_Utils::GuardProfiler profiler(std::string("generateDetailDataForQuadrants 2 ") + __FUNCTION__, "Move Heights to float16/float32 buffer");
+								//	//PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Moving Heights to float16/float32 buffer for " << pos.getIdStr() << " " << pos.getName();
+
+								//	uint16_t* movingHeights16Buffer = (uint16_t*)internalQuadrantData->heights16Buffer->ptr();
+								//	float* movingHeights32Buffer = (float*)internalQuadrantData->heights32Buffer->ptr();
+
+								//	size_t idx = 0;
+								//	for (int z = 0; z < numVerticesPerSize; z++)
+								//		for (int x = 0; x < numVerticesPerSize; x++)
+								//		{
+								//			float altitude = vectGridHeights[idx];
+								//			TheWorld_Utils::FLOAT_32 f(altitude);
+								//			*movingHeights16Buffer = half_from_float(f.u32);
+								//			f.u32 = half_to_float(*movingHeights16Buffer);
+								//			*movingHeights32Buffer = f.f32;
+								//			movingHeights16Buffer++;
+								//			movingHeights32Buffer++;
+								//			idx++;
+								//		}
+
+								//	my_assert((BYTE*)movingHeights16Buffer - internalQuadrantData->heights16Buffer->ptr() == heights16BufferSize);
+								//	my_assert((BYTE*)movingHeights32Buffer - internalQuadrantData->heights32Buffer->ptr() == heights32BufferSize);
+
+								//	PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Moved Heights to float16/float32 buffer for " << pos.getIdStr() << " " << pos.getName() << " - Elapsed " << profiler.partialDuration() / 1000 << " ms";
+								//}
+								
+								{
+									// Alternative to upper commented code: we valorize only float 32 buffer leaving float 16 buffer nulland we will valorize it from float 32 buffer at the end of the pipeline (when we calc min/max values)
+									memcpy(internalQuadrantData->heights32Buffer->ptr(), &vectGridHeights[0], heights32BufferSize);
+									memset(internalQuadrantData->heights16Buffer->ptr(), 0, heights16BufferSize);
+								}
 
 								internalQuadrantData->meshId = TheWorld_Utils::MeshCacheBuffer::generateNewMeshId();	// update meshId as heights updated
 
@@ -2328,7 +2337,7 @@ namespace TheWorld_MapManager
 				}
 
 				//
-				// VERTEX BLENDING ON BORDERS
+				// *** VERTEX BLENDING ON BORDERS ***
 				//
 
 				if (cacheMap.size() > 0)
@@ -2534,7 +2543,7 @@ namespace TheWorld_MapManager
 				}
 
 				//
-				// ADJUST MIN/MAX HEIGHTS INFO FOR QUADRANT AND BORDERS
+				// *** WE HAVE ENDED MODIFYING ALTITUDES SO WE ADJUST MIN/MAX HEIGHTS INFO FOR QUADRANT AND BORDERS ***
 				//
 
 				if (cacheMap.size() > 0)
@@ -2591,7 +2600,7 @@ namespace TheWorld_MapManager
 				}
 
 				//
-				// PREPARE DATA FOR GLOBALMAP GENERATION CLIENT SIDE: GROUND TEXTURE INDEXES OF NORTH, WEST AND NORTHWEST NEIGHBOURS
+				// *** PREPARE DATA FOR GLOBALMAP GENERATION CLIENT SIDE: GROUND TEXTURE INDEXES OF NORTH, WEST AND NORTHWEST NEIGHBOURS ***
 				//
 				
 				// Preparing data for globalmap generation client side
@@ -2679,7 +2688,7 @@ namespace TheWorld_MapManager
 				}
 
 				//
-				// WRITE QUADRANTS IN DISK CACHE (BOTH WORK AND NORMAL)
+				// *** WRITE QUADRANTS IN DISK CACHE (BOTH WORK AND NORMAL) ***
 				//
 				
 				if (cacheMap.size() > 0)
@@ -2730,7 +2739,7 @@ namespace TheWorld_MapManager
 			}
 		
 			//
-			// SIGN QUADRANTS TO BE UPDATED CLIENT SIDE (GLOBALMAP GENERATION)
+			// *** SIGN QUADRANTS TO BE UPDATED CLIENT SIDE (GLOBALMAP GENERATION) ***
 			//
 
 			{
@@ -2757,7 +2766,7 @@ namespace TheWorld_MapManager
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_proceduralProcessingInProgress = false;
 
 			//
-			// WAIT FOR ALL QUADRANTS UPDATE CLIENT SIDE (GLOBALMAP GENERATION) BEFORE CLEARING WORK CACHE
+			// *** WAIT FOR ALL QUADRANTS UPDATE CLIENT SIDE (GLOBALMAP GENERATION) BEFORE CLEARING WORK CACHE ***
 			//
 
 			// Wait for client to complete its work on quadrants (splatmap/globalmap generation) before clearing Work Cache
@@ -2765,6 +2774,10 @@ namespace TheWorld_MapManager
 			{
 				Sleep(10);
 			}
+
+			//
+			// *** END OF WORK: CLEAR WORK CACHE ***
+			//
 
 			TheWorld_Utils::MeshCacheBuffer::clearWorkCacheDir(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level);
 
