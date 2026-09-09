@@ -1950,7 +1950,7 @@ namespace TheWorld_MapManager
 		else
 		{
 			terrainEdit.size = sizeof(TheWorld_Utils::TerrainEdit);
-			terrainEdit.needUploadToServer = false;
+			terrainEdit.needUploadToServer(false);
 			//terrainEdit.normalsNeedRegen(false);
 			terrainEdit.terrainType = (enum TheWorld_Utils::TerrainEdit::TerrainType)sqlite3_column_int(dbOps.getStmt(), 0);
 			terrainEdit.minHeight = (float)sqlite3_column_double(dbOps.getStmt(), 1);

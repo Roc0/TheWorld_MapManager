@@ -286,7 +286,7 @@ namespace TheWorld_MapManager
 			rootTerrainData["004_splatmapNeedRegen"] = false;	//terrainEdit.splatmapNeedRegen();
 			rootTerrainData["005_colormapNeedRegen"] = false;	//terrainEdit.colormapNeedRegen();
 			rootTerrainData["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen();
-			rootTerrainData["007_needUploadToServer"] = terrainEdit.needUploadToServer;
+			rootTerrainData["007_needUploadToServer"] = terrainEdit.needUploadToServer();
 			rootTerrainData["008_minHeight"] = terrainEdit.minHeight;
 			rootTerrainData["009_maxHeight"] = terrainEdit.maxHeight;
 			rootTerrainData["010_lowElevationTexName_r"] = terrainEdit.extraValues.lowElevationTexName_r;
@@ -425,7 +425,7 @@ namespace TheWorld_MapManager
 
 		// terrainEdit
 		terrainEdit.size = sizeof(TheWorld_Utils::TerrainEdit);
-		terrainEdit.needUploadToServer = rootTerrainData["007_needUploadToServer"].asBool();
+		terrainEdit.needUploadToServer(rootTerrainData["007_needUploadToServer"].asBool());
 		//terrainEdit.normalsNeedRegen(rootTerrainData["003_normalsNeedRegen"].asBool());
 		terrainEdit.terrainType = (enum class TheWorld_Utils::TerrainEdit::TerrainType)rootTerrainData["001_terrainType"].asInt();
 		terrainEdit.minHeight = float(rootTerrainData["008_minHeight"].asDouble());
@@ -736,7 +736,7 @@ namespace TheWorld_MapManager
 		//quadrant["terrain_data"]["004_splatmapNeedRegen"] = terrainEdit.splatmapNeedRegen();
 		//quadrant["terrain_data"]["005_colormapNeedRegen"] = terrainEdit.colormapNeedRegen();
 		quadrant["terrain_data"]["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen();
-		quadrant["terrain_data"]["007_needUploadToServer"] = terrainEdit.needUploadToServer;
+		quadrant["terrain_data"]["007_needUploadToServer"] = terrainEdit.needUploadToServer();
 		quadrant["terrain_data"]["008_minHeight"] = terrainEdit.minHeight;
 		quadrant["terrain_data"]["009_maxHeight"] = terrainEdit.maxHeight;
 		quadrant["terrain_data"]["010_lowElevationTexName_r"] = terrainEdit.extraValues.lowElevationTexName_r;
@@ -936,7 +936,7 @@ namespace TheWorld_MapManager
 			quadrant["terrain_data"]["006_globalmapNeedRegen"] = terrainEdit.globalmapNeedRegen();
 		v = quadrant["terrain_data"]["007_needUploadToServer"];
 		if (v.isNull())
-			quadrant["terrain_data"]["007_needUploadToServer"] = terrainEdit.needUploadToServer;
+			quadrant["terrain_data"]["007_needUploadToServer"] = terrainEdit.needUploadToServer();
 
 		v = quadrant["terrain_data"]["008_minHeight"];
 		if (v.isNull())
