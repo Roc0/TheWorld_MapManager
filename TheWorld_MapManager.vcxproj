@@ -176,7 +176,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\eigen-3.3.9;..\GSL\Include;..\jsoncpp\include;..\PROJ\src;.\plog\include;..\TheWorld_Utils</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\eigen-5.0.0;..\GSL\Include;..\jsoncpp\include;..\PROJ\src;.\plog\include;..\TheWorld_Utils</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc11</LanguageStandard_C>
       <Optimization>Disabled</Optimization>
@@ -221,7 +221,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\eigen-3.3.9;..\GSL\Include;..\jsoncpp\include;..\PROJ\src;.\plog\include;..\TheWorld_Utils</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\eigen-5.0.0;..\GSL\Include;..\jsoncpp\include;..\PROJ\src;.\plog\include;..\TheWorld_Utils</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
