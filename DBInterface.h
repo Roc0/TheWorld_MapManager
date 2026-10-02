@@ -24,6 +24,7 @@ namespace TheWorld_MapManager
 		static const std::string c_mapNameParamName;
 		static const std::string c_gridStepInWUParamName;
 		static const std::string c_growingBlockVertexNumberShiftParamName;
+		static const std::string c_heightsFormatInQuadrantBuffer;
 
 		enum class ConnectionType
 		{

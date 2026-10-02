@@ -1439,7 +1439,7 @@ namespace TheWorld_MapManager
 					rc = sqlite3_bind_double(dbOps->getStmt(), 26, terrainEdit.noise.desideredMinHeight);
 					if (rc != SQLITE_OK)
 						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.DesideredMinHeight failed!", sqlite3_errmsg(dbOps->getConn()), rc));
-					rc = sqlite3_bind_int(dbOps->getStmt(), 27, terrainEdit.noise.desideredMinHeigthMandatory);
+					rc = sqlite3_bind_int(dbOps->getStmt(), 27, terrainEdit.noise.desideredMinHeightMandatory);
 					if (rc != SQLITE_OK)
 						throw(MapManagerExceptionDBException(__FUNCTION__, "DB SQLite DB bind NoiseValuesQuadrant.DesideredMinHeigthMandatory failed!", sqlite3_errmsg(dbOps->getConn()), rc));
 
@@ -2019,7 +2019,7 @@ namespace TheWorld_MapManager
 				terrainEdit.noise.heightsAmplitude = sqlite3_column_int(dbOps.getStmt(), 22);
 				terrainEdit.noise.scaleFactor_JagIntensity = (float)sqlite3_column_double(dbOps.getStmt(), 23);
 				terrainEdit.noise.desideredMinHeight = (float)sqlite3_column_double(dbOps.getStmt(), 24);
-				terrainEdit.noise.desideredMinHeigthMandatory = sqlite3_column_int(dbOps.getStmt(), 25);
+				terrainEdit.noise.desideredMinHeightMandatory = sqlite3_column_int(dbOps.getStmt(), 25);
 			}
 
 			dbOps.finalizeStmt();

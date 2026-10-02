@@ -326,6 +326,7 @@ namespace TheWorld_MapManager
 		}
 		_declspec(dllexport) std::string getMapName(void);
 		_declspec(dllexport) float gridStepInWU(void);
+		_declspec(dllexport) enum class TheWorld_Utils::MeshCacheBuffer::HeightsFormatInQuadrantBuffer getHeightsFormatInQuadrantBuffer(void);
 		_declspec(dllexport) std::string getGroundJson(std::chrono::system_clock::time_point& groundJsonUtc);
 
 		enum class anchorType

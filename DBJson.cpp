@@ -370,7 +370,7 @@ namespace TheWorld_MapManager
 			rootTerrainData["grp_noise"]["023_heightsAmplitude"] = terrainEdit.noise.heightsAmplitude;
 			rootTerrainData["grp_noise"]["024_scaleFactor_JagIntensity"] = terrainEdit.noise.scaleFactor_JagIntensity;
 			rootTerrainData["grp_noise"]["025_desideredMinHeight"] = terrainEdit.noise.desideredMinHeight;
-			rootTerrainData["grp_noise"]["026_desideredMinHeigthMandatory"] = terrainEdit.noise.desideredMinHeigthMandatory;
+			rootTerrainData["grp_noise"]["026_desideredMinHeigthMandatory"] = terrainEdit.noise.desideredMinHeightMandatory;
 		}
 
 		root["terrain_data"] = rootTerrainData;
@@ -478,7 +478,7 @@ namespace TheWorld_MapManager
 		terrainEdit.noise.heightsAmplitude = rootTerrainData["grp_noise"]["023_heightsAmplitude"].asInt();
 		terrainEdit.noise.scaleFactor_JagIntensity = float(rootTerrainData["grp_noise"]["024_scaleFactor_JagIntensity"].asDouble());
 		terrainEdit.noise.desideredMinHeight = float(rootTerrainData["grp_noise"]["025_desideredMinHeight"].asDouble());
-		terrainEdit.noise.desideredMinHeigthMandatory = rootTerrainData["grp_noise"]["026_desideredMinHeigthMandatory"].asBool();
+		terrainEdit.noise.desideredMinHeightMandatory = rootTerrainData["grp_noise"]["026_desideredMinHeigthMandatory"].asBool();
 
 		strcpy_s(terrainEdit.extraValues.lowElevationTexName_r, sizeof(terrainEdit.extraValues.lowElevationTexName_r), rootTerrainData["010_lowElevationTexName_r"].asString().c_str());
 		strcpy_s(terrainEdit.extraValues.highElevationTexName_g, sizeof(terrainEdit.extraValues.highElevationTexName_g), rootTerrainData["011_highElevationTexName_g"].asString().c_str());
@@ -534,13 +534,11 @@ namespace TheWorld_MapManager
 		//cacheQuadrantData.terrainEdit = &terrainEdit;
 		cacheQuadrantData.minHeight = terrainEdit.minHeight;
 		cacheQuadrantData.maxHeight = terrainEdit.maxHeight;
-		TheWorld_Utils::MemoryBuffer emptyFloat16HeightsBuffer;
 		TheWorld_Utils::MemoryBuffer emptyFloat32HeightsBuffer;
 		TheWorld_Utils::MemoryBuffer emptyNormalBuffer;
 		TheWorld_Utils::MemoryBuffer emptySplatmapBuffer;
 		TheWorld_Utils::MemoryBuffer emptyColormapBuffer;
 		TheWorld_Utils::MemoryBuffer emptyGlobalmapBuffer;
-		cacheQuadrantData.heights16Buffer = &emptyFloat16HeightsBuffer;
 		cacheQuadrantData.heights32Buffer = &emptyFloat32HeightsBuffer;
 		cacheQuadrantData.normalsBuffer = &emptyNormalBuffer;
 		cacheQuadrantData.splatmapBuffer = &emptySplatmapBuffer;
@@ -816,7 +814,7 @@ namespace TheWorld_MapManager
 		quadrant["terrain_data"]["grp_noise"]["023_heightsAmplitude"] = terrainEdit.noise.heightsAmplitude;
 		quadrant["terrain_data"]["grp_noise"]["024_scaleFactor_JagIntensity"] = terrainEdit.noise.scaleFactor_JagIntensity;
 		quadrant["terrain_data"]["grp_noise"]["025_desideredMinHeight"] = terrainEdit.noise.desideredMinHeight;
-		quadrant["terrain_data"]["grp_noise"]["026_desideredMinHeigthMandatory"] = terrainEdit.noise.desideredMinHeigthMandatory;
+		quadrant["terrain_data"]["grp_noise"]["026_desideredMinHeigthMandatory"] = terrainEdit.noise.desideredMinHeightMandatory;
 	}
 		
 	bool DBJson::completeQuadrantDataWithDefaultValues(float gridStepInWU, size_t numVerticesPerSize, int level, Json::Value& quadrant)
@@ -1255,7 +1253,7 @@ namespace TheWorld_MapManager
 
 		v = quadrant["terrain_data"]["grp_noise"]["026_desideredMinHeigthMandatory"];
 		if (v.isNull())
-			quadrant["terrain_data"]["grp_noise"]["026_desideredMinHeigthMandatory"] = terrainEdit.noise.desideredMinHeigthMandatory;
+			quadrant["terrain_data"]["grp_noise"]["026_desideredMinHeigthMandatory"] = terrainEdit.noise.desideredMinHeightMandatory;
 
 		return true;
 	}
