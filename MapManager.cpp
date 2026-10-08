@@ -2769,7 +2769,7 @@ namespace TheWorld_MapManager
 			//
 
 			// Wait for client to complete its work on quadrants (splatmap/globalmap generation) before clearing Work Cache
-			while (s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.size() > 0)
+			while (s_mapInitMap[numVerticesPerSize][level]->m_needingClientWorkQuadrants.size() > 0 || s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 			{
 				Sleep(10);
 			}
@@ -2778,9 +2778,18 @@ namespace TheWorld_MapManager
 			// *** END OF WORK: CLEAR WORK CACHE ***
 			//
 
-			TheWorld_Utils::MeshCacheBuffer::clearWorkCacheDir(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level);
+			if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
+			{
+				PLOG_DEBUG << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Procedural generation interrupted by user request";
+			}
+			else
+			{
+				PLOG_DEBUG << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Procedural generation completed successfully";
 
-			PLOG_DEBUG << "SERVER PROCEDURAL TERRAIN GENERATION Ended - Elapsed " << profiler.partialDuration() / 1000 << " ms";
+				TheWorld_Utils::MeshCacheBuffer::clearWorkCacheDir(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level);
+
+				PLOG_DEBUG << "SERVER PROCEDURAL TERRAIN GENERATION Ended - Elapsed " << profiler.partialDuration() / 1000 << " ms";
+			}
 		}
 		else
 		{
