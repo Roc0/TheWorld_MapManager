@@ -2031,7 +2031,7 @@ namespace TheWorld_MapManager
 			std::chrono::system_clock::time_point lastUploadTime = lastMapQuadrantsOverrideUpload((int)numVerticesPerSize, level);
 			
 			if (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
-				deleteUnusedFiles(numVerticesPerSize, level);					// delete unused files
+				deleteUnusedFiles(numVerticesPerSize, level);					// periodically delete unused files
 
 			if (!s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 				importExternalQuadrantsInDB(numVerticesPerSize, level);			// import in DB external quadrants from DB Import directory
@@ -2096,18 +2096,19 @@ namespace TheWorld_MapManager
 		std::string cacheDir = m_DBInterface->dataPath();
 		std::string mapName = getMapName();
 
-		std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer> diskCacheMap;
+		std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer> diskWorkCacheMap;
 		std::time_t t = 0;
-		TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, diskCacheMap, t, true);	// get all quadrants in work cache
+		TheWorld_Utils::MeshCacheBuffer::getAllDiskCache(cacheDir, mapName, gridStepInWU, numVerticesPerSize, level, diskWorkCacheMap, t, true);	// get all quadrants in work cache
 
-		if (diskCacheMap.size() > 0)
+		// Something to do (work cache is not empty)? 
+		if (diskWorkCacheMap.size() > 0)
 		{
 			TheWorld_Utils::GuardProfiler profiler(std::string("generateDetailDataForQuadrants ") + __FUNCTION__, "Manage Work cache");
 			PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION Started";
 
 			//size_t heightGenerationProcessingQuad = 0, heightGenerationProcessedQuads = 0;
 			//size_t blendProcessingQuad = 0, blendProcessedQuads = 0;
-			size_t remainigQuadrantsToProcess = diskCacheMap.size();
+			size_t remainigQuadrantsToProcess = diskWorkCacheMap.size();
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsToProcessServerSide = remainigQuadrantsToProcess;
 
 			s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_proceduralProcessingInProgress = true;
@@ -2129,17 +2130,18 @@ namespace TheWorld_MapManager
 
 			std::map<TheWorld_Utils::QuadrantPos, bool> neighbourAddedToCache;
 			
-			while (diskCacheMap.size() > 0)		// quadrants generation happens in blocks of maxNumQuadrantToProcess to avoid memory overflow in one cycle
+			// quadrants generation happens in blocks of maxNumQuadrantToProcess to avoid memory overflow in one cycle: diskWorkCacheMap is cleared from processed quadrants at the end of every cycle
+			while (diskWorkCacheMap.size() > 0)
 			{
 				std::vector<TheWorld_Utils::QuadrantPos> workedDiskCacheMap;
-				std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*> cacheMap;
+				std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*> currentCycleWorkCacheMap;
 				size_t idx = 0;
 				size_t maxNumQuadrantToProcess = 200;	// to avoid too long processing in one cycle and let server breathe and process client requests
-				for (auto& cacheMapItem : diskCacheMap)
+				for (auto& cacheMapItem : diskWorkCacheMap)
 				{
 					if (idx >= maxNumQuadrantToProcess)
 						break;
-					cacheMap[cacheMapItem.first] = new TheWorld_Utils::MeshCacheBuffer(cacheMapItem.second);
+					currentCycleWorkCacheMap[cacheMapItem.first] = new TheWorld_Utils::MeshCacheBuffer(cacheMapItem.second);
 					workedDiskCacheMap.push_back(cacheMapItem.first);
 					idx++;
 				}
@@ -2158,8 +2160,8 @@ namespace TheWorld_MapManager
 				// *** VERTEX HEIGHTS GENERATION ***
 				//
 				
-				// Loop to generate heights in quadrants if required: for every quadrant updated we insert in Work Cache all its neighbours and check again updated Work Cache for heights needed
-				if (cacheMap.size() > 0)
+				// Loop to generate heights in quadrants if required: for every quadrant updated we insert in Work Cache all its neighbours and check again updated Work Cache for heights needed and to permit correct blending between neighbours
+				if (currentCycleWorkCacheMap.size() > 0)
 				{
 					bool heightGenerationCompleted = false;
 					while (!heightGenerationCompleted)
@@ -2171,21 +2173,21 @@ namespace TheWorld_MapManager
 						if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 							break;
 
-						std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*> cacheToAdd;
+						std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*> cacheToImportInCurrentCycleWorkDir;
 
 						processingItem = 0;
 						
 						s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsWithHeightsGenerated = processingItem;
 
-						for (auto& cacheMapItem : cacheMap)
+						for (auto& cacheMapItem : currentCycleWorkCacheMap)
 						{
 							if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 								break;
 
-							s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsToGenerateHeights = cacheMap.size();
+							s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsToGenerateHeights = currentCycleWorkCacheMap.size();
 
 							processingItem++;
-							PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Processing quadrant for height generation (" << processingItem << "/" << cacheMap.size() << "(" << remainigQuadrantsToProcess << ")";
+							PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Processing quadrant for height generation (" << processingItem << "/" << currentCycleWorkCacheMap.size() << "(" << remainigQuadrantsToProcess << ")";
 
 							TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
 							
@@ -2213,33 +2215,6 @@ namespace TheWorld_MapManager
 								internalQuadrantData->heights32Buffer->reserve(heights32BufferSize);
 								internalQuadrantData->heights32Buffer->adjustSize(heights32BufferSize);
 
-								//{
-								//	TheWorld_Utils::GuardProfiler profiler(std::string("generateDetailDataForQuadrants 2 ") + __FUNCTION__, "Move Heights to float16/float32 buffer");
-								//	//PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Moving Heights to float16/float32 buffer for " << pos.getIdStr() << " " << pos.getName();
-
-								//	uint16_t* movingHeights16Buffer = (uint16_t*)internalQuadrantData->heights16Buffer->ptr();
-								//	float* movingHeights32Buffer = (float*)internalQuadrantData->heights32Buffer->ptr();
-
-								//	size_t idx = 0;
-								//	for (int z = 0; z < numVerticesPerSize; z++)
-								//		for (int x = 0; x < numVerticesPerSize; x++)
-								//		{
-								//			float altitude = vectGridHeights[idx];
-								//			TheWorld_Utils::FLOAT_32 f(altitude);
-								//			*movingHeights16Buffer = half_from_float(f.u32);
-								//			f.u32 = half_to_float(*movingHeights16Buffer);
-								//			*movingHeights32Buffer = f.f32;
-								//			movingHeights16Buffer++;
-								//			movingHeights32Buffer++;
-								//			idx++;
-								//		}
-
-								//	my_assert((BYTE*)movingHeights16Buffer - internalQuadrantData->heights16Buffer->ptr() == heights16BufferSize);
-								//	my_assert((BYTE*)movingHeights32Buffer - internalQuadrantData->heights32Buffer->ptr() == heights32BufferSize);
-
-								//	PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Moved Heights to float16/float32 buffer for " << pos.getIdStr() << " " << pos.getName() << " - Elapsed " << profiler.partialDuration() / 1000 << " ms";
-								//}
-								
 								{
 									// Alternative to upper commented code: we valorize only float 32 buffer leaving float 16 buffer nulland we will valorize it from float 32 buffer at the end of the pipeline (when we calc min/max values)
 									memcpy(internalQuadrantData->heights32Buffer->ptr(), &vectGridHeights[0], heights32BufferSize);
@@ -2256,9 +2231,9 @@ namespace TheWorld_MapManager
 									for (auto& neighbourPos : neighbours)
 									{
 										bool reneweMeshId = false;	// don't update meshId now as we are just importing in work area and not modifying data, meshId will be updated when/if the quadrant will be processed for height generation
-										importQuadrantInWorkArea(neighbourPos, cacheDir, mapName, cacheToAdd, reneweMeshId);
+										prepareQuadrantToBeImportedInWorkArea(neighbourPos, cacheDir, mapName, cacheToImportInCurrentCycleWorkDir, reneweMeshId);
 										// remember that we already imported this neighbour in work area to avoid infinite loop (if it was an original quadrant we don't mark it as a neghbour to permit its neighbours to be processed)
-										if (not diskCacheMap.contains(neighbourPos))
+										if (not diskWorkCacheMap.contains(neighbourPos))
 											neighbourAddedToCache[neighbourPos] = true;
 									}
 								}
@@ -2278,35 +2253,29 @@ namespace TheWorld_MapManager
 							s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsWithHeightsGenerated = processingItem;
 						}
 
-						for (auto& cacheToAddItem : cacheToAdd)
+						// import new quadrants to work cache if any: the neighbours of the updated quadrants - heights generated - to permit correct blending between neighbours
+						for (auto& cacheToImportItem : cacheToImportInCurrentCycleWorkDir)
 						{
-							//bool add = true;
-							//if (cacheMap.contains(pos))
-							//{
-							//	TheWorld_Utils::MeshCacheBuffer* cache = cacheMap[pos];
-							//	add = false;
-							//}
-
-							if (cacheMap.contains(cacheToAddItem.first))
+							if (currentCycleWorkCacheMap.contains(cacheToImportItem.first))
 							{
-								my_assert(cacheToAddItem.second != nullptr);
-								if (TheWorld_Utils::MeshCacheBuffer::firstMeshIdMoreRecent(cacheToAddItem.second->getMeshId(), cacheMap[cacheToAddItem.first]->getMeshId()))
+								my_assert(cacheToImportItem.second != nullptr);
+								if (TheWorld_Utils::MeshCacheBuffer::firstMeshIdMoreRecent(cacheToImportItem.second->getMeshId(), currentCycleWorkCacheMap[cacheToImportItem.first]->getMeshId()))
 								{
-									PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Replacing quadrant in Work Area " << cacheToAddItem.first.getIdStr() << " " << cacheToAddItem.first.getName() << (cacheToAddItem.second->isEmptyBuffer(cacheToAddItem.second->internalCacheQuadrantData()->meshId) || cacheToAddItem.second->internalCacheQuadrantData()->terrainData()->terrainType == TheWorld_Utils::TerrainEdit::TerrainType::empty ? " - EMPTY QUADRANT" : "") << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(cacheToAddItem.second->internalCacheQuadrantData()->meshId);
-									cacheMap[cacheToAddItem.first] = cacheToAddItem.second;
-									cacheToAddItem.second = nullptr;
+									PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Replacing quadrant in Work Area " << cacheToImportItem.first.getIdStr() << " " << cacheToImportItem.first.getName() << (cacheToImportItem.second->isEmptyBuffer(cacheToImportItem.second->internalCacheQuadrantData()->meshId) || cacheToImportItem.second->internalCacheQuadrantData()->terrainData()->terrainType == TheWorld_Utils::TerrainEdit::TerrainType::empty ? " - EMPTY QUADRANT" : "") << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(cacheToImportItem.second->internalCacheQuadrantData()->meshId);
+									currentCycleWorkCacheMap[cacheToImportItem.first] = cacheToImportItem.second;
+									cacheToImportItem.second = nullptr;
 								}
 								else
 								{
-									delete cacheToAddItem.second;
-									cacheToAddItem.second = nullptr;
+									delete cacheToImportItem.second;
+									cacheToImportItem.second = nullptr;
 								}
 							}
 							else
 							{
-								PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Adding quadrant to Work Area " << cacheToAddItem.first.getIdStr() << " " << cacheToAddItem.first.getName() << (cacheToAddItem.second->isEmptyBuffer(cacheToAddItem.second->internalCacheQuadrantData()->meshId) || cacheToAddItem.second->internalCacheQuadrantData()->terrainData()->terrainType == TheWorld_Utils::TerrainEdit::TerrainType::empty ? " - EMPTY QUADRANT" : "") << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(cacheToAddItem.second->internalCacheQuadrantData()->meshId);
-								cacheMap[cacheToAddItem.first] = cacheToAddItem.second;
-								cacheToAddItem.second = nullptr;
+								PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Adding quadrant to Work Area " << cacheToImportItem.first.getIdStr() << " " << cacheToImportItem.first.getName() << (cacheToImportItem.second->isEmptyBuffer(cacheToImportItem.second->internalCacheQuadrantData()->meshId) || cacheToImportItem.second->internalCacheQuadrantData()->terrainData()->terrainType == TheWorld_Utils::TerrainEdit::TerrainType::empty ? " - EMPTY QUADRANT" : "") << " Hash=" << TheWorld_Utils::MeshCacheBuffer::meshIdToPrint(cacheToImportItem.second->internalCacheQuadrantData()->meshId);
+								currentCycleWorkCacheMap[cacheToImportItem.first] = cacheToImportItem.second;
+								cacheToImportItem.second = nullptr;
 							}
 						}
 					}
@@ -2315,7 +2284,7 @@ namespace TheWorld_MapManager
 				if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 				{
 					//std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);		// locked by joining thread which is stuck waiting current thread to exit
-					for (auto& cacheMapItem : cacheMap)
+					for (auto& cacheMapItem : currentCycleWorkCacheMap)
 					{
 						// save work done until now in work cache to restart next time
 						TheWorld_Utils::MeshCacheBuffer* cache = cacheMapItem.second;
@@ -2339,7 +2308,7 @@ namespace TheWorld_MapManager
 				// *** VERTEX BLENDING ON BORDERS ***
 				//
 
-				if (cacheMap.size() > 0)
+				if (currentCycleWorkCacheMap.size() > 0)
 				{
 #define NUM_BLENDING_CYCLES	2
 					// Loop to blend all quadrant in the Work Cache
@@ -2360,15 +2329,15 @@ namespace TheWorld_MapManager
 
 						s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numBlendedQuadrants = processingItem;
 
-						for (auto& cacheMapItem : cacheMap)
+						for (auto& cacheMapItem : currentCycleWorkCacheMap)
 						{
 							if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 								break;
 
-							s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numQuadrantsToBlend = cacheMap.size();
+							s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numQuadrantsToBlend = currentCycleWorkCacheMap.size();
 
 							processingItem++;
-							PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Blending quadrant - Cycle " << round + 1 << " (" << processingItem << "/" << cacheMap.size() << "(" << remainigQuadrantsToProcess << ")";
+							PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Blending quadrant - Cycle " << round + 1 << " (" << processingItem << "/" << currentCycleWorkCacheMap.size() << "(" << remainigQuadrantsToProcess << ")";
 
 							TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
 
@@ -2381,57 +2350,57 @@ namespace TheWorld_MapManager
 
 								TheWorld_Utils::QuadrantPos _pos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthZMinus);
 								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* northQuadrantData = nullptr;
-								if (cacheMap.contains(_pos))
-									northQuadrantData = cacheMap[_pos]->internalCacheQuadrantData();
+								if (currentCycleWorkCacheMap.contains(_pos))
+									northQuadrantData = currentCycleWorkCacheMap[_pos]->internalCacheQuadrantData();
 								else
 									northQuadrantData = &emptyQuadrantData;
 
 								_pos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SouthZPlus);
 								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* southQuadrantData = nullptr;
-								if (cacheMap.contains(_pos))
-									southQuadrantData = cacheMap[_pos]->internalCacheQuadrantData();
+								if (currentCycleWorkCacheMap.contains(_pos))
+									southQuadrantData = currentCycleWorkCacheMap[_pos]->internalCacheQuadrantData();
 								else
 									southQuadrantData = &emptyQuadrantData;
 
 								_pos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::WestXMinus);
 								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* westQuadrantData = nullptr;
-								if (cacheMap.contains(_pos))
-									westQuadrantData = cacheMap[_pos]->internalCacheQuadrantData();
+								if (currentCycleWorkCacheMap.contains(_pos))
+									westQuadrantData = currentCycleWorkCacheMap[_pos]->internalCacheQuadrantData();
 								else
 									westQuadrantData = &emptyQuadrantData;
 
 								_pos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::EastXPlus);
 								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* eastQuadrantData = nullptr;
-								if (cacheMap.contains(_pos))
-									eastQuadrantData = cacheMap[_pos]->internalCacheQuadrantData();
+								if (currentCycleWorkCacheMap.contains(_pos))
+									eastQuadrantData = currentCycleWorkCacheMap[_pos]->internalCacheQuadrantData();
 								else
 									eastQuadrantData = &emptyQuadrantData;
 
 								_pos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthwestZMinusXMinus);
 								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* northwestQuadrantData = nullptr;
-								if (cacheMap.contains(_pos))
-									northwestQuadrantData = cacheMap[_pos]->internalCacheQuadrantData();
+								if (currentCycleWorkCacheMap.contains(_pos))
+									northwestQuadrantData = currentCycleWorkCacheMap[_pos]->internalCacheQuadrantData();
 								else
 									northwestQuadrantData = &emptyQuadrantData;
 
 								_pos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NortheastZMinusXPlus);
 								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* northeastQuadrantData = nullptr;
-								if (cacheMap.contains(_pos))
-									northeastQuadrantData = cacheMap[_pos]->internalCacheQuadrantData();
+								if (currentCycleWorkCacheMap.contains(_pos))
+									northeastQuadrantData = currentCycleWorkCacheMap[_pos]->internalCacheQuadrantData();
 								else
 									northeastQuadrantData = &emptyQuadrantData;
 
 								_pos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SouthwestZPlusXMinus);
 								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* southwestQuadrantData = nullptr;
-								if (cacheMap.contains(_pos))
-									southwestQuadrantData = cacheMap[_pos]->internalCacheQuadrantData();
+								if (currentCycleWorkCacheMap.contains(_pos))
+									southwestQuadrantData = currentCycleWorkCacheMap[_pos]->internalCacheQuadrantData();
 								else
 									southwestQuadrantData = &emptyQuadrantData;
 
 								_pos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::SoutheastZPlusXPlus);
 								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* southeastQuadrantData = nullptr;
-								if (cacheMap.contains(_pos))
-									southeastQuadrantData = cacheMap[_pos]->internalCacheQuadrantData();
+								if (currentCycleWorkCacheMap.contains(_pos))
+									southeastQuadrantData = currentCycleWorkCacheMap[_pos]->internalCacheQuadrantData();
 								else
 									southeastQuadrantData = &emptyQuadrantData;
 
@@ -2521,7 +2490,7 @@ namespace TheWorld_MapManager
 				if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 				{
 					//std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);		// locked by joining thread which is stuck waiting current thread to exit
-					for (auto& cacheMapItem : cacheMap)
+					for (auto& cacheMapItem : currentCycleWorkCacheMap)
 					{
 						// save work done until now in work cache to restart next time
 						TheWorld_Utils::MeshCacheBuffer* cache = cacheMapItem.second;
@@ -2542,19 +2511,27 @@ namespace TheWorld_MapManager
 				}
 
 				//
+				// *** TODO: CALC REQUIRED LEVELS CURVE ***
+				// For all the quadrants in the Current Cycle Work Cache we need to calculate the required levels curve
+				// Then for all the curves (external loop) of all quadrant (internal loop) we must import in currentCycleWorkCacheMap the neighbours having those curves continuing towards them (we nust look all the borders)
+				// if we have imported at least one new neighbour we must restart the loop to recalc heights (those quadrant should need to generate them for instance if they are empty) and blens and them recalc levels curves
+				// we need to see how to set all those loops
+				//
+
+				//
 				// *** WE HAVE ENDED MODIFYING ALTITUDES SO WE ADJUST MIN/MAX HEIGHTS INFO FOR QUADRANT AND BORDERS ***
 				//
 
-				if (cacheMap.size() > 0)
+				if (currentCycleWorkCacheMap.size() > 0)
 				{
 					processingItem = 0;
 
-					for (auto& cacheMapItem : cacheMap)
+					for (auto& cacheMapItem : currentCycleWorkCacheMap)
 					{
 						if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 							break;
 
-						s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numQuadrantsToGenerateMinMax = cacheMap.size(); 
+						s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_numQuadrantsToGenerateMinMax = currentCycleWorkCacheMap.size(); 
 						
 						processingItem++;
 
@@ -2578,7 +2555,7 @@ namespace TheWorld_MapManager
 				if (s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 				{
 					//std::lock_guard<std::recursive_mutex> lock(s_mtxInternalData);		// locked by joining thread which is stuck waiting current thread to exit
-					for (auto& cacheMapItem : cacheMap)
+					for (auto& cacheMapItem : currentCycleWorkCacheMap)
 					{
 						// save work done until now in work cache to restart next time
 						TheWorld_Utils::MeshCacheBuffer* cache = cacheMapItem.second;
@@ -2603,21 +2580,21 @@ namespace TheWorld_MapManager
 				//
 				
 				// Preparing data for globalmap generation client side
-				if (cacheMap.size() > 0)
+				if (currentCycleWorkCacheMap.size() > 0)
 				{
 					TimerMcs clock;
 					clock.tick();
 					
-					for (auto& cacheMapItem : cacheMap)
+					for (auto& cacheMapItem : currentCycleWorkCacheMap)
 					{
 						TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* internalQuadrantData = cacheMapItem.second->internalCacheQuadrantData();
 						TheWorld_Utils::QuadrantPos pos = cacheMapItem.first;
 
 						TheWorld_Utils::QuadrantPos northQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthZMinus);
-						if (cacheMap.contains(northQuadrantPos))
+						if (currentCycleWorkCacheMap.contains(northQuadrantPos))
 						{
 							std::string lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName;
-							TheWorld_Utils::TerrainEdit* northTerrainData = cacheMap[northQuadrantPos]->internalCacheQuadrantData()->terrainData();
+							TheWorld_Utils::TerrainEdit* northTerrainData = currentCycleWorkCacheMap[northQuadrantPos]->internalCacheQuadrantData()->terrainData();
 							northTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
 							internalQuadrantData->terrainData()->setNorthGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
 
@@ -2638,10 +2615,10 @@ namespace TheWorld_MapManager
 						}
 
 						TheWorld_Utils::QuadrantPos westQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::WestXMinus);
-						if (cacheMap.contains(westQuadrantPos))
+						if (currentCycleWorkCacheMap.contains(westQuadrantPos))
 						{
 							std::string lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName;
-							TheWorld_Utils::TerrainEdit* westTerrainData = cacheMap[westQuadrantPos]->internalCacheQuadrantData()->terrainData();
+							TheWorld_Utils::TerrainEdit* westTerrainData = currentCycleWorkCacheMap[westQuadrantPos]->internalCacheQuadrantData()->terrainData();
 							westTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
 							internalQuadrantData->terrainData()->setWestGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
 
@@ -2662,10 +2639,10 @@ namespace TheWorld_MapManager
 						}
 
 						TheWorld_Utils::QuadrantPos northwestQuadrantPos = pos.getQuadrantPos(TheWorld_Utils::QuadrantPos::DirectionSlot::NorthwestZMinusXMinus);
-						if (cacheMap.contains(northwestQuadrantPos))
+						if (currentCycleWorkCacheMap.contains(northwestQuadrantPos))
 						{
 							std::string lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName;
-							TheWorld_Utils::TerrainEdit* northwestTerrainData = cacheMap[northwestQuadrantPos]->internalCacheQuadrantData()->terrainData();
+							TheWorld_Utils::TerrainEdit* northwestTerrainData = currentCycleWorkCacheMap[northwestQuadrantPos]->internalCacheQuadrantData()->terrainData();
 							northwestTerrainData->getGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
 							internalQuadrantData->terrainData()->setNorthwestGroundTextures(lowElevationTexName, highElevationTexName, dirtTexName, rocksTexName);
 
@@ -2683,14 +2660,14 @@ namespace TheWorld_MapManager
 					}
 
 					clock.tock();
-					PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Border quadrant splatmap generation on north/west side elepsed (mcs): " << clock.duration().count() << " for " << cacheMap.size() << " quadrants";
+					PLOG_VERBOSE << "SERVER PROCEDURAL TERRAIN GENERATION - " << "Border quadrant splatmap generation on north/west side elepsed (mcs): " << clock.duration().count() << " for " << currentCycleWorkCacheMap.size() << " quadrants";
 				}
 
 				//
 				// *** WRITE QUADRANTS IN DISK CACHE (BOTH WORK AND NORMAL) ***
 				//
 				
-				if (cacheMap.size() > 0)
+				if (currentCycleWorkCacheMap.size() > 0)
 				{
 					while (true)
 					{
@@ -2698,7 +2675,7 @@ namespace TheWorld_MapManager
 						std::unique_lock<std::recursive_mutex> lock(s_mtxInternalData, std::try_to_lock);
 						if (lock.owns_lock() || s_mapInitMap[numVerticesPerSize][level]->m_alignCacheAndDbThreadRequiredExit)
 						{
-							for (auto& [quadrantPos, cache] : cacheMap)
+							for (auto& [quadrantPos, cache] : currentCycleWorkCacheMap)
 							{
 								TheWorld_Utils::MeshCacheBuffer::CacheQuadrantData* internalQuadrantData = cache->internalCacheQuadrantData();
 								TheWorld_Utils::QuadrantPos pos = cache->getQuadrantPos();
@@ -2730,10 +2707,10 @@ namespace TheWorld_MapManager
 
 				for (auto& pos : workedDiskCacheMap)
 				{
-					diskCacheMap.erase(pos);
+					diskWorkCacheMap.erase(pos);
 				}
 				//remainigQuadrantsToProcess -= workedDiskCacheMap.size();
-				remainigQuadrantsToProcess = diskCacheMap.size();
+				remainigQuadrantsToProcess = diskWorkCacheMap.size();
 				s_mapInitMap[numVerticesPerSize][level]->m_procGen.m_quadrantsToProcessServerSide = remainigQuadrantsToProcess;
 			}
 		
@@ -2809,35 +2786,37 @@ namespace TheWorld_MapManager
 		}
 	}
 
-	void MapManager::importQuadrantInWorkArea(TheWorld_Utils::QuadrantPos pos, std::string _cacheDir, std::string mapName, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*>& cacheMap, bool renewMeshId)
+	void MapManager::prepareQuadrantToBeImportedInWorkArea(TheWorld_Utils::QuadrantPos pos, std::string _cacheDir, std::string mapName, std::map<TheWorld_Utils::QuadrantPos, TheWorld_Utils::MeshCacheBuffer*>& cacheMap, bool renewMeshId)
 	{
 		if (!cacheMap.contains(pos))
 		{
-			bool workDir = true;
+			bool useWorkDir = true;
 			{
-				// we need to check if the quadrant is present in work dir or in main disk cache to understand if we need to import it in work dir or just read it from main disk cache, because if it's in work dir it means that it was already processed for height generation and we can skip height generation for it and just use it as source for blending for neighbour quadrants, while if it's only in main disk cache it means that it was not processed for height generation and we need to import it in work dir and process it for height generation
+				// we need to check if the quadrant is present in work dir or in main disk cache to understand if we need to import it in work dir or just read it from main disk cache, because if it's in work dir it means that
+				// it was already processed for height generation and we can skip height generation for it and just use it as source for blending for neighbour quadrants, while if it's only in main disk cache it means that it was
+				// not processed for height generation and we need to import it in work dir and process it for height generation
 				TheWorld_Utils::MeshCacheBuffer cacheWorkDir = TheWorld_Utils::MeshCacheBuffer(_cacheDir, mapName, pos.getGridStepInWU(), pos.getNumVerticesPerSize(), pos.getLevel(), pos.getLowerXGridVertex(), pos.getLowerZGridVertex());
 				std::string meshIdWorkDir = cacheWorkDir.getMeshIdFromDisk(true);
 				TheWorld_Utils::MeshCacheBuffer cache = TheWorld_Utils::MeshCacheBuffer(_cacheDir, mapName, pos.getGridStepInWU(), pos.getNumVerticesPerSize(), pos.getLevel(), pos.getLowerXGridVertex(), pos.getLowerZGridVertex());
 				std::string meshId = cache.getMeshIdFromDisk(false);
 				if (meshId.size() ==  0)
-					workDir = true;
+					useWorkDir = true;		// Quadrant not present in main disk cache, so we need to read data from work dir and process it for height generation (if it is not found we must generate heigths as an empty quadrant)
 				else if (meshIdWorkDir.size() == 0)
-					workDir = false;
+					useWorkDir = false;		// Quadrant present in main disk cache but not present in work dir, so we need to read data from main disk cache and process it for height generation (if it is not found we must generate heigths as an empty quadrant)
 				else
 				{
-					// both meshId and meshIdWorkDir exist
+					// both meshId and meshIdWorkDir exist: we need to select the more recent to read data from, because if the meshIdWorkDir is more recent than meshId it means that the quadrant was already processed for height generation and we can skip height generation for it and just use it as source for blending for neighbour quadrants, while if the meshId is more recent than meshIdWorkDir it means that the quadrant was not processed for height generation and we need to import it in work dir and process it for height generation
 					if (TheWorld_Utils::MeshCacheBuffer::firstMeshIdMoreRecentRef(meshIdWorkDir, meshId))
-						workDir = true;
+						useWorkDir = true;
 					else
-						workDir = false;
+						useWorkDir = false;
 				}
 			}
 			
 			//if (pos.getIndexPosX() == 100 && pos.getIndexPosZ() == 97)
 			//	PLOG_DEBUG << "Beccato";
 			TheWorld_Utils::MeshCacheBuffer* cache = new TheWorld_Utils::MeshCacheBuffer(_cacheDir, mapName, pos.getGridStepInWU(), pos.getNumVerticesPerSize(), pos.getLevel(), pos.getLowerXGridVertex(), pos.getLowerZGridVertex());
-			cache->refreshInternalCacheQuadrantDataFromDisk(workDir, false, renewMeshId);
+			cache->refreshInternalCacheQuadrantDataFromDisk(useWorkDir, false, renewMeshId);
 			cacheMap[pos] = cache;
 		}
 	}
