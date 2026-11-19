@@ -3593,86 +3593,86 @@ namespace TheWorld_MapManager
 		return (numerator / denominator);
 	}
 
-	bool MapManager::TransformProjectedCoordEPSG3857ToGeoCoordEPSG4326(double X, double Y, double& lonDecimalDegrees, double& latDecimalDegrees, int& lonDegrees, int& lonMinutes, double& lonSeconds, int& latDegrees, int& latMinutes, double& latSeconds)
-	{
-		// https://proj.org/development/quickstart.html
-		// 
-		// EPSG:3857 WGS 84 / Pseudo-Mercator ==> EPSG:4326 WGS 84
-		// https://epsg.io/transform#s_srs=3857&t_srs=4326&x=1195475.1220960&y=5467999.2554860
-		// 
-		// https://gis.stackexchange.com/questions/48949/epsg-3857-or-4326-for-googlemaps-openstreetmap-and-leaflet
-		// 
-		// Google Earth is in a Geographic coordinate system with the wgs84 datum. (EPSG: 4326)
-		// Google Maps is in a projected coordinate system that is based on the wgs84 datum. (EPSG 3857)
-		// The data in Open Street Map database is stored in a gcs with units decimal degrees& datum of wgs84. (EPSG: 4326)
-		// The Open Street Map tilesand the WMS webservice, are in the projected coordinate system that is based on the wgs84 datum. (EPSG 3857)
-		// 
-		// E:\OSGeo4W>echo 1195475.122096 5467999.255486 | proj +proj=webmerc +datum=WGS84 -I
-		// 10d44'20.889"E  44d0'59.477"N
-		// 
-		// E:\OSGeo4W>echo 1195475.122096 5467999.255486 | proj +proj=webmerc +datum=WGS84 -I -d 6
-		// 10.739136       44.016521
-		// 
-		// E:\OSGeo4W>echo 10.739136 44.016521 | proj +proj=webmerc +datum=WGS84 -d 6
-		// 1195475.151080  5467999.202178
-		// 
-		// E:\OSGeo4W>echo 10d44'20.889"E  44d0'59.477"N | proj +proj=webmerc +datum=WGS84 -d 6
-		// 1195475.132526  5467999.262376
-		//
+	//bool MapManager::TransformProjectedCoordEPSG3857ToGeoCoordEPSG4326(double X, double Y, double& lonDecimalDegrees, double& latDecimalDegrees, int& lonDegrees, int& lonMinutes, double& lonSeconds, int& latDegrees, int& latMinutes, double& latSeconds)
+	//{
+	//	// https://proj.org/development/quickstart.html
+	//	// 
+	//	// EPSG:3857 WGS 84 / Pseudo-Mercator ==> EPSG:4326 WGS 84
+	//	// https://epsg.io/transform#s_srs=3857&t_srs=4326&x=1195475.1220960&y=5467999.2554860
+	//	// 
+	//	// https://gis.stackexchange.com/questions/48949/epsg-3857-or-4326-for-googlemaps-openstreetmap-and-leaflet
+	//	// 
+	//	// Google Earth is in a Geographic coordinate system with the wgs84 datum. (EPSG: 4326)
+	//	// Google Maps is in a projected coordinate system that is based on the wgs84 datum. (EPSG 3857)
+	//	// The data in Open Street Map database is stored in a gcs with units decimal degrees& datum of wgs84. (EPSG: 4326)
+	//	// The Open Street Map tilesand the WMS webservice, are in the projected coordinate system that is based on the wgs84 datum. (EPSG 3857)
+	//	// 
+	//	// E:\OSGeo4W>echo 1195475.122096 5467999.255486 | proj +proj=webmerc +datum=WGS84 -I
+	//	// 10d44'20.889"E  44d0'59.477"N
+	//	// 
+	//	// E:\OSGeo4W>echo 1195475.122096 5467999.255486 | proj +proj=webmerc +datum=WGS84 -I -d 6
+	//	// 10.739136       44.016521
+	//	// 
+	//	// E:\OSGeo4W>echo 10.739136 44.016521 | proj +proj=webmerc +datum=WGS84 -d 6
+	//	// 1195475.151080  5467999.202178
+	//	// 
+	//	// E:\OSGeo4W>echo 10d44'20.889"E  44d0'59.477"N | proj +proj=webmerc +datum=WGS84 -d 6
+	//	// 1195475.132526  5467999.262376
+	//	//
 
-		PJ_CONTEXT* C;
-		PJ* P;
-		PJ* P_for_GIS;
-		PJ_COORD a, b;
+	//	PJ_CONTEXT* C;
+	//	PJ* P;
+	//	PJ* P_for_GIS;
+	//	PJ_COORD a, b;
 
 
-		/* or you may set C=PJ_DEFAULT_CTX if you are sure you will     */
-		/* use PJ objects from only one thread                          */
-		C = proj_context_create();
-		P = proj_create_crs_to_crs(C,
-			//"EPSG:4326",
-			//"+proj=utm +zone=32 +datum=WGS84", /* or EPSG:32632 */
-			"EPSG:3857",
-			//"EPSG:4326 +datum=WGS84", /* or EPSG:32632 */
-			"EPSG:4326",
-			NULL);
+	//	/* or you may set C=PJ_DEFAULT_CTX if you are sure you will     */
+	//	/* use PJ objects from only one thread                          */
+	//	C = proj_context_create();
+	//	P = proj_create_crs_to_crs(C,
+	//		//"EPSG:4326",
+	//		//"+proj=utm +zone=32 +datum=WGS84", /* or EPSG:32632 */
+	//		"EPSG:3857",
+	//		//"EPSG:4326 +datum=WGS84", /* or EPSG:32632 */
+	//		"EPSG:4326",
+	//		NULL);
 
-		if (0 == P)
-		{
-			return false;
-		}
+	//	if (0 == P)
+	//	{
+	//		return false;
+	//	}
 
-		/* This will ensure that the order of coordinates for the input CRS */
-		/* will be longitude, latitude, whereas EPSG:4326 mandates latitude, */
-		/* longitude */
-		P_for_GIS = proj_normalize_for_visualization(C, P);
-		if (0 == P_for_GIS)
-		{
-			fprintf(stderr, "Oops\n");
-			return 1;
-		}
-		proj_destroy(P);
-		P = P_for_GIS;
+	//	/* This will ensure that the order of coordinates for the input CRS */
+	//	/* will be longitude, latitude, whereas EPSG:4326 mandates latitude, */
+	//	/* longitude */
+	//	P_for_GIS = proj_normalize_for_visualization(C, P);
+	//	if (0 == P_for_GIS)
+	//	{
+	//		fprintf(stderr, "Oops\n");
+	//		return 1;
+	//	}
+	//	proj_destroy(P);
+	//	P = P_for_GIS;
 
-		//a = proj_coord(1195475.122096, 5467999.255486, 0, 0);
-		a = proj_coord(X, Y, 0, 0);
-		b = proj_trans(P, PJ_FWD, a);
+	//	//a = proj_coord(1195475.122096, 5467999.255486, 0, 0);
+	//	a = proj_coord(X, Y, 0, 0);
+	//	b = proj_trans(P, PJ_FWD, a);
 
-		/* Clean up */
-		proj_destroy(P);
-		proj_context_destroy(C); /* may be omitted in the single threaded case */
+	//	/* Clean up */
+	//	proj_destroy(P);
+	//	proj_context_destroy(C); /* may be omitted in the single threaded case */
 
-		lonDecimalDegrees = b.lp.lam;
-		latDecimalDegrees = b.lp.phi;
+	//	lonDecimalDegrees = b.lp.lam;
+	//	latDecimalDegrees = b.lp.phi;
 
-		// https://www.calculatorsoup.com/calculators/conversions/convert-decimal-degrees-to-degrees-minutes-seconds.php
+	//	// https://www.calculatorsoup.com/calculators/conversions/convert-decimal-degrees-to-degrees-minutes-seconds.php
 
-		DecimalDegreesToDegreesMinutesSeconds(lonDecimalDegrees, lonDegrees, lonMinutes, lonSeconds);
+	//	DecimalDegreesToDegreesMinutesSeconds(lonDecimalDegrees, lonDegrees, lonMinutes, lonSeconds);
 
-		DecimalDegreesToDegreesMinutesSeconds(latDecimalDegrees, latDegrees, latMinutes, latSeconds);
+	//	DecimalDegreesToDegreesMinutesSeconds(latDecimalDegrees, latDegrees, latMinutes, latSeconds);
 
-		return true;
-	}
+	//	return true;
+	//}
 
 	void MapManager::DecimalDegreesToDegreesMinutesSeconds(double decimalDegrees, int& degrees, int& minutes, double& seconds)
 	{

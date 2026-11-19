@@ -23,7 +23,7 @@ set(_include_dirs
 	"${THEWORLD_EXTERNAL_ROOT}/jsoncpp/include"
 	"${THEWORLD_EXTERNAL_ROOT}/PROJ/src"
 	"${PROJECT_SOURCE_DIR}/plog/include"
-	"${THEWORLD_EXTERNAL_ROOT}/eigen-5.0.0"
+	"${THEWORLD_EXTERNAL_ROOT}/eigen"
 )
 foreach(_include_dir IN LISTS _include_dirs)
 	if(NOT IS_DIRECTORY "${_include_dir}")
@@ -31,13 +31,18 @@ foreach(_include_dir IN LISTS _include_dirs)
 	endif()
 endforeach()
 
-set(_proj_debug "${THEWORLD_PROJ_LIB_DIR}/Debug/proj_d.lib")
-set(_proj_release "${THEWORLD_PROJ_LIB_DIR}/Release/proj.lib")
-foreach(_library IN ITEMS "${_proj_debug}" "${_proj_release}")
-	if(NOT EXISTS "${_library}")
-		message(FATAL_ERROR "Required prebuilt PROJ library not found: ${_library}")
-	endif()
-endforeach()
+if(TARGET proj)
+	set(_proj_link proj)
+else()
+	set(_proj_debug "${THEWORLD_PROJ_LIB_DIR}/Debug/proj_d.lib")
+	set(_proj_release "${THEWORLD_PROJ_LIB_DIR}/Release/proj.lib")
+	foreach(_library IN ITEMS "${_proj_debug}" "${_proj_release}")
+		if(NOT EXISTS "${_library}")
+			message(FATAL_ERROR "Required prebuilt PROJ library not found: ${_library}")
+		endif()
+	endforeach()
+	set(_proj_link "$<$<CONFIG:Debug>:${_proj_debug}>" "$<$<CONFIG:Release>:${_proj_release}>")
+endif()
 
 add_library(TheWorld_MapManager SHARED
 	"${THEWORLD_EXTERNAL_ROOT}/TheWorld_GDN_Viewer/TheWorld_GDN_Viewer/Viewer_Utils.cpp"
@@ -95,8 +100,7 @@ target_link_libraries(TheWorld_MapManager PRIVATE
 	Rpcrt4
 	${_utils_link}
 	${_json_link}
-	"$<$<CONFIG:Debug>:${_proj_debug}>"
-	"$<$<CONFIG:Release>:${_proj_release}>"
+	${_proj_link}
 )
 
 set_target_properties(TheWorld_MapManager PROPERTIES

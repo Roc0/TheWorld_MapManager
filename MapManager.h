@@ -376,7 +376,7 @@ namespace TheWorld_MapManager
 		void internalGetVertices(float min_X_OnTheGridInWUs, float max_X_OnTheGridInWUs, float min_Z_OnTheGridInWUs, float max_Z_OnTheGridInWUs, int numVerticesX, int numVerticesZ, vector<DBInterface::GridVertex>& mesh, float& gridStepInWU, int& numFoundInDB, int level);
 		void getEmptyVertexGrid(vector<FlatGridPoint>& grid, vector<DBInterface::GridVertex>& mesh, int level = 0);
 		float getDistance(float x1, float y1, float x2, float y2);
-		bool TransformProjectedCoordEPSG3857ToGeoCoordEPSG4326(double X, double Y, double& lon, double& lat, int& lonDegrees, int& lonMinutes, double& lonSeconds, int& latDegrees, int& latMinutes, double& latSeconds);
+		//bool TransformProjectedCoordEPSG3857ToGeoCoordEPSG4326(double X, double Y, double& lon, double& lat, int& lonDegrees, int& lonMinutes, double& lonSeconds, int& latDegrees, int& latMinutes, double& latSeconds);
 		void DecimalDegreesToDegreesMinutesSeconds(double decimalDegrees, int& degrees, int& minutes, double& seconds);
 		//float getDistance(Vector3f v1, Vector3f v2);
 		static float interpolateAltitude(vector<DBInterface::GridVertex>& vectGridVertex, FlatGridPoint& pos);
